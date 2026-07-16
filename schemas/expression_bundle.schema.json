@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.dev/schemas/expression-bundle/1.0.0",
+  "title": "TranscriptForge Expression Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_id", "prepared_dataset_id", "organism", "genome_build", "sample_count", "feature_count", "sample_metadata", "feature_metadata", "assays", "qc", "provenance"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "dataset_id": { "type": "string", "minLength": 1 },
+    "prepared_dataset_id": { "type": "string", "minLength": 1 },
+    "organism": { "const": "Homo sapiens" },
+    "genome_build": { "const": "GRCh38" },
+    "annotation_release": { "type": "string" },
+    "primary_feature_id": { "const": "ensembl_gene_id" },
+    "sample_count": { "type": "integer", "minimum": 1 },
+    "feature_count": { "type": "integer", "minimum": 1 },
+    "sample_metadata": { "type": "string", "minLength": 1 },
+    "feature_metadata": { "type": "string", "minLength": 1 },
+    "assays": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "path", "value_type", "scale", "feature_level", "recommended_for", "sha256"],
+        "properties": {
+          "name": { "enum": ["raw_counts", "normalized_expression", "log_expression", "tpm", "transcript_abundance"] },
+          "path": { "type": "string", "minLength": 1 },
+          "value_type": { "enum": ["nonnegative_integer", "nonnegative_continuous", "continuous"] },
+          "scale": { "enum": ["linear", "log2", "variance_stabilized"] },
+          "feature_level": { "enum": ["gene", "transcript", "probe"] },
+          "recommended_for": { "type": "array", "uniqueItems": true, "items": { "enum": ["differential_expression", "dimension_reduction", "classifier", "signature_analysis", "deconvolution"] } },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "qc": { "type": "object", "required": ["status", "metrics", "sample_flags"], "properties": { "status": { "enum": ["PASS", "REVIEW", "SEVERE_REVIEW"] }, "metrics": { "type": "string" }, "sample_flags": { "type": "string" } }, "additionalProperties": true },
+    "provenance": { "type": "object", "required": ["parameters", "input_checksums", "software_versions"], "properties": { "parameters": { "type": "string" }, "input_checksums": { "type": "string" }, "software_versions": { "type": "string" } }, "additionalProperties": true }
+  }
+}

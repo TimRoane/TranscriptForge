@@ -1,0 +1,17 @@
+{
+  "name": "transcriptforge",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm --workspace @transcriptforge/web run dev",
+    "build": "npm --workspace @transcriptforge/web run build",
+    "test": "npm --workspace @transcriptforge/web run test",
+    "lint": "npm --workspace @transcriptforge/web run lint"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

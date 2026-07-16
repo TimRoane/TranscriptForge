@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.dev/schemas/analysis-request/1.0.0",
+  "title": "TranscriptForge Frozen Analysis Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "analysis_id", "prepared_dataset_id", "analysis_type", "method", "assay", "parameters", "random_seed"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "run_type": { "const": "analysis" },
+    "analysis_id": { "type": "string", "minLength": 1 },
+    "prepared_dataset_id": { "type": "string", "minLength": 1 },
+    "analysis_type": { "enum": ["differential_expression", "dimension_reduction", "classifier", "signature", "deconvolution"] },
+    "method": { "type": "string", "minLength": 1 },
+    "assay": { "type": "string", "minLength": 1 },
+    "included_samples": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "excluded_samples": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "parameters": { "type": "object" },
+    "random_seed": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
+    "design_formula": { "type": "string", "minLength": 3 },
+    "contrast_label": { "type": "string", "minLength": 1 },
+    "design_validation": { "type": "object" },
+    "expression_bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storage_uri", "sha256", "size_bytes"],
+      "properties": {
+        "storage_uri": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "size_bytes": { "type": "integer", "minimum": 1 }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "analysis_type": { "const": "dimension_reduction" } }, "required": ["analysis_type"] },
+      "then": {
+        "properties": {
+          "method": { "enum": ["pca", "hierarchical_clustering", "umap", "tsne"] },
+          "parameters": { "$ref": "#/$defs/dimension_parameters" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "analysis_type": { "const": "differential_expression" } }, "required": ["analysis_type"] },
+      "then": {
+        "required": ["design_formula", "contrast_label", "design_validation"],
+        "properties": {
+          "method": { "enum": ["deseq2", "limma", "edger_ql", "limma_voom"] },
+          "parameters": { "$ref": "#/$defs/differential_expression_parameters" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "dimension_parameters": {
+      "type": "object",
+      "properties": {
+        "component_count": { "type": "integer", "minimum": 2, "maximum": 20 },
+        "scale_features": { "type": "boolean" },
+        "top_variable_features": { "type": "integer", "minimum": 10 },
+        "distance_metric": { "enum": ["euclidean", "correlation"] },
+        "linkage_method": { "enum": ["average", "complete", "ward"] },
+        "cluster_count": { "type": "integer", "minimum": 2 },
+        "neighbors": { "type": "integer", "minimum": 2 },
+        "min_distance": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+        "perplexity": { "type": "number", "minimum": 2 }
+      }
+    },
+    "differential_expression_parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["design", "contrast", "low_count_threshold", "minimum_samples", "fdr_threshold", "absolute_log2_fold_change", "independent_filtering", "shrinkage"],
+      "properties": {
+        "design": { "$ref": "#/$defs/design" },
+        "contrast": { "$ref": "#/$defs/contrast" },
+        "low_count_threshold": { "type": "integer", "minimum": 0 },
+        "minimum_samples": { "type": "integer", "minimum": 1 },
+        "fdr_threshold": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "absolute_log2_fold_change": { "type": "number", "minimum": 0 },
+        "independent_filtering": { "type": "boolean" },
+        "shrinkage": { "type": "boolean" }
+      }
+    },
+    "design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_variable", "covariates", "block_column", "interaction_terms", "reference_levels"],
+      "properties": {
+        "primary_variable": { "$ref": "#/$defs/variable_name" },
+        "covariates": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/variable_name" } },
+        "block_column": { "oneOf": [{ "$ref": "#/$defs/variable_name" }, { "type": "null" }] },
+        "interaction_terms": {
+          "type": "array",
+          "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/variable_name" } }
+        },
+        "reference_levels": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "contrast": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["variable", "numerator", "denominator"],
+      "properties": {
+        "variable": { "$ref": "#/$defs/variable_name" },
+        "numerator": { "type": "string", "minLength": 1 },
+        "denominator": { "type": "string", "minLength": 1 }
+      }
+    },
+    "variable_name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" }
+  }
+}

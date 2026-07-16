@@ -1,0 +1,5 @@
+sample_id	condition	batch	subject_id
+sample_A	control	batch_1	subject_1
+sample_B	control	batch_2	subject_2
+sample_C	treated	batch_1	subject_3
+sample_D	treated	batch_2	subject_4

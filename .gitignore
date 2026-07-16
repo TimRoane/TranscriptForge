@@ -216,3 +216,22 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node / frontend
+node_modules/
+apps/web/dist/
+*.tsbuildinfo
+
+# Nextflow
+.nextflow/
+.nextflow.log*
+.nextflow-test-results/
+.nextflow-*-results*/
+work/
+
+# TranscriptForge local state and generated runs
+.transcriptforge-data/
+runs/
+
+# OS files
+.DS_Store

@@ -1,0 +1,1403 @@
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
+import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded'
+import {
+  Alert,
+  Box,
+  Button,
+  Checkbox,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Drawer,
+  FormControl,
+  FormControlLabel,
+  IconButton,
+  InputLabel,
+  Link,
+  MenuItem,
+  Paper,
+  Select,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TableSortLabel,
+  TextField,
+  Typography,
+} from '@mui/material'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+import { Link as RouterLink, useParams } from 'react-router-dom'
+
+import {
+  artifactDownloadUrl,
+  createGeneSignature,
+  fetchAnalysis,
+  fetchAnalysisRuns,
+  fetchCorrelationHeatmap,
+  fetchDendrogramPlot,
+  fetchDifferentialExpressionFeature,
+  fetchDifferentialExpressionResults,
+  fetchEmbeddingPlot,
+  fetchExpressionHeatmap,
+  fetchMAPlot,
+  fetchPCAPlot,
+  fetchPreparedDataset,
+  fetchPValueDistribution,
+  fetchResultManifest,
+  fetchRunArtifacts,
+  fetchRunSignatures,
+  fetchVariancePlot,
+  fetchVolcanoPlot,
+  filteredDifferentialExpressionDownloadUrl,
+  runAnalysis,
+  type CorrelationHeatmap,
+  type DendrogramPlot,
+  type DifferentialExpressionFeatureDetail,
+  type DifferentialExpressionPlot,
+  type DifferentialExpressionResultQuery,
+  type DifferentialExpressionSort,
+  type EmbeddingPlot,
+  type ExpressionHeatmap,
+  type PValueDistribution,
+  type Run,
+} from '../api/client'
+import { ErrorState, LoadingState } from '../components/ApiState'
+
+const activeStates = new Set<Run['state']>(['CREATED', 'QUEUED', 'STARTING', 'RUNNING'])
+const colors = ['#155e75', '#7c3aed', '#d97706', '#be123c', '#15803d', '#0369a1', '#9333ea']
+
+export function AnalysisPage() {
+  const { analysisId = '' } = useParams()
+  const [selectedFeature, setSelectedFeature] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const analysis = useQuery({
+    queryKey: ['analysis', analysisId],
+    queryFn: ({ signal }) => fetchAnalysis(analysisId, signal),
+    enabled: Boolean(analysisId),
+  })
+  const runs = useQuery({
+    queryKey: ['analysis-runs', analysisId],
+    queryFn: ({ signal }) => fetchAnalysisRuns(analysisId, signal),
+    enabled: Boolean(analysisId),
+    refetchInterval: (query) => {
+      const latest = query.state.data?.[0]
+      return latest && activeStates.has(latest.state) ? 1200 : false
+    },
+  })
+  const latest = runs.data?.[0]
+  const prepared = useQuery({
+    queryKey: ['prepared-dataset', analysis.data?.prepared_dataset_id],
+    queryFn: ({ signal }) => fetchPreparedDataset(analysis.data!.prepared_dataset_id, signal),
+    enabled: Boolean(analysis.data?.prepared_dataset_id),
+  })
+  const succeeded = latest?.state === 'SUCCEEDED'
+  const method = analysis.data?.configuration_json.method
+  const plot = useQuery({
+    queryKey: ['pca-plot', latest?.id],
+    queryFn: ({ signal }) => fetchPCAPlot(latest!.id, signal),
+    enabled: succeeded && method === 'pca',
+  })
+  const variance = useQuery({
+    queryKey: ['variance-plot', latest?.id],
+    queryFn: ({ signal }) => fetchVariancePlot(latest!.id, signal),
+    enabled: succeeded && method === 'pca',
+  })
+  const embedding = useQuery({
+    queryKey: ['embedding-plot', latest?.id],
+    queryFn: ({ signal }) => fetchEmbeddingPlot(latest!.id, signal),
+    enabled: succeeded && (method === 'umap' || method === 'tsne'),
+  })
+  const dendrogram = useQuery({
+    queryKey: ['dendrogram-plot', latest?.id],
+    queryFn: ({ signal }) => fetchDendrogramPlot(latest!.id, signal),
+    enabled: succeeded && method === 'hierarchical_clustering',
+  })
+  const heatmap = useQuery({
+    queryKey: ['correlation-heatmap', latest?.id],
+    queryFn: ({ signal }) => fetchCorrelationHeatmap(latest!.id, signal),
+    enabled: succeeded && method === 'hierarchical_clustering',
+  })
+  const volcano = useQuery({
+    queryKey: ['volcano-plot', latest?.id],
+    queryFn: ({ signal }) => fetchVolcanoPlot(latest!.id, signal),
+    enabled: succeeded && analysis.data?.analysis_type === 'differential_expression',
+  })
+  const maPlot = useQuery({
+    queryKey: ['ma-plot', latest?.id],
+    queryFn: ({ signal }) => fetchMAPlot(latest!.id, signal),
+    enabled: succeeded && analysis.data?.analysis_type === 'differential_expression',
+  })
+  const pValueDistribution = useQuery({
+    queryKey: ['p-value-distribution', latest?.id],
+    queryFn: ({ signal }) => fetchPValueDistribution(latest!.id, signal),
+    enabled: succeeded && analysis.data?.analysis_type === 'differential_expression',
+  })
+  const expressionHeatmap = useQuery({
+    queryKey: ['expression-heatmap', latest?.id],
+    queryFn: ({ signal }) => fetchExpressionHeatmap(latest!.id, signal),
+    enabled: succeeded && analysis.data?.analysis_type === 'differential_expression',
+  })
+  const manifest = useQuery({
+    queryKey: ['result-manifest', latest?.id],
+    queryFn: ({ signal }) => fetchResultManifest(latest!.id, signal),
+    enabled: succeeded,
+  })
+  const artifacts = useQuery({
+    queryKey: ['run-artifacts', latest?.id],
+    queryFn: ({ signal }) => fetchRunArtifacts(latest!.id, signal),
+    enabled: succeeded,
+  })
+  const rerun = useMutation({
+    mutationFn: () => runAnalysis(analysisId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['analysis-runs', analysisId] }),
+  })
+
+  if (analysis.isPending || runs.isPending) return <LoadingState label="Loading analysis…" />
+  if (analysis.isError) return <ErrorState error={analysis.error} />
+  if (runs.isError) return <ErrorState error={runs.error} />
+
+  const configuration = analysis.data.configuration_json
+  if (configuration.analysis_type === 'differential_expression') {
+    return (
+      <Stack spacing={3}>
+        <Link
+          component={RouterLink}
+          to={`/prepared-datasets/${analysis.data.prepared_dataset_id}`}
+          underline="hover"
+          sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, width: 'fit-content' }}
+        >
+          <ArrowBackRoundedIcon fontSize="small" /> Expression Bundle v{prepared.data?.version ?? '…'}
+        </Link>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={2}>
+          <Box>
+            <Typography variant="overline" color="secondary.main" fontWeight={750}>
+              Differential expression · validated design
+            </Typography>
+            <Typography variant="h3" fontWeight={750}>{analysis.data.name}</Typography>
+            <Typography color="text.secondary" mt={1}>
+              {configuration.assay} · {configuration.method}
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1} alignItems="center">
+            {latest && <RunStateChip run={latest} />}
+            <Button
+              variant={latest ? 'outlined' : 'contained'}
+              startIcon={<ReplayRoundedIcon />}
+              onClick={() => rerun.mutate()}
+              disabled={rerun.isPending || Boolean(latest && activeStates.has(latest.state))}
+            >
+              {latest ? 'Run again' : 'Run analysis'}
+            </Button>
+          </Stack>
+        </Stack>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          {[
+            ['Samples', configuration.design_validation.sample_count],
+            ['Model rank', `${configuration.design_validation.design_matrix_rank}/${configuration.design_validation.design_matrix_columns.length}`],
+            ['FDR', configuration.parameters.fdr_threshold],
+            ['Absolute log2 FC', configuration.parameters.absolute_log2_fold_change],
+          ].map(([label, value]) => (
+            <Paper key={label} variant="outlined" sx={{ p: 2, flex: 1 }}>
+              <Typography variant="overline" color="text.secondary">{label}</Typography>
+              <Typography variant="h6" fontWeight={700}>{value}</Typography>
+            </Paper>
+          ))}
+        </Stack>
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Typography variant="h5" fontWeight={700}>Model and contrast</Typography>
+          <Typography variant="overline" color="text.secondary" display="block" mt={2}>
+            Formula
+          </Typography>
+          <Typography component="code" sx={{ fontFamily: 'monospace', fontSize: '1.1rem' }}>
+            {configuration.design_formula}
+          </Typography>
+          <Typography mt={2}><strong>Contrast:</strong> {configuration.contrast_label}</Typography>
+          <Stack direction="row" spacing={1} mt={2} flexWrap="wrap">
+            {Object.entries(configuration.design_validation.contrast_counts).map(([level, count]) => (
+              <Chip key={level} label={`${level}: ${count} samples`} />
+            ))}
+          </Stack>
+        </Paper>
+        {!latest && <Alert severity="info">This validated design has not been run yet.</Alert>}
+        {latest && activeStates.has(latest.state) && (
+          <Paper variant="outlined" sx={{ p: 4 }}>
+            <LoadingState label={`Differential expression ${latest.state.toLowerCase()}…`} />
+            <Typography textAlign="center" color="text.secondary">
+              This page updates automatically while Nextflow and {configuration.method} execute the frozen request.
+            </Typography>
+          </Paper>
+        )}
+        {latest?.state === 'FAILED' && (
+          <Alert severity="error">{latest.error_summary ?? 'The differential-expression workflow failed.'}</Alert>
+        )}
+        {volcano.data && (
+          <DifferentialExpressionScatter
+            plot={volcano.data}
+            title="Volcano plot"
+            onSelectFeature={setSelectedFeature}
+          />
+        )}
+        {maPlot.data && (
+          <DifferentialExpressionScatter
+            plot={maPlot.data}
+            title="MA plot"
+            onSelectFeature={setSelectedFeature}
+          />
+        )}
+        {succeeded && latest && (
+          <DifferentialExpressionResultsExplorer
+            runId={latest.id}
+            onSelectFeature={setSelectedFeature}
+          />
+        )}
+        {pValueDistribution.data && <PValueDistributionChart distribution={pValueDistribution.data} />}
+        {expressionHeatmap.data && <DifferentialExpressionHeatmap heatmap={expressionHeatmap.data} />}
+        {manifest.data && (
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            {manifest.data.summary_metrics.map((metric) => (
+              <Paper variant="outlined" sx={{ p: 2, flex: 1 }} key={metric.label}>
+                <Typography variant="overline" color="text.secondary">{metric.label}</Typography>
+                <Typography variant="h6" fontWeight={700}>{String(metric.value)}</Typography>
+              </Paper>
+            ))}
+          </Stack>
+        )}
+        {manifest.data?.warnings.map((warning) => (
+          <Alert severity="warning" key={warning}>{warning}</Alert>
+        ))}
+        {artifacts.data && (
+          <Paper variant="outlined" sx={{ p: 3 }}>
+            <Typography variant="h5" fontWeight={700}>Results and provenance</Typography>
+            <Stack direction="row" spacing={2} mt={2} flexWrap="wrap">
+              {artifacts.data.filter((artifact) => [
+                'differential_expression_results', 'significant_results', 'normalized_expression',
+                'design_matrix',
+                'contrast_definition', 'method_diagnostics', 'volcano_plot_svg', 'ma_plot_svg',
+                'p_value_distribution_svg', 'expression_heatmap_svg',
+                'r_session_info', 'analysis_report', 'analysis_report_source', 'nextflow_report',
+                'nextflow_trace',
+              ].includes(artifact.artifact_type)).map((artifact) => (
+                <Link key={artifact.id} href={artifactDownloadUrl(artifact.id)} underline="hover" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                  <DownloadRoundedIcon fontSize="small" /> {artifact.title}
+                </Link>
+              ))}
+            </Stack>
+          </Paper>
+        )}
+        <Alert severity="info">
+          Research use only. Interpret differential-expression results with sample QC,
+          study design, effect sizes, and uncertainty; outputs are not clinically validated.
+        </Alert>
+        {latest && (
+          <GeneDetailDrawer
+            runId={latest.id}
+            featureId={selectedFeature}
+            onClose={() => setSelectedFeature(null)}
+          />
+        )}
+      </Stack>
+    )
+  }
+  const methodLabels = {
+    pca: 'PCA',
+    hierarchical_clustering: 'Hierarchical clustering',
+    umap: 'UMAP',
+    tsne: 't-SNE',
+  }
+  return (
+    <Stack spacing={3}>
+      <Link
+        component={RouterLink}
+        to={`/prepared-datasets/${analysis.data.prepared_dataset_id}`}
+        underline="hover"
+        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, width: 'fit-content' }}
+      >
+        <ArrowBackRoundedIcon fontSize="small" /> Expression Bundle v{prepared.data?.version ?? '…'}
+      </Link>
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={2}>
+        <Box>
+          <Typography variant="overline" color="secondary.main" fontWeight={750}>
+            Dimension reduction · {methodLabels[configuration.method]}
+          </Typography>
+          <Typography variant="h3" fontWeight={750}>{analysis.data.name}</Typography>
+          <Typography color="text.secondary" mt={1}>
+            {configuration.assay} · seed {configuration.random_seed}
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={1} alignItems="center">
+          {latest && <RunStateChip run={latest} />}
+          <Button
+            variant="outlined"
+            startIcon={<ReplayRoundedIcon />}
+            onClick={() => rerun.mutate()}
+            disabled={rerun.isPending || Boolean(latest && activeStates.has(latest.state))}
+          >
+            Run again
+          </Button>
+        </Stack>
+      </Stack>
+
+      {!latest && <Alert severity="info">This saved analysis has not been run yet.</Alert>}
+      {latest && activeStates.has(latest.state) && (
+        <Paper variant="outlined" sx={{ p: 4 }}>
+          <LoadingState label={`Analysis ${latest.state.toLowerCase()}…`} />
+          <Typography textAlign="center" color="text.secondary">
+            This page updates automatically while Nextflow executes the frozen request.
+          </Typography>
+        </Paper>
+      )}
+      {latest?.state === 'FAILED' && (
+        <Alert severity="error">{latest.error_summary ?? 'The analysis workflow failed.'}</Alert>
+      )}
+      {plot.data && (
+        <CoordinateScatter
+          axes={plot.data.axes.map((axis) => ({
+            name: axis.component,
+            explainedVarianceRatio: axis.explained_variance_ratio,
+          }))}
+          points={plot.data.points}
+          methodLabel="PCA"
+        />
+      )}
+      {embedding.data && <EmbeddingResult plot={embedding.data} />}
+      {dendrogram.data && <DendrogramChart plot={dendrogram.data} />}
+      {heatmap.data && <CorrelationChart heatmap={heatmap.data} />}
+      {variance.data && <VarianceChart components={variance.data.components} />}
+
+      {manifest.data && (
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          {manifest.data.summary_metrics.map((metric) => (
+            <Paper variant="outlined" sx={{ p: 2, flex: 1 }} key={metric.label}>
+              <Typography variant="overline" color="text.secondary">{metric.label}</Typography>
+              <Typography variant="h6" fontWeight={700}>{String(metric.value)}</Typography>
+            </Paper>
+          ))}
+        </Stack>
+      )}
+
+      {artifacts.data && (
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Typography variant="h5" fontWeight={700}>Results and provenance</Typography>
+          <Stack direction="row" spacing={2} mt={2} flexWrap="wrap">
+            {artifacts.data
+              .filter((artifact) => [
+                'coordinates',
+                'pca_coordinates',
+                'pca_loadings',
+                'explained_variance',
+                'pca_variance',
+                'cluster_assignments',
+                'linkage_matrix',
+                'pca_plot_svg',
+                'variance_plot_svg',
+                'embedding_plot_svg',
+                'dendrogram_plot_svg',
+                'correlation_heatmap_svg',
+                'analysis_report',
+                'analysis_report_source',
+                'nextflow_report',
+                'nextflow_trace',
+              ].includes(artifact.artifact_type))
+              .map((artifact) => (
+                <Link key={artifact.id} href={artifactDownloadUrl(artifact.id)} underline="hover" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                  <DownloadRoundedIcon fontSize="small" /> {artifact.title}
+                </Link>
+              ))}
+          </Stack>
+        </Paper>
+      )}
+      <Alert severity="info">Research use only. Interpret exploratory structure with sample QC and study design context.</Alert>
+    </Stack>
+  )
+}
+
+function RunStateChip({ run }: { run: Run }) {
+  const color = run.state === 'SUCCEEDED' ? 'success' : run.state === 'FAILED' ? 'error' : 'warning'
+  return <Chip label={run.state} color={color} />
+}
+
+function DifferentialExpressionScatter({
+  plot,
+  title,
+  onSelectFeature,
+}: {
+  plot: DifferentialExpressionPlot
+  title: string
+  onSelectFeature?: (featureId: string) => void
+}) {
+  const points = plot.points.filter(
+    (point): point is typeof point & { x: number; y: number } => point.x !== null && point.y !== null,
+  )
+  const width = 760
+  const height = 470
+  const padding = 62
+  const xs = points.map((point) => point.x)
+  const ys = points.map((point) => point.y)
+  const scale = (value: number, values: number[], start: number, end: number) => {
+    const minimum = Math.min(...values)
+    const maximum = Math.max(...values)
+    return minimum === maximum ? (start + end) / 2 : start + ((value - minimum) / (maximum - minimum)) * (end - start)
+  }
+  return (
+    <Paper variant="outlined" sx={{ p: 3 }}>
+      <Typography variant="h5" fontWeight={700}>{title}</Typography>
+      <Typography color="text.secondary">
+        Hover for statistics or select a point to open its gene-level detail panel.
+      </Typography>
+      <Box sx={{ overflowX: 'auto', mt: 2 }}>
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title} style={{ minWidth: 620, width: '100%' }}>
+          <line x1={padding} y1={height - padding} x2={width - 25} y2={height - padding} stroke="#9ca3af" />
+          <line x1={padding} y1={25} x2={padding} y2={height - padding} stroke="#9ca3af" />
+          {points.map((point) => (
+            <circle
+              key={point.feature_id}
+              cx={scale(point.x, xs, padding + 8, width - 32)}
+              cy={scale(point.y, ys, height - padding - 8, 32)}
+              r={point.significant ? 4 : 2.5}
+              fill={point.significant ? '#be123c' : '#64748b'}
+              opacity={point.significant ? 0.9 : 0.55}
+              role="button"
+              aria-label={`Open ${point.feature_id} details`}
+              tabIndex={0}
+              onClick={() => onSelectFeature?.(point.feature_id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  onSelectFeature?.(point.feature_id)
+                }
+              }}
+              style={{ cursor: onSelectFeature ? 'pointer' : 'default' }}
+            >
+              <title>{`${point.feature_id}\n${plot.x_label}: ${point.x.toFixed(3)}\n${plot.y_label}: ${point.y.toFixed(3)}\nadjusted p: ${point.adjusted_p_value?.toExponential(3) ?? 'NA'}`}</title>
+            </circle>
+          ))}
+          <text x={width / 2} y={height - 12} textAnchor="middle" fontSize="14">{plot.x_label}</text>
+          <text x="16" y={height / 2} textAnchor="middle" fontSize="14" transform={`rotate(-90 16 ${height / 2})`}>{plot.y_label}</text>
+        </svg>
+      </Box>
+    </Paper>
+  )
+}
+
+const resultColumns: Array<{
+  key: DifferentialExpressionSort
+  label: string
+  align?: 'left' | 'right' | 'center'
+}> = [
+  { key: 'feature_id', label: 'Feature' },
+  { key: 'gene_symbol', label: 'Symbol' },
+  { key: 'base_expression', label: 'Abundance', align: 'right' },
+  { key: 'log2_fold_change', label: 'log2 FC', align: 'right' },
+  { key: 'standard_error', label: 'SE', align: 'right' },
+  { key: 'statistic', label: 'Statistic', align: 'right' },
+  { key: 'p_value', label: 'P-value', align: 'right' },
+  { key: 'adjusted_p_value', label: 'Adjusted p', align: 'right' },
+  { key: 'significant', label: 'Call', align: 'center' },
+]
+
+function DifferentialExpressionResultsExplorer({
+  runId,
+  onSelectFeature,
+}: {
+  runId: string
+  onSelectFeature: (featureId: string) => void
+}) {
+  const queryClient = useQueryClient()
+  const [search, setSearch] = useState('')
+  const [fdrMax, setFdrMax] = useState('')
+  const [absoluteFoldChange, setAbsoluteFoldChange] = useState('')
+  const [significantOnly, setSignificantOnly] = useState(false)
+  const [sortBy, setSortBy] = useState<DifferentialExpressionSort>('adjusted_p_value')
+  const [direction, setDirection] = useState<'asc' | 'desc'>('asc')
+  const [page, setPage] = useState(0)
+  const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(() => new Set())
+  const [signatureDialogOpen, setSignatureDialogOpen] = useState(false)
+  const [signatureName, setSignatureName] = useState('Candidate gene signature')
+  const [signatureDescription, setSignatureDescription] = useState('')
+  const [savedSignatureName, setSavedSignatureName] = useState<string | null>(null)
+  const limit = 25
+  const query = useMemo<DifferentialExpressionResultQuery>(() => ({
+    search,
+    fdrMax: fdrMax === '' ? undefined : Number(fdrMax),
+    absoluteLog2FoldChangeMin: absoluteFoldChange === '' ? undefined : Number(absoluteFoldChange),
+    significantOnly,
+    sortBy,
+    direction,
+    offset: page * limit,
+    limit,
+  }), [absoluteFoldChange, direction, fdrMax, page, search, significantOnly, sortBy])
+  const results = useQuery({
+    queryKey: ['differential-expression-results', runId, query],
+    queryFn: ({ signal }) => fetchDifferentialExpressionResults(runId, query, signal),
+  })
+  const signatures = useQuery({
+    queryKey: ['run-signatures', runId],
+    queryFn: ({ signal }) => fetchRunSignatures(runId, signal),
+  })
+  const saveSignature = useMutation({
+    mutationFn: () => createGeneSignature(runId, {
+      name: signatureName,
+      description: signatureDescription.trim() || undefined,
+      feature_ids: Array.from(selectedFeatures),
+      selection: {
+        mode: 'manual',
+        search: search.trim() || undefined,
+        fdr_max: fdrMax === '' ? undefined : Number(fdrMax),
+        absolute_log2_fold_change_min:
+          absoluteFoldChange === '' ? undefined : Number(absoluteFoldChange),
+        significant_only: significantOnly,
+        sort_by: sortBy,
+        direction,
+      },
+    }),
+    onSuccess: (signature) => {
+      setSignatureDialogOpen(false)
+      setSelectedFeatures(new Set())
+      setSavedSignatureName(signature.name)
+      setSignatureDescription('')
+      queryClient.invalidateQueries({ queryKey: ['run-signatures', runId] })
+    },
+  })
+  const updateSort = (column: DifferentialExpressionSort) => {
+    setPage(0)
+    if (sortBy === column) setDirection((value) => value === 'asc' ? 'desc' : 'asc')
+    else {
+      setSortBy(column)
+      setDirection(column === 'feature_id' || column === 'gene_symbol' ? 'asc' : 'desc')
+    }
+  }
+  const updateFilter = (update: () => void) => {
+    setPage(0)
+    update()
+  }
+  const pageStart = results.data?.total ? page * limit + 1 : 0
+  const pageEnd = Math.min((page + 1) * limit, results.data?.total ?? 0)
+  const pageFeatureIds = results.data?.items.map((row) => row.feature_id) ?? []
+  const selectedOnPage = pageFeatureIds.filter((featureId) => selectedFeatures.has(featureId)).length
+  const setFeatureSelected = (featureId: string, selected: boolean) => {
+    setSavedSignatureName(null)
+    setSelectedFeatures((current) => {
+      const next = new Set(current)
+      if (selected && next.size < 500) next.add(featureId)
+      else next.delete(featureId)
+      return next
+    })
+  }
+  const setPageSelected = (selected: boolean) => {
+    setSavedSignatureName(null)
+    setSelectedFeatures((current) => {
+      const next = new Set(current)
+      for (const featureId of pageFeatureIds) {
+        if (selected && next.size < 500) next.add(featureId)
+        else next.delete(featureId)
+      }
+      return next
+    })
+  }
+
+  return (
+    <Paper variant="outlined" sx={{ p: 3 }}>
+      <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" gap={2}>
+        <Box>
+          <Typography variant="h5" fontWeight={700}>Differential-expression results</Typography>
+          <Typography color="text.secondary">
+            Search, filter, and sort the complete result table. Select any row for gene-level details.
+          </Typography>
+        </Box>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignSelf: 'flex-start' }}>
+          <Button
+            variant="contained"
+            disabled={selectedFeatures.size === 0}
+            onClick={() => setSignatureDialogOpen(true)}
+          >
+            {selectedFeatures.size > 0
+              ? `Save ${selectedFeatures.size} selected as signature`
+              : 'Save selected genes as signature'}
+          </Button>
+          <Button
+            component="a"
+            href={filteredDifferentialExpressionDownloadUrl(runId, query)}
+            startIcon={<DownloadRoundedIcon />}
+            variant="outlined"
+          >
+            Download filtered table
+          </Button>
+        </Stack>
+      </Stack>
+      {savedSignatureName && (
+        <Alert severity="success" sx={{ mt: 2 }}>
+          Saved “{savedSignatureName}” as a provenance-frozen signature draft.
+        </Alert>
+      )}
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} mt={3} alignItems="center">
+        <TextField
+          label="Search gene symbol or ID"
+          value={search}
+          onChange={(event) => updateFilter(() => setSearch(event.target.value))}
+          size="small"
+          sx={{ minWidth: 260 }}
+        />
+        <TextField
+          label="Maximum adjusted p-value"
+          value={fdrMax}
+          onChange={(event) => updateFilter(() => setFdrMax(event.target.value))}
+          type="number"
+          size="small"
+          slotProps={{ htmlInput: { min: 0, max: 1, step: 0.01 } }}
+        />
+        <TextField
+          label="Minimum absolute log2 FC"
+          value={absoluteFoldChange}
+          onChange={(event) => updateFilter(() => setAbsoluteFoldChange(event.target.value))}
+          type="number"
+          size="small"
+          slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
+        />
+        <FormControlLabel
+          control={(
+            <Checkbox
+              checked={significantOnly}
+              onChange={(event) => updateFilter(() => setSignificantOnly(event.target.checked))}
+            />
+          )}
+          label="Significant only"
+        />
+      </Stack>
+      {results.isPending && <LoadingState label="Loading result table…" />}
+      {results.isError && <ErrorState error={results.error} />}
+      {results.data && (
+        <>
+          <Typography variant="caption" color="text.secondary" display="block" mt={2}>
+            {results.data.total.toLocaleString()} matching features · abundance is {results.data.base_expression_label.toLowerCase()}
+          </Typography>
+          <TableContainer sx={{ mt: 1 }}>
+            <Table size="small" aria-label="Differential-expression results">
+              <TableHead>
+                <TableRow>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      inputProps={{ 'aria-label': 'Select all features on this page' }}
+                      checked={pageFeatureIds.length > 0 && selectedOnPage === pageFeatureIds.length}
+                      indeterminate={selectedOnPage > 0 && selectedOnPage < pageFeatureIds.length}
+                      onChange={(event) => setPageSelected(event.target.checked)}
+                    />
+                  </TableCell>
+                  {resultColumns.map((column) => (
+                    <TableCell key={column.key} align={column.align ?? 'left'}>
+                      <TableSortLabel
+                        active={sortBy === column.key}
+                        direction={sortBy === column.key ? direction : 'asc'}
+                        onClick={() => updateSort(column.key)}
+                      >
+                        {column.label}
+                      </TableSortLabel>
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {results.data.items.map((row) => (
+                  <TableRow
+                    hover
+                    key={row.feature_id}
+                    tabIndex={0}
+                    onClick={() => onSelectFeature(row.feature_id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        onSelectFeature(row.feature_id)
+                      }
+                    }}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    <TableCell
+                      padding="checkbox"
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
+                      <Checkbox
+                        inputProps={{ 'aria-label': `Select ${row.feature_id} for signature` }}
+                        checked={selectedFeatures.has(row.feature_id)}
+                        disabled={selectedFeatures.size >= 500 && !selectedFeatures.has(row.feature_id)}
+                        onChange={(event) => setFeatureSelected(row.feature_id, event.target.checked)}
+                      />
+                    </TableCell>
+                    <TableCell component="th" scope="row" sx={{ fontFamily: 'monospace' }}>
+                      {row.feature_id}
+                    </TableCell>
+                    <TableCell>{row.gene_symbol ?? '—'}</TableCell>
+                    <TableCell align="right">{formatNumber(row.base_expression)}</TableCell>
+                    <TableCell align="right">{formatNumber(row.log2_fold_change)}</TableCell>
+                    <TableCell align="right">{formatNumber(row.standard_error)}</TableCell>
+                    <TableCell align="right">{formatNumber(row.statistic)}</TableCell>
+                    <TableCell align="right">{formatPValue(row.p_value)}</TableCell>
+                    <TableCell align="right">{formatPValue(row.adjusted_p_value)}</TableCell>
+                    <TableCell align="center">
+                      <Chip
+                        size="small"
+                        color={row.significant ? 'success' : 'default'}
+                        label={row.significant ? 'Significant' : 'Not called'}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {results.data.items.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={resultColumns.length + 1} align="center">
+                      No features match the current filters.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2}>
+            <Typography variant="body2" color="text.secondary">
+              Showing {pageStart.toLocaleString()}–{pageEnd.toLocaleString()} of {results.data.total.toLocaleString()}
+            </Typography>
+            <Stack direction="row" spacing={1}>
+              <Button size="small" disabled={page === 0} onClick={() => setPage((value) => value - 1)}>
+                Previous
+              </Button>
+              <Button
+                size="small"
+                disabled={pageEnd >= results.data.total}
+                onClick={() => setPage((value) => value + 1)}
+              >
+                Next
+              </Button>
+            </Stack>
+          </Stack>
+          {signatures.data && signatures.data.length > 0 && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle1" fontWeight={700}>Saved signature drafts</Typography>
+              <Stack spacing={1} mt={1}>
+                {signatures.data.map((signature) => (
+                  <Paper variant="outlined" sx={{ p: 1.5 }} key={signature.id}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={1}>
+                      <Box>
+                        <Typography fontWeight={700}>{signature.name}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {signature.feature_ids.length} candidate genes · source checksum {String(signature.selection_json.source_result_sha256).slice(0, 12)}…
+                        </Typography>
+                      </Box>
+                      <Chip label="Draft · unvalidated" color="warning" size="small" />
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            </>
+          )}
+        </>
+      )}
+      <Dialog
+        open={signatureDialogOpen}
+        onClose={() => !saveSignature.isPending && setSignatureDialogOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Save candidate gene signature</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} mt={1}>
+            <Alert severity="warning">
+              Selecting genes from this result is candidate generation, not independent validation.
+              The draft must not be treated as a diagnostic or clinically validated signature.
+            </Alert>
+            <Typography>
+              {selectedFeatures.size} selected feature{selectedFeatures.size === 1 ? '' : 's'} will
+              be frozen with this run’s result checksum and current filter context.
+            </Typography>
+            <TextField
+              autoFocus
+              label="Signature name"
+              value={signatureName}
+              onChange={(event) => setSignatureName(event.target.value)}
+              required
+              inputProps={{ maxLength: 200 }}
+            />
+            <TextField
+              label="Description"
+              value={signatureDescription}
+              onChange={(event) => setSignatureDescription(event.target.value)}
+              multiline
+              minRows={3}
+              inputProps={{ maxLength: 5000 }}
+            />
+            {saveSignature.isError && <ErrorState error={saveSignature.error} />}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSignatureDialogOpen(false)} disabled={saveSignature.isPending}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => saveSignature.mutate()}
+            disabled={saveSignature.isPending || !signatureName.trim() || selectedFeatures.size === 0}
+          >
+            Save signature draft
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Paper>
+  )
+}
+
+function GeneDetailDrawer({
+  runId,
+  featureId,
+  onClose,
+}: {
+  runId: string
+  featureId: string | null
+  onClose: () => void
+}) {
+  const detail = useQuery({
+    queryKey: ['differential-expression-feature', runId, featureId],
+    queryFn: ({ signal }) => fetchDifferentialExpressionFeature(runId, featureId!, signal),
+    enabled: Boolean(featureId),
+  })
+  return (
+    <Drawer anchor="right" open={Boolean(featureId)} onClose={onClose}>
+      <Box sx={{ width: { xs: '100vw', sm: 560 }, maxWidth: '100vw', p: 3 }} role="dialog" aria-label="Gene detail">
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+          <Box>
+            <Typography variant="overline" color="secondary.main">Gene-level detail</Typography>
+            <Typography variant="h4" fontWeight={750}>{featureId}</Typography>
+          </Box>
+          <IconButton onClick={onClose} aria-label="Close gene detail">
+            <CloseRoundedIcon />
+          </IconButton>
+        </Stack>
+        {detail.isPending && featureId && <LoadingState label="Loading gene detail…" />}
+        {detail.isError && <ErrorState error={detail.error} />}
+        {detail.data && <GeneDetailContent detail={detail.data} />}
+      </Box>
+    </Drawer>
+  )
+}
+
+function GeneDetailContent({ detail }: { detail: DifferentialExpressionFeatureDetail }) {
+  const result = detail.result
+  const statistics = [
+    [detail.base_expression_label, formatNumber(result.base_expression)],
+    ['log2 fold change', formatNumber(result.log2_fold_change)],
+    ['Standard error', formatNumber(result.standard_error)],
+    ['Statistic', formatNumber(result.statistic)],
+    ['P-value', formatPValue(result.p_value)],
+    ['Adjusted p-value', formatPValue(result.adjusted_p_value)],
+  ]
+  return (
+    <Stack spacing={3} mt={3}>
+      <Stack direction="row" spacing={1} flexWrap="wrap">
+        {result.gene_symbol && <Chip label={result.gene_symbol} />}
+        {result.method && <Chip label={result.method} variant="outlined" />}
+        <Chip
+          label={result.significant ? 'Significant' : 'Not called significant'}
+          color={result.significant ? 'success' : 'default'}
+        />
+      </Stack>
+      {result.contrast && <Typography><strong>Contrast:</strong> {result.contrast}</Typography>}
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1.5 }}>
+        {statistics.map(([label, value]) => (
+          <Paper variant="outlined" sx={{ p: 1.5 }} key={label}>
+            <Typography variant="caption" color="text.secondary" display="block">{label}</Typography>
+            <Typography fontWeight={700}>{value}</Typography>
+          </Paper>
+        ))}
+      </Box>
+      {detail.expression_profile ? (
+        <FeatureExpressionChart detail={detail} />
+      ) : (
+        <Alert severity="info">
+          Expression profiles were not published by this older run. Run the saved analysis again to add them.
+        </Alert>
+      )}
+      <Alert severity="info">
+        This single-feature view is exploratory and for research use only; interpret it with the full model and multiple-testing correction.
+      </Alert>
+    </Stack>
+  )
+}
+
+function FeatureExpressionChart({ detail }: { detail: DifferentialExpressionFeatureDetail }) {
+  const profile = detail.expression_profile!
+  const variable = profile.contrast.variable
+  const levels = profile.group_summaries.map((group) => group.level)
+  const width = 500
+  const height = 330
+  const padding = 55
+  const values = profile.values.map((item) => item.value)
+  const minimum = Math.min(...values)
+  const maximum = Math.max(...values)
+  const y = (value: number) => maximum === minimum
+    ? height / 2
+    : height - padding - ((value - minimum) / (maximum - minimum)) * (height - padding * 1.5)
+  const x = (level: string) => {
+    const index = Math.max(0, levels.indexOf(level))
+    return padding + ((index + 0.5) / Math.max(levels.length, 1)) * (width - padding * 1.5)
+  }
+  return (
+    <Box>
+      <Typography variant="h6" fontWeight={700}>Expression by {variable}</Typography>
+      <Typography color="text.secondary">{profile.source} · {profile.assay}</Typography>
+      <Box sx={{ overflowX: 'auto', mt: 1 }}>
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Per-gene expression plot" style={{ minWidth: 440, width: '100%' }}>
+          <line x1={padding} y1={height - padding} x2={width - 20} y2={height - padding} stroke="#9ca3af" />
+          <line x1={padding} y1={25} x2={padding} y2={height - padding} stroke="#9ca3af" />
+          {profile.values.map((item, index) => {
+            const level = item.metadata[variable] ?? 'Unavailable'
+            const jitter = ((index % 9) - 4) * 3.5
+            return (
+              <circle
+                key={item.sample_id}
+                cx={x(level) + jitter}
+                cy={y(item.value)}
+                r="4"
+                fill={colors[Math.max(0, levels.indexOf(level)) % colors.length]}
+                opacity="0.72"
+              >
+                <title>{`${item.sample_id}\n${variable}: ${level}\nexpression: ${item.value.toFixed(3)}`}</title>
+              </circle>
+            )
+          })}
+          {profile.group_summaries.map((group) => (
+            <g key={group.level}>
+              <line
+                x1={x(group.level) - 28}
+                x2={x(group.level) + 28}
+                y1={y(group.mean)}
+                y2={y(group.mean)}
+                stroke="#111827"
+                strokeWidth="3"
+              />
+              <text x={x(group.level)} y={height - padding + 20} textAnchor="middle" fontSize="12">
+                {group.level} (n={group.sample_count})
+              </text>
+            </g>
+          ))}
+          <text x="16" y={height / 2} textAnchor="middle" fontSize="13" transform={`rotate(-90 16 ${height / 2})`}>
+            {profile.value_label}
+          </text>
+        </svg>
+      </Box>
+      <Typography variant="caption" color="text.secondary">
+        Points are samples; horizontal bars are group means.
+      </Typography>
+    </Box>
+  )
+}
+
+function formatNumber(value: number | null): string {
+  return value === null ? 'NA' : value.toLocaleString(undefined, { maximumSignificantDigits: 4 })
+}
+
+function formatPValue(value: number | null): string {
+  if (value === null) return 'NA'
+  return value < 0.001 ? value.toExponential(2) : value.toPrecision(3)
+}
+
+function PValueDistributionChart({ distribution }: { distribution: PValueDistribution }) {
+  const width = 760
+  const height = 360
+  const left = 62
+  const bottom = 62
+  const top = 24
+  const plotWidth = width - left - 24
+  const plotHeight = height - bottom - top
+  const maximum = Math.max(...distribution.bins.map((bin) => bin.count), 1)
+  const barWidth = plotWidth / Math.max(distribution.bins.length, 1)
+  return (
+    <Paper variant="outlined" sx={{ p: 3 }}>
+      <Typography variant="h5" fontWeight={700}>P-value distribution</Typography>
+      <Typography color="text.secondary">
+        {distribution.finite_p_value_count.toLocaleString()} finite tests across fixed-width bins
+        {distribution.missing_p_value_count > 0
+          ? ` · ${distribution.missing_p_value_count.toLocaleString()} unavailable p-values`
+          : ''}.
+      </Typography>
+      <Box sx={{ overflowX: 'auto', mt: 2 }}>
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="P-value distribution" style={{ minWidth: 620, width: '100%' }}>
+          <line x1={left} y1={height - bottom} x2={width - 24} y2={height - bottom} stroke="#9ca3af" />
+          <line x1={left} y1={top} x2={left} y2={height - bottom} stroke="#9ca3af" />
+          {distribution.bins.map((bin, index) => {
+            const barHeight = (bin.count / maximum) * plotHeight
+            return (
+              <g key={bin.start}>
+                <rect
+                  x={left + index * barWidth + 1}
+                  y={height - bottom - barHeight}
+                  width={Math.max(barWidth - 2, 1)}
+                  height={barHeight}
+                  fill="#155e75"
+                >
+                  <title>{`${bin.start.toFixed(2)}–${bin.end.toFixed(2)}: ${bin.count.toLocaleString()} features`}</title>
+                </rect>
+                {index % 4 === 0 && (
+                  <text x={left + index * barWidth} y={height - bottom + 18} fontSize="10" textAnchor="middle">
+                    {bin.start.toFixed(2)}
+                  </text>
+                )}
+              </g>
+            )
+          })}
+          <text x={left - 8} y={top + 4} fontSize="10" textAnchor="end">{maximum}</text>
+          <text x={width / 2} y={height - 12} textAnchor="middle" fontSize="14">P-value</text>
+          <text x="16" y={height / 2} textAnchor="middle" fontSize="14" transform={`rotate(-90 16 ${height / 2})`}>Feature count</text>
+        </svg>
+      </Box>
+    </Paper>
+  )
+}
+
+function DifferentialExpressionHeatmap({ heatmap }: { heatmap: ExpressionHeatmap }) {
+  const left = 190
+  const top = 24
+  const bottom = 120
+  const cellWidth = 14
+  const cellHeight = 18
+  const gridWidth = heatmap.sample_ids.length * cellWidth
+  const gridHeight = heatmap.feature_ids.length * cellHeight
+  const width = Math.max(800, left + gridWidth + 35)
+  const height = top + gridHeight + bottom
+  const contrastLevels = [heatmap.contrast.denominator, heatmap.contrast.numerator]
+  const contrastColors = new Map(contrastLevels.map((level, index) => [level, colors[index]]))
+  const labelStep = Math.max(1, Math.ceil(heatmap.sample_ids.length / 36))
+  const zColor = (value: number) => {
+    const bounded = Math.max(-3, Math.min(3, value)) / 3
+    const target = bounded < 0 ? [37, 99, 235] : [190, 18, 60]
+    const strength = Math.abs(bounded)
+    return `rgb(${target.map((channel) => Math.round(248 + (channel - 248) * strength)).join(',')})`
+  }
+  return (
+    <Paper variant="outlined" sx={{ p: 3 }}>
+      <Typography variant="h5" fontWeight={700}>Top-feature expression heatmap</Typography>
+      <Typography color="text.secondary">
+        {heatmap.feature_ids.length} features · {heatmap.source} · row z-scores · ordered by {heatmap.sample_ordering}.
+      </Typography>
+      <Box sx={{ overflowX: 'auto', mt: 2 }}>
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Top-feature expression heatmap" style={{ minWidth: width, width: '100%' }}>
+          {heatmap.values.flatMap((row, featureIndex) => row.map((value, sampleIndex) => {
+            const featureId = heatmap.feature_ids[featureIndex]
+            const sampleId = heatmap.sample_ids[sampleIndex]
+            const annotation = heatmap.feature_annotations[featureId]
+            const sampleMetadata = heatmap.metadata[sampleId] ?? {}
+            return (
+              <rect
+                key={`${featureId}-${sampleId}`}
+                x={left + sampleIndex * cellWidth}
+                y={top + featureIndex * cellHeight}
+                width={cellWidth + 0.2}
+                height={cellHeight + 0.2}
+                fill={zColor(value)}
+              >
+                <title>{`${featureId}\n${sampleId}\nz-score: ${value.toFixed(3)}\nlog2 FC: ${annotation?.log2_fold_change?.toFixed(3) ?? 'NA'}\nadjusted p: ${annotation?.adjusted_p_value?.toExponential(3) ?? 'NA'}\n${heatmap.contrast.variable}: ${sampleMetadata[heatmap.contrast.variable] ?? 'NA'}`}</title>
+              </rect>
+            )
+          }))}
+          {heatmap.feature_ids.map((featureId, index) => (
+            <text key={featureId} x={left - 7} y={top + index * cellHeight + 13} textAnchor="end" fontSize="10">
+              {featureId}
+            </text>
+          ))}
+          {heatmap.sample_ids.map((sampleId, index) => {
+            const level = heatmap.metadata[sampleId]?.[heatmap.contrast.variable]
+            return (
+              <g key={sampleId}>
+                <rect
+                  x={left + index * cellWidth}
+                  y={top + gridHeight + 3}
+                  width={cellWidth + 0.2}
+                  height="8"
+                  fill={contrastColors.get(level) ?? '#94a3b8'}
+                >
+                  <title>{`${sampleId}\n${heatmap.contrast.variable}: ${level ?? 'NA'}`}</title>
+                </rect>
+                {index % labelStep === 0 && (
+                  <text
+                    x={left + index * cellWidth + 6}
+                    y={top + gridHeight + 18}
+                    fontSize="8"
+                    textAnchor="end"
+                    transform={`rotate(-62 ${left + index * cellWidth + 6} ${top + gridHeight + 18})`}
+                  >
+                    {sampleId}
+                  </text>
+                )}
+              </g>
+            )
+          })}
+        </svg>
+      </Box>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center" alignItems="center">
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="caption">−3</Typography>
+          <Box sx={{ width: 150, height: 10, background: 'linear-gradient(90deg, #2563eb, #f8fafc 50%, #be123c)' }} />
+          <Typography variant="caption">+3 z-score</Typography>
+        </Stack>
+        {contrastLevels.map((level) => (
+          <Stack direction="row" spacing={0.5} alignItems="center" key={level}>
+            <Box sx={{ width: 10, height: 10, bgcolor: contrastColors.get(level) }} />
+            <Typography variant="caption">{level}</Typography>
+          </Stack>
+        ))}
+      </Stack>
+    </Paper>
+  )
+}
+
+interface ScatterPoint {
+  sample_id: string
+  coordinates: Record<string, number>
+  metadata: Record<string, string>
+}
+
+function CoordinateScatter({
+  axes,
+  points,
+  methodLabel,
+}: {
+  axes: Array<{ name: string; explainedVarianceRatio?: number }>
+  points: ScatterPoint[]
+  methodLabel: string
+}) {
+  const components = axes.map((axis) => axis.name)
+  const metadataColumns = useMemo(
+    () => Object.keys(points[0]?.metadata ?? {}).filter((column) => column !== 'sample_id'),
+    [points],
+  )
+  const [xAxis, setXAxis] = useState(components[0] ?? 'PC1')
+  const [yAxis, setYAxis] = useState(components[1] ?? components[0] ?? 'PC2')
+  const [colorBy, setColorBy] = useState(metadataColumns[0] ?? 'sample_id')
+  useEffect(() => {
+    if (!metadataColumns.includes(colorBy)) setColorBy(metadataColumns[0] ?? 'sample_id')
+  }, [colorBy, metadataColumns])
+  const valuesX = points.map((point) => point.coordinates[xAxis] ?? 0)
+  const valuesY = points.map((point) => point.coordinates[yAxis] ?? 0)
+  const categories = Array.from(new Set(points.map((point) => point.metadata[colorBy] ?? point.sample_id)))
+  const colorMap = new Map(categories.map((category, index) => [category, colors[index % colors.length]]))
+  const width = 760
+  const height = 470
+  const padding = 62
+  const scale = (value: number, values: number[], start: number, end: number) => {
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    return min === max ? (start + end) / 2 : start + ((value - min) / (max - min)) * (end - start)
+  }
+  const ratio = (component: string) => axes.find((axis) => axis.name === component)?.explainedVarianceRatio
+  const axisLabel = (component: string) => {
+    const explained = ratio(component)
+    return explained === undefined ? component : `${component} (${(explained * 100).toFixed(1)}%)`
+  }
+
+  return (
+    <Paper variant="outlined" sx={{ p: 3 }}>
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={2}>
+        <Box>
+          <Typography variant="h5" fontWeight={700}>{methodLabel} sample coordinates</Typography>
+          <Typography color="text.secondary">Hover over a point for sample metadata.</Typography>
+        </Box>
+        <Stack direction="row" spacing={1}>
+          <AxisSelect label="X axis" value={xAxis} components={components} onChange={setXAxis} />
+          <AxisSelect label="Y axis" value={yAxis} components={components} onChange={setYAxis} />
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <InputLabel>Color by</InputLabel>
+            <Select label="Color by" value={colorBy} onChange={(event) => setColorBy(event.target.value)}>
+              {metadataColumns.map((column) => <MenuItem key={column} value={column}>{column}</MenuItem>)}
+            </Select>
+          </FormControl>
+        </Stack>
+      </Stack>
+      <Box sx={{ overflowX: 'auto', mt: 2 }}>
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${methodLabel} scatter plot`} style={{ minWidth: 620, width: '100%' }}>
+          <line x1={padding} y1={height - padding} x2={width - 25} y2={height - padding} stroke="#9ca3af" />
+          <line x1={padding} y1={25} x2={padding} y2={height - padding} stroke="#9ca3af" />
+          {points.map((point, index) => {
+            const category = point.metadata[colorBy] ?? point.sample_id
+            return (
+              <circle
+                key={point.sample_id}
+                cx={scale(valuesX[index], valuesX, padding + 12, width - 38)}
+                cy={scale(valuesY[index], valuesY, height - padding - 12, 38)}
+                r="8"
+                fill={colorMap.get(category)}
+                stroke="white"
+                strokeWidth="2"
+                style={{ cursor: 'crosshair' }}
+              >
+                <title>{`${point.sample_id}\n${colorBy}: ${category}\n${xAxis}: ${valuesX[index].toFixed(3)}\n${yAxis}: ${valuesY[index].toFixed(3)}`}</title>
+              </circle>
+            )
+          })}
+          <text x={width / 2} y={height - 12} textAnchor="middle" fontSize="14">{axisLabel(xAxis)}</text>
+          <text x="16" y={height / 2} textAnchor="middle" fontSize="14" transform={`rotate(-90 16 ${height / 2})`}>{axisLabel(yAxis)}</text>
+        </svg>
+      </Box>
+      <Stack direction="row" spacing={2} justifyContent="center" flexWrap="wrap">
+        {categories.map((category) => (
+          <Stack key={category} direction="row" spacing={0.75} alignItems="center">
+            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: colorMap.get(category) }} />
+            <Typography variant="caption">{category}</Typography>
+          </Stack>
+        ))}
+      </Stack>
+    </Paper>
+  )
+}
+
+function EmbeddingResult({ plot }: { plot: EmbeddingPlot }) {
+  const label = plot.method === 'umap' ? 'UMAP' : 't-SNE'
+  return (
+    <CoordinateScatter
+      axes={plot.axes.map((axis) => ({ name: axis }))}
+      points={plot.points}
+      methodLabel={label}
+    />
+  )
+}
+
+function DendrogramChart({ plot }: { plot: DendrogramPlot }) {
+  const width = Math.max(900, plot.sample_order.length * 15)
+  const height = 500
+  const top = 24
+  const bottom = 120
+  const maximumX = Math.max(...plot.icoord.flat(), 1)
+  const maximumY = Math.max(...plot.dcoord.flat(), 1)
+  const x = (value: number) => 20 + (value / maximumX) * (width - 40)
+  const y = (value: number) => height - bottom - (value / maximumY) * (height - bottom - top)
+  const clusters = Array.from(new Set(Object.values(plot.clusters))).sort((a, b) => a - b)
+
+  return (
+    <Paper variant="outlined" sx={{ p: 3 }}>
+      <Typography variant="h5" fontWeight={700}>Sample dendrogram</Typography>
+      <Typography color="text.secondary">
+        Branch height represents dissimilarity; downloadable assignments preserve the selected cut.
+      </Typography>
+      <Box sx={{ overflowX: 'auto', mt: 2 }}>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          role="img"
+          aria-label="Hierarchical sample dendrogram"
+          style={{ minWidth: width, width: '100%' }}
+        >
+          {plot.icoord.map((xCoordinates, index) => (
+            <polyline
+              key={`${xCoordinates[0]}-${index}`}
+              points={xCoordinates
+                .map((value, point) => `${x(value)},${y(plot.dcoord[index][point])}`)
+                .join(' ')}
+              fill="none"
+              stroke="#155e75"
+              strokeWidth="1.5"
+            />
+          ))}
+          {plot.sample_order.map((sampleId, index) => {
+            const position = 5 + index * 10
+            return (
+              <text
+                key={sampleId}
+                x={x(position)}
+                y={height - bottom + 8}
+                fontSize="9"
+                textAnchor="end"
+                transform={`rotate(-62 ${x(position)} ${height - bottom + 8})`}
+              >
+                {sampleId}
+              </text>
+            )
+          })}
+        </svg>
+      </Box>
+      <Stack direction="row" spacing={1} flexWrap="wrap">
+        {clusters.map((cluster) => (
+          <Chip
+            key={cluster}
+            size="small"
+            label={`Cluster ${cluster}: ${Object.values(plot.clusters).filter((value) => value === cluster).length} samples`}
+            variant="outlined"
+          />
+        ))}
+      </Stack>
+    </Paper>
+  )
+}
+
+function CorrelationChart({ heatmap }: { heatmap: CorrelationHeatmap }) {
+  const size = 760
+  const count = heatmap.sample_order.length
+  const cell = size / Math.max(count, 1)
+  const correlationColor = (value: number) => {
+    const bounded = Math.max(-1, Math.min(1, value))
+    const target = bounded >= 0 ? [21, 94, 117] : [190, 18, 60]
+    const strength = Math.abs(bounded)
+    return `rgb(${target.map((channel) => Math.round(255 + (channel - 255) * strength)).join(',')})`
+  }
+  return (
+    <Paper variant="outlined" sx={{ p: 3 }}>
+      <Typography variant="h5" fontWeight={700}>Sample correlation heatmap</Typography>
+      <Typography color="text.secondary">Samples use the dendrogram leaf order. Hover for pairwise values.</Typography>
+      <Box sx={{ maxWidth: 780, mx: 'auto', mt: 2 }}>
+        <svg viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Sample correlation heatmap" style={{ width: '100%' }}>
+          {heatmap.values.flatMap((row, rowIndex) =>
+            row.map((value, columnIndex) => (
+              <rect
+                key={`${rowIndex}-${columnIndex}`}
+                x={columnIndex * cell}
+                y={rowIndex * cell}
+                width={cell + 0.15}
+                height={cell + 0.15}
+                fill={correlationColor(value)}
+              >
+                <title>{`${heatmap.sample_order[rowIndex]} × ${heatmap.sample_order[columnIndex]}: ${value.toFixed(3)}`}</title>
+              </rect>
+            )),
+          )}
+        </svg>
+      </Box>
+      <Stack direction="row" justifyContent="center" spacing={1} alignItems="center">
+        <Typography variant="caption">−1</Typography>
+        <Box sx={{ width: 180, height: 10, background: 'linear-gradient(90deg, #be123c, #fff 50%, #155e75)' }} />
+        <Typography variant="caption">+1 correlation</Typography>
+      </Stack>
+    </Paper>
+  )
+}
+
+function AxisSelect({ label, value, components, onChange }: { label: string; value: string; components: string[]; onChange: (value: string) => void }) {
+  return (
+    <FormControl size="small" sx={{ minWidth: 100 }}>
+      <InputLabel>{label}</InputLabel>
+      <Select label={label} value={value} onChange={(event) => onChange(event.target.value)}>
+        {components.map((component) => <MenuItem key={component} value={component}>{component}</MenuItem>)}
+      </Select>
+    </FormControl>
+  )
+}
+
+function VarianceChart({ components }: { components: Array<{ component: string; explained_variance_ratio: number }> }) {
+  const maximum = Math.max(...components.map((component) => component.explained_variance_ratio), 0.01)
+  return (
+    <Paper variant="outlined" sx={{ p: 3 }}>
+      <Typography variant="h5" fontWeight={700}>Explained variance</Typography>
+      <Stack direction="row" spacing={1.5} alignItems="flex-end" sx={{ height: 260, mt: 3 }}>
+        {components.map((component) => (
+          <Stack key={component.component} alignItems="center" justifyContent="flex-end" sx={{ flex: 1, height: '100%' }}>
+            <Typography variant="caption" fontWeight={700}>{(component.explained_variance_ratio * 100).toFixed(1)}%</Typography>
+            <Box sx={{ width: 'min(56px, 80%)', height: `${(component.explained_variance_ratio / maximum) * 190}px`, minHeight: 2, bgcolor: 'primary.main', borderRadius: '5px 5px 0 0', mt: 0.5 }} />
+            <Typography variant="body2" mt={1}>{component.component}</Typography>
+          </Stack>
+        ))}
+      </Stack>
+    </Paper>
+  )
+}

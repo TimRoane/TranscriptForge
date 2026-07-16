@@ -1,0 +1,278 @@
+# TranscriptForge implementation progress
+
+Last updated: 2026-07-16
+
+This file is the durable continuation checkpoint for Codex sessions. Update it after every implementation session.
+
+## Current position
+
+- Active roadmap phase: Phase 4 — differential expression
+- Active milestone: Phase 4 — optional enrichment and completion review
+- Current task: Design the optional ranked-list and over-representation enrichment vertical slice
+- Overall milestone status: In progress
+
+## Completed
+
+- [x] Imported the full implementation plan.
+- [x] Established the Phase 0 monorepo structure.
+- [x] Added initial architecture, data-contract, and local-development documentation.
+- [x] Added Docker Compose definitions for PostgreSQL, Redis, MinIO, API, worker, and web.
+- [x] Added FastAPI health/version boundary and Celery application skeleton.
+- [x] Added React/Vite application shell and API health integration.
+- [x] Added a Nextflow DSL2 smoke entry workflow.
+- [x] Added baseline API and web tests, lint configuration, and CI workflow.
+- [x] Verified the complete Docker Compose stack, API health endpoint, web shell, and a real Celery round trip.
+- [x] Completed Phase 0 acceptance criteria.
+- [x] Added typed SQLAlchemy entities for projects, datasets, dataset files, prepared datasets, analyses, runs, artifacts, and model records.
+- [x] Added the initial asynchronous Alembic migration, including the prepared-dataset/run relationship.
+- [x] Added project and dataset create, list, retrieve, update, and delete API operations.
+- [x] Enforced human-only scope and valid modality/source-kind combinations at the API boundary.
+- [x] Added dataset file upload with generated object keys, atomic local writes, SHA-256 checksums, and namespace confinement.
+- [x] Added integration tests for CRUD, cascade behavior, scientific input guardrails, uploads, and storage traversal rejection.
+- [x] Added an API-connected project dashboard and project detail page.
+- [x] Added a guarded three-step dataset wizard with modality-aware source options.
+- [x] Added matrix and sample-metadata upload controls with checksum confirmation.
+- [x] Added an S3-compatible storage adapter and automatic MinIO bucket initialization.
+- [x] Completed Phase 1 acceptance criteria.
+- [x] Added Draft 2020-12 Dataset Manifest, Expression Bundle, Analysis Request, Result Manifest, and Sample Metadata contracts.
+- [x] Added a valid count-matrix demo manifest and schema compatibility tests.
+- [x] Added a streaming matrix/metadata validator supporting features-by-samples and samples-by-features orientations.
+- [x] Added raw-count numeric, finite, nonnegative, integer, duplicate-ID, row-width, missing-value, and exact sample-alignment checks.
+- [x] Added capped actionable findings, matrix/metadata summaries, and bounded previews.
+- [x] Added a versioned Validation Report JSON Schema.
+- [x] Added atomic validation report and checksum-bearing Dataset Manifest generation.
+- [x] Added the first functional `PREPARE_DATASET` Nextflow process, which owns matrix validation and publishes both contracts.
+- [x] Added durable `POST /api/datasets/{id}/validate` run creation with frozen dataset, file, checksum, and validation parameters.
+- [x] Added Celery dispatch and a shell-free Nextflow argument-array launcher with checksum-verified input staging.
+- [x] Added durable `QUEUED`, `STARTING`, `RUNNING`, `SUCCEEDED`, and `FAILED` transitions, including dataset status restoration on infrastructure failure.
+- [x] Captured Nextflow session/run identifiers, exit status, stdout, stderr, log, trace, execution report, timeline, and DAG.
+- [x] Indexed validation reports, Dataset Manifests, logs, and provenance outputs as downloadable artifacts.
+- [x] Added run status, validation history, artifact listing/download, validation report, and Dataset Manifest API routes.
+- [x] Connected dataset cards to validation launch, short polling, terminal status, actionable findings, matrix orientation previews, and contract downloads.
+- [x] Added a canonical Expression Bundle builder for both matrix orientations with disk-backed transposition for samples-by-features inputs.
+- [x] Preserved immutable source counts, emitted canonical raw-count and log2-CPM assays, and retained all sample metadata columns.
+- [x] Added explicit Ensembl identity/version mapping, mapping coverage, unmapped-feature reports, and sum-based duplicate resolution.
+- [x] Added shared per-sample library-size, detected-feature, zero-fraction, review-flag, JSON, TSV, and SVG QC outputs.
+- [x] Added schema-valid bundle manifests, input checksums, parameters, software versions, previews, and downloadable bundle archives.
+- [x] Split Nextflow validation and preparation entries and added a cohesive `BUILD_EXPRESSION_BUNDLE` process.
+- [x] Added durable preparation runs, immutable prepared-dataset versions, and preparation artifact indexing.
+- [x] Added preparation launch/polling to dataset cards and a prepared-dataset page with QC visualization, mapping summaries, assay inventory, and downloads.
+- [x] Completed all Phase 2 acceptance criteria.
+- [x] Added saved, listable, and cloneable dimension-reduction analyses with validated PCA configuration.
+- [x] Added immutable PCA run requests tied to a specific prepared-dataset version and Expression Bundle checksum.
+- [x] Added durable analysis run launch, Celery dispatch, and `QUEUED` through terminal state tracking.
+- [x] Added a `RUN_ANALYSIS` Nextflow entry and deterministic NumPy SVD PCA over canonical assays.
+- [x] Canonicalized PCA component signs so identical inputs and seeds emit byte-identical results.
+- [x] Emitted schema-valid Result Manifests, coordinates, loadings, explained variance, plot-ready JSON, and a research-use HTML report.
+- [x] Indexed PCA results plus complete Nextflow logs, trace, report, timeline, and DAG as downloadable artifacts.
+- [x] Added PCA launch controls to the Expression Bundle page with component count and feature-scaling options.
+- [x] Added an auto-updating PCA result page with selectable component axes, sample metadata coloring, hover details, variance bars, metrics, reruns, downloads, and provenance.
+- [x] Completed the PCA vertical-slice acceptance criteria for Phase 3.
+- [x] Added a deterministic 72-library, 36-donor paired genotype-treatment demonstration with three balanced batches and 2,000 simulated genes.
+- [x] Added documented treatment, genotype, interaction, batch, sex, negative-treatment, donor-noise, and null ground-truth feature blocks.
+- [x] Added reproducible demo generation and idempotent API seeding commands that validate, prepare, and analyze the study through the real worker path.
+- [x] Generalized saved dimension-reduction configuration for PCA, hierarchical clustering, UMAP, and t-SNE with method-specific parameter validation.
+- [x] Added most-variable-feature selection, explicit scaling, correlation/Euclidean distance, average/complete/Ward linkage, and cluster-count controls.
+- [x] Added hierarchical clustering outputs: dendrogram contract, sample correlation heatmap, cluster assignments, linkage matrix, Result Manifest, and report.
+- [x] Added seeded UMAP and t-SNE implementations with configurable neighbors, minimum distance, and perplexity.
+- [x] Added deterministic rerun tests for clustering, UMAP, and t-SNE on the larger experiment.
+- [x] Generalized the Nextflow analysis process, artifact indexing, and JSON result endpoints across all four Phase 3 methods.
+- [x] Added method-specific launch controls plus interactive PCA/UMAP/t-SNE coordinates, dendrogram, heatmap, cluster summaries, and downloads to the GUI.
+- [x] Added a reusable report generator that emits deterministic Quarto sources and research-use HTML fallbacks for all four dimension-reduction methods.
+- [x] Installed pinned Quarto 1.9.38 in the worker and rendered self-contained HTML reports inside the Nextflow process boundary.
+- [x] Added deterministic static SVG exports for PCA/embedding coordinates, explained variance, hierarchical dendrograms, and sample correlation heatmaps.
+- [x] Indexed Quarto sources, rendered reports, and all static plots as immutable downloadable run artifacts and surfaced them in the result page.
+- [x] Added frontend interaction coverage for UMAP method configuration and non-PCA dendrogram/heatmap result rendering.
+- [x] Completed every Phase 3 task and acceptance criterion, including GUI launch, worker/Nextflow execution, durable state, interactive results, downloads, and deterministic reruns.
+- [x] Generalized saved-analysis creation contracts for dimension reduction and differential expression while preserving the existing endpoint.
+- [x] Added typed differential-expression design, contrast, filtering, FDR, fold-change, independent-filtering, shrinkage, and method-routing configuration.
+- [x] Expanded the versioned Analysis Request JSON Schema with type-specific dimension-reduction and differential-expression request contracts.
+- [x] Added immutable Expression Bundle metadata discovery with categorical/numeric inference, level inventories, missingness counts, and assay inventories.
+- [x] Added server-side model-matrix construction, reference-level handling, interaction encoding, rank checks, replication checks, design-cell counts, and imbalance warnings.
+- [x] Added automatic assay routing from raw counts to DESeq2 and from log-scale expression to limma, with incompatible method/assay combinations blocked.
+- [x] Added design-options and design-preview API endpoints and required a valid preview before a differential-expression analysis can be saved.
+- [x] Added a Phase 4 GUI builder for assay, method, primary variable, numerator, denominator, covariate, subject/block, FDR, and absolute fold-change settings.
+- [x] Added a saved differential-expression design page showing the generated formula, plain-English contrast, sample counts, thresholds, and model rank.
+- [x] Kept differential-expression run launch explicitly disabled until the R/Nextflow execution module was implemented.
+- [x] Added an official Bioconductor 3.23 production image definition with DESeq2, limma, edgeR, and jsonlite.
+- [x] Added a version-pinned development-worker R 4.5 / DESeq2 1.46 / limma 3.62 runtime for direct execution under the Nextflow test profile.
+- [x] Added an independent R-side bundle, count, metadata, reference-level, replication, formula, model-column, and rank validation boundary.
+- [x] Enforced the versioned Analysis Request before Nextflow launch and the Result Manifest before artifact indexing in the durable worker.
+- [x] Compared the R design against the immutable server preview before model fitting and fail with actionable disagreement diagnostics.
+- [x] Added raw-count filtering, deterministic DESeq2 fitting, independent filtering, optional normal-prior shrinkage, and explicit numerator-minus-denominator contrasts.
+- [x] Routed frozen differential-expression requests through a dedicated Nextflow process while preserving all Phase 3 dimension-reduction routing.
+- [x] Emitted complete and significant result tables, design matrix, contrast definition, method diagnostics, R session information, and a schema-valid Result Manifest.
+- [x] Added deterministic volcano and MA JSON/SVG outputs plus a self-contained Quarto research-use report.
+- [x] Indexed all differential-expression outputs and full Nextflow provenance as immutable artifacts and exposed volcano/MA JSON endpoints.
+- [x] Enabled run/rerun controls, live state polling, failure display, interactive volcano/MA views, summary metrics, and result downloads on the saved design page.
+- [x] Generalized the shared R runner for limma empirical-Bayes fitting over continuous log-expression assays.
+- [x] Constructed explicit numerator-minus-denominator limma contrasts from validated model rows and recorded the exact design-coefficient weights for auditability.
+- [x] Kept method semantics explicit: limma reports average log2 expression and does not claim count filtering, DESeq2 independent filtering, or fold-change shrinkage.
+- [x] Surfaced method warnings in the result GUI and added frontend coverage for limma-specific MA-axis semantics.
+- [x] Re-ran DESeq2 after the shared-runner refactor and confirmed its scientific tables and plots remain byte-identical.
+- [x] Added a deterministic 20-bin p-value distribution with explicit finite and missing-value counts for both DESeq2 and limma.
+- [x] Added top-30 expression heatmaps using log2 DESeq2 normalized counts or the limma input log-expression assay, followed by per-feature z-scoring.
+- [x] Preserved paired-study interpretation by ordering blocked designs by subject then contrast and retaining sample metadata plus feature-level effect annotations.
+- [x] Added plot-ready JSON, static SVG, Result Manifest entries, Quarto report sections, durable artifact indexing, and API routes for both new visualizations.
+- [x] Added interactive p-value bars and a metadata-annotated expression heatmap to the shared differential-expression result page.
+- [x] Kept full heatmap z-scores in the JSON contract while clamping only the static renderer to its documented -3 to +3 color scale.
+- [x] Made Nextflow provenance observers launcher-owned and overwrite-safe so concurrent runs and failed-process finalization cannot mask the primary workflow error.
+- [x] Added gene symbols, exact contrast labels, and method labels to the common differential-expression result table while preserving method-specific abundance columns.
+- [x] Published a deterministic normalized-expression table for every tested feature: log2 DESeq2 normalized counts plus one or the limma input log-expression assay.
+- [x] Added server-side ID/symbol search, FDR and absolute-fold-change filters, significant-only filtering, sortable columns, bounded pagination, and filtered TSV downloads.
+- [x] Added per-feature detail APIs joining model statistics, 72 sample-level expression values, full sample metadata, and contrast-group summaries.
+- [x] Added a responsive result explorer, clickable volcano/MA points and table rows, and a gene-detail drawer with an expression strip plot and group means.
+- [x] Kept older runs compatible: their result tables remain explorable and their detail view clearly requests a rerun when normalized profiles are unavailable.
+- [x] Added a deterministic runner-level paired-study fixture with 100 annotated features split into positive, negative, null, and low-count truth blocks.
+- [x] Added direct R CLI assertions that frozen formula and model-rank disagreements fail before either statistical engine fits a model or publishes a Result Manifest.
+- [x] Added DESeq2 acceptance assertions for exact low-count exclusion, tested/filtered diagnostics, numerator-minus-denominator direction, feature annotations, and normalized profiles.
+- [x] Added shared DESeq2/limma assertions for positive and negative known-effect recovery, bounded null calls, explicit contrast direction, and complete sample-level profiles.
+- [x] Added `make test-r` and `make test-all` developer targets and a dedicated CI job that builds the pinned worker image and executes the scientific harness.
+- [x] Added a dedicated candidate gene-signature entity and Alembic migration, separate from trained model records.
+- [x] Added run- and project-scoped signature APIs that require a successful differential-expression source run and reject features absent from its immutable result table.
+- [x] Frozen each signature's ordered feature identifiers, complete result-row snapshots, source artifact identifier/checksum, and active table-selection criteria.
+- [x] Added result-page row and page selection for up to 500 genes, a named draft workflow, saved-draft summaries, and explicit independent-validation warnings.
+- [x] Exercised the feature against the live paired-treatment DESeq2 run and preserved a visible three-gene demonstration draft.
+- [x] Added edgeR 4.4.2 to the pinned development worker and strengthened the dedicated Bioconductor image version check.
+- [x] Implemented edgeR quasi-likelihood with explicit low-count filtering, TMM normalization, robust dispersion estimation, and an explicit QL contrast test.
+- [x] Implemented limma-voom with the same filter/TMM boundary, voom precision weights, explicit contrast weights, and moderated inference.
+- [x] Generalized result parsing and the shared result GUI for average-log2-CPM abundance while leaving edgeR standard error unavailable instead of inventing an estimate.
+- [x] Extended method diagnostics, normalized profiles, heatmaps, MA semantics, reports, and manifests across all four differential-expression engines.
+- [x] Extended API routing, frozen request validation, frontend method selection, and the deterministic R acceptance harness for both new methods.
+
+## Verification
+
+- `pytest`: 3 API/worker tests passed under Python 3.12 and Python 3.13.
+- `ruff`: passed.
+- `mypy --strict`: passed for 14 source files.
+- `vitest`: 1 frontend integration test passed under Node.js 22.
+- `eslint`: passed with zero warnings.
+- Vite production build: passed.
+- `npm audit`: zero known vulnerabilities.
+- `docker compose config --quiet`: passed.
+- Docker development images: built successfully.
+- Full Compose startup: PostgreSQL, Redis, MinIO, API, worker, and web all started; stateful services and API reported healthy.
+- API smoke request returned the expected typed health payload.
+- Celery worker responded to inspection and consumed `transcriptforge.system.worker_health` through Redis.
+- Nextflow `RUN_DEMO`: passed and emitted the expected `health.json`; a resumed run used the task cache.
+- `git diff --check`: passed.
+- Updated backend test suite: 9 tests passed under Python 3.13.
+- Updated strict typing: passed for 25 API source files.
+- Initial migration applied successfully to PostgreSQL and reports `20260716_0001 (head)`.
+- `alembic check`: no model/schema drift detected against PostgreSQL.
+- Live PostgreSQL API smoke path passed: create project, create count-matrix dataset, upload and hash a matrix, retrieve it, and delete the project.
+- Updated backend suite: 18 tests passed under Python 3.13.
+- Frontend suite: 2 dashboard/navigation tests passed under Node.js 22.
+- Frontend TypeScript production build and ESLint passed.
+- S3 storage contract tests passed, including generated keys, checksums, deletion, foreign-bucket rejection, and traversal rejection.
+- Live MinIO upload/delete smoke test passed after automatic bucket creation.
+- Rebuilt Compose stack passed API health and client-side project-route fallback checks.
+- All five Phase 2 JSON Schemas passed Draft 2020-12 meta-schema validation.
+- The count-matrix demo manifest validates; a microarray/FASTQ mismatch is rejected.
+- Updated combined Python suite: 30 tests passed.
+- Strict mypy passed across 36 API and analysis source files; Ruff passed.
+- The validator passed valid, invalid, both-orientation, CLI, schema, and manifest tests.
+- Nextflow `PREPARE_DATASET` executed successfully and emitted schema-valid `validation_report.json` and `dataset_manifest.json`.
+- Nextflow `-resume` reused the completed validation process when inputs and code were unchanged.
+- Frontend suite: 3 dashboard/navigation/validation tests passed under Node.js 22; ESLint and the production TypeScript/Vite build passed.
+- The rebuilt Compose stack passed API and web health checks with the pinned Java/Nextflow worker runtime.
+- A live API-to-Redis-to-Celery-to-Nextflow validation completed in about three seconds with state `SUCCEEDED`, report status `VALID`, a persisted Nextflow session UUID, and nine indexed artifacts.
+- Docker Compose configuration and `git diff --check` passed.
+- Expression Bundle tests passed for features-by-samples, samples-by-features, Ensembl version stripping, duplicate aggregation, unchanged count values, bundle archiving, QC, and schema validation.
+- Nextflow `PREPARE_DATASET` completed the validation-to-bundle chain and published a schema-valid Expression Bundle.
+- Frontend suite: 4 dashboard/navigation/validation/prepared-dataset tests passed; ESLint and the production TypeScript/Vite build passed.
+- A live durable preparation completed in about four seconds with persisted prepared-dataset version 1, QC `PASS`, 100% mapping coverage, a Nextflow session UUID, and 14 indexed artifacts.
+- Alembic reported no model/schema drift; the rebuilt worker registered both validation and preparation tasks with bounded concurrency.
+- Updated combined Python suite: 33 tests passed under Python 3.13; Ruff passed.
+- Strict mypy passed across 42 API and analysis source files.
+- Frontend suite: 4 tests passed under Node.js 22; ESLint and the production TypeScript/Vite build passed.
+- A live API-to-Redis-to-Celery-to-Nextflow PCA completed in about four seconds with a persisted Nextflow session UUID and 14 indexed artifacts.
+- A second live run of the same saved PCA produced identical SHA-256 hashes for coordinates, loadings, explained variance, both plot contracts, and the Result Manifest.
+- Updated combined Python suite: 38 tests passed, including large-demo reproducibility and the complete dimension-reduction suite.
+- Strict mypy passed across 44 API and analysis source files; Ruff and `git diff --check` passed.
+- Frontend suite: 4 tests passed; ESLint and the Node.js 22 production build passed.
+- The 72-sample demonstration validated and prepared successfully through API, Redis, Celery, and Nextflow with QC `PASS` and 100% synthetic identifier mapping.
+- Live PCA, hierarchical clustering, UMAP, and t-SNE runs all reached `SUCCEEDED` and published their method-specific result and provenance artifacts.
+- The large-study PCA shows the intended controlled structure: PC1 treatment centroids are approximately +11.99 for vehicle and -11.99 for stimulated, with PC1 explaining 13.3% of variance.
+- Phase 3 combined Python suite: 38 tests passed; Ruff passed and strict mypy passed across 46 source files.
+- Phase 3 frontend suite: 6 integration tests passed; ESLint and the production TypeScript/Vite build passed.
+- The rebuilt worker reports Quarto 1.9.38 and Nextflow 25.10.4; Docker Compose configuration and `git diff --check` passed.
+- A fresh live PCA run (`521e8949-6b65-41bb-8a2b-c57baa049c13`) succeeded through API, Redis, Celery, and Nextflow, emitted 18 indexed artifacts, and produced a report carrying the `quarto-1.9.38` generator marker.
+- A fresh live hierarchical-clustering run (`2865ee18-4b6c-4eca-a578-7c85ade1a043`) succeeded and indexed its dendrogram SVG, correlation heatmap SVG, assignments, linkage table, Quarto source, rendered report, and complete provenance set.
+- Phase 4 foundation Python suite: 41 tests passed; Ruff passed and strict mypy passed across 47 source files.
+- Phase 4 frontend suite: 7 integration tests passed; ESLint and the production TypeScript/Vite build passed.
+- The live 72-sample bundle exposed seven metadata variables and both `raw_counts` and `log_expression` assays through the design-options contract.
+- Live validation correctly rejected `~ subject_id + batch + treatment` because batch is confounded with subject, and rejected `~ subject_id + genotype + treatment` because genotype is constant within subject.
+- Live validation accepted the paired design `~ subject_id + treatment` at full rank 37/37, routed raw counts to DESeq2, and confirmed 36 stimulated versus 36 vehicle samples.
+- Saved live Phase 4 design: `e033fb5c-0516-4a74-9bf8-8e0b77d1eeaa` (`Paired treatment response`).
+- Phase 4 DESeq2 slice: 41 backend tests passed; Ruff passed and strict mypy passed across 47 source files.
+- Phase 4 DESeq2 frontend: 7 integration tests passed; ESLint and the Node.js 22 production build passed.
+- The rebuilt development worker reports R 4.5.0, DESeq2 1.46.0, jsonlite 1.9.1, Quarto 1.9.38, and Nextflow 25.10.4.
+- Live paired DESeq2 run `91aa6799-2517-494e-b437-bb2d2386f0c4` independently confirmed 72 samples and a full-rank 37/37 `~ subject_id + treatment` model, tested 2,000 features, called 254 significant features, and indexed 20 artifacts.
+- Identical live rerun `1cad3c72-740c-4795-98c1-60094de4adfe` produced byte-identical complete/significant tables, design matrix, contrast, diagnostics, Result Manifest, plot JSON, plot SVG, Quarto source, and R session information.
+- Post-guardrail live run `7dd98963-4d2b-4417-9aae-1f92ed03ad0f` passed frozen-request validation before launch and Result Manifest validation before its 20 artifacts were indexed.
+- Known-effect recovery matched the simulated direction: all 150 treatment-up genes were significant with median log2 fold change +1.392, 92/100 treatment-down genes were significant with median -1.244, and none of 1,430 null/subject-noise genes passed the configured joint FDR/effect threshold.
+- Phase 4 limma slice: 41 backend tests passed; Ruff and strict mypy passed across 47 source files. Eight frontend integration tests, ESLint, and the production build passed.
+- The development worker now reports limma 3.62.2 alongside R 4.5.0 and DESeq2 1.46.0.
+- Saved live limma analysis `2a13c140-0f8a-4617-bb59-e17b386469f9` routed `log_expression` plus `auto` to limma and independently confirmed the same full-rank 37/37 paired design.
+- Live limma run `7e156689-c521-439d-b85a-8d4425fadaf9` tested 2,000 features, called 253 significant features, and indexed 20 immutable artifacts with a schema-valid Result Manifest.
+- Limma recovered all 150 treatment-up genes at median log2 fold change +1.339, 99/100 treatment-down genes at median -1.360, and zero of 1,430 null/subject-noise genes at the joint threshold.
+- Corrected limma rerun `0693fb6d-11d1-480a-91c9-36c63980bc2c` produced byte-identical tables, diagnostics, plot JSON/SVG, and R session information.
+- Post-refactor DESeq2 run `e7663f5a-50b5-4811-8f3c-b633110fdf6d` succeeded with the original 254 calls and byte-identical tables, design matrix, and plots.
+- Phase 4 visualization slice: 41 backend tests passed; Ruff and strict mypy passed across 47 source files. Eight frontend integration tests, ESLint, and the production build passed.
+- Live limma run `bdda45f6-71f6-4a02-bc67-20f64c375a27` and DESeq2 run `2381d439-1a1d-42ea-8241-e0bd9c6d9f95` each indexed 24 artifacts, including both JSON/SVG visualization pairs.
+- Both live p-value contracts contain 20 bins summing to all 2,000 finite tests with zero missing values.
+- Both live heatmaps contain 30 features by 72 samples; sampled rows have mean zero and sample standard deviation one, and each donor's vehicle/stimulated pair remains adjacent.
+- Limma rerun `cd953616-1295-49be-8b29-a6120ee76676` and DESeq2 rerun `2870e9e4-d78a-40f6-ab08-8c218821f7b6` produced byte-identical p-value JSON/SVG, heatmap JSON/SVG, scientific tables, Result Manifests, and report sources.
+- Final concurrent limma run `5410e8c8-b500-4a86-8d4d-60320a0edcf1` and DESeq2 run `65f217a7-26f5-4f4f-94e2-8dda22a36f9b` both succeeded and indexed 24 artifacts after the static heatmap renderer correction.
+- Concurrent reruns `abf67d02-ee04-4a2a-88a9-3eefe0f93c3b` (limma) and `0e3bda9a-bd79-4277-afa2-df9e5117b67d` (DESeq2) produced byte-identical SHA-256 hashes for all 16 scientific contracts, tables, report sources, and static plots checked per engine.
+- Final live contracts again contained 20 p-value bins summing to 2,000 tests and 30-by-72 expression heatmaps with assay-correct source semantics.
+- Final verification after the renderer and provenance corrections: 41 Python tests passed; Ruff and strict mypy passed across 47 source files; R parsing, Docker Compose configuration, and `git diff --check` passed.
+- Phase 4 table/gene-detail verification: 41 Python tests and eight frontend integration tests passed; Ruff, ESLint, strict mypy across 48 source files, the production TypeScript/Vite build, R parsing, Docker Compose configuration, and `git diff --check` passed.
+- Live limma run `d49f46fe-f45f-49d6-a977-02d9b9f0df97` and DESeq2 run `7aa45ee3-8309-4804-8378-8d507908ad49` each succeeded concurrently and indexed 25 artifacts, including normalized expression for all 2,000 tested features.
+- Live threshold queries returned the expected 253 limma and 254 DESeq2 significant features; significant-only downloads contained the matching rows plus one header.
+- A non-top feature detail request returned all 72 samples and two contrast groups of 36 samples for both engines, confirming gene detail is not limited to the top-30 heatmap selection.
+- Reruns `9ea1a8e2-c675-4d66-983c-7f7f9838f2b9` (limma) and `518ad76b-5878-4463-a858-6c93b190539e` (DESeq2) produced byte-identical SHA-256 hashes for all 17 checked scientific artifacts per engine.
+- The R acceptance harness rejected both formula and rank disagreements with their actionable diagnostics and did not publish a Result Manifest for either failed case.
+- DESeq2 tested 90/100 fixture features, filtered exactly all ten low-count rows, recovered 15/15 positive and 15/15 negative effects, and called 0/60 null features.
+- Limma tested all 100 fixture features, recovered 15/15 positive and 15/15 negative effects, and called 0/60 null features.
+- Final scientific-harness regression: `make test-r` passed in a fresh one-off worker container; 41 Python tests and eight frontend integration tests passed; Ruff, ESLint, strict mypy across 48 source files, the production frontend build, Docker Compose validation, and `git diff --check` passed.
+- Saved-signature regression: 42 Python tests and eight frontend integration tests passed; Ruff, strict mypy across 51 source files, the R DESeq2/limma acceptance harness, ESLint, the Node.js 22 production build, Docker Compose validation, and `git diff --check` passed.
+- Alembic migration `20260716_0002` applied successfully to PostgreSQL and `alembic check` reported no model/schema drift.
+- Live signature draft `32c84994-7980-413a-8822-1cfd5f282114` froze three result rows from DESeq2 run `518ad76b-5878-4463-a858-6c93b190539e`; its stored source checksum matched result artifact `906a2d17-c247-476e-9f3a-ec12ff4ea57a` exactly.
+- Four-engine regression: 44 Python tests and eight frontend integration tests passed; Ruff, strict mypy across 51 source files, ESLint, the Node.js 22 production build, Docker Compose validation, and `git diff --check` passed.
+- The expanded R harness passed for DESeq2, limma, edgeR QL, and limma-voom. Both new count engines filtered exactly 10/100 low-count controls, recovered 15/15 positive and 15/15 negative effects, and called 0/60 null features.
+- The rebuilt live worker reports R 4.5.0, edgeR 4.4.2, and limma 3.62.2.
+- Live edgeR analysis `c31e8833-39a1-4aa8-a33b-ca87b5df90d4` run `3f9699ba-abf3-4951-a406-63dcb65003e8` and limma-voom analysis `339a7348-f43b-402e-be0a-555c69a0267c` run `973c4025-0bb5-414d-b007-3b89d6a7d5ee` each tested all 2,000 features, called 256 significant features, and indexed 25 artifacts.
+- edgeR QL recovered 150/150 treatment-up and 94/100 treatment-down genes; limma-voom recovered 150/150 and 93/100 respectively; both called 0/1,430 null/subject-noise genes.
+- Concurrent reruns `93082641-1646-4ac4-97c7-59d1a7a12014` (edgeR QL) and `2af50b87-1271-49eb-a23b-53125b379404` (limma-voom) produced identical SHA-256 hashes for all 18 non-Nextflow artifacts checked per engine.
+
+The development stack remains running. The large-study project is at `http://localhost:5173/projects/0694625c-23e1-4847-9622-e508ad95b895`, its prepared bundle at `http://localhost:5173/prepared-datasets/ac5bbe72-ec4e-40ec-9258-f9eae3679209`, and live results are available for PCA (`74cfc4a8-bdea-49b5-ab94-69d8534c52d6`), clustering (`2af084ac-6e90-4beb-b07c-4eabd214f066`), UMAP (`e94db15b-ab8a-4fee-ab6f-9d8e3a2ef63c`), t-SNE (`1dac23c8-5621-46bd-bb71-ddc38640647e`), DESeq2 (`e033fb5c-0516-4a74-9bf8-8e0b77d1eeaa`), limma (`2a13c140-0f8a-4617-bb59-e17b386469f9`), edgeR QL (`c31e8833-39a1-4aa8-a33b-ca87b5df90d4`), and limma-voom (`339a7348-f43b-402e-be0a-555c69a0267c`).
+
+## Next tasks
+
+1. Design and implement the optional ranked-list and over-representation enrichment slice with versioned gene-set provenance.
+2. Complete the Phase 4 acceptance review and move to Phase 5 raw RNA-seq ingestion.
+
+## Decisions and constraints
+
+- Python supports 3.12 and newer; production containers currently pin Python 3.12.
+- The frontend targets Node.js 22.13+ and patched Vite/Vitest releases; Docker is the supported path on hosts with older Node versions.
+- Scientific computation does not live in the API; the API queues frozen requests for Nextflow workers.
+- Run inputs and outputs will be immutable and namespaced by internal identifiers.
+- All platform output is explicitly research-use only and not clinically validated.
+- Invalid user data is a successful validation computation with an `INVALID` report; infrastructure/program failures remain failed runs.
+- Validation reports retain at most 100 individual findings and count suppressed findings by code to bound artifact size.
+- Version 1 feature harmonization maps exact Ensembl gene identifiers and optionally strips explicit numeric version suffixes; it reports unknown identifiers instead of guessing symbol/probe mappings.
+
+## Known blockers
+
+- None at this checkpoint.
+
+## Deferred cleanup
+
+- Database deletion currently removes file metadata but does not schedule physical object deletion. Durable cleanup/outbox behavior belongs with the later cancellation and cleanup work; uploaded run inputs remain immutable in the meantime.
+
+## Continue prompt
+
+Ask Codex: **Continue implementing TranscriptForge from `docs/implementation-progress.md`.**

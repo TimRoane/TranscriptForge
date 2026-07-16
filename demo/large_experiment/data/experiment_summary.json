@@ -1,0 +1,23 @@
+{
+  "design": "~ batch + sex + genotype * treatment + subject_pair",
+  "feature_count": 2000,
+  "groups": {
+    "variant_stimulated": 18,
+    "variant_vehicle": 18,
+    "wild_type_stimulated": 18,
+    "wild_type_vehicle": 18
+  },
+  "known_effects": {
+    "batch": 80,
+    "genotype_up": 120,
+    "interaction_up": 80,
+    "null": 1430,
+    "sex": 40,
+    "treatment_down": 100,
+    "treatment_up": 150
+  },
+  "sample_count": 72,
+  "schema_version": "1.0.0",
+  "seed": 20260716,
+  "subject_count": 36
+}

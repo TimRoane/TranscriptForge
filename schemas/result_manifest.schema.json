@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.dev/schemas/result-manifest/1.0.0",
+  "title": "TranscriptForge Result Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "analysis_type", "title", "summary_metrics", "sections", "downloads", "warnings"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "analysis_type": { "enum": ["differential_expression", "dimension_reduction", "classifier", "signature", "deconvolution"] },
+    "title": { "type": "string", "minLength": 1 },
+    "summary_metrics": { "type": "array", "items": { "$ref": "#/$defs/metric" } },
+    "sections": { "type": "array", "items": { "$ref": "#/$defs/section" } },
+    "downloads": { "type": "array", "items": { "$ref": "#/$defs/item" } },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "metric": { "type": "object", "additionalProperties": false, "required": ["label", "value"], "properties": { "label": { "type": "string" }, "value": { "type": ["string", "number", "integer", "boolean", "null"] } } },
+    "item": { "type": "object", "additionalProperties": true, "required": ["type", "title", "path"], "properties": { "type": { "enum": ["plotly_json", "table", "image", "html", "file"] }, "title": { "type": "string" }, "path": { "type": "string" } } },
+    "section": { "type": "object", "additionalProperties": false, "required": ["id", "title", "items"], "properties": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" }, "title": { "type": "string" }, "items": { "type": "array", "items": { "$ref": "#/$defs/item" } } } }
+  }
+}

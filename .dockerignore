@@ -1,0 +1,17 @@
+.git
+.github
+.nextflow
+.nextflow-test-results
+.transcriptforge-data
+.venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+apps/web/dist
+node_modules
+**/node_modules
+runs
+work
+*.log
+__pycache__
+**/__pycache__

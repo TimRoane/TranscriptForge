@@ -1,0 +1,68 @@
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
+import ScienceRoundedIcon from '@mui/icons-material/ScienceRounded'
+import {
+  AppBar,
+  Chip,
+  Container,
+  CssBaseline,
+  Stack,
+  ThemeProvider,
+  Toolbar,
+  Typography,
+  createTheme,
+} from '@mui/material'
+import { useQuery } from '@tanstack/react-query'
+import { Link as RouterLink, Route, Routes } from 'react-router-dom'
+
+import { fetchHealth } from './api/client'
+import { DashboardPage } from './pages/DashboardPage'
+import { AnalysisPage } from './pages/AnalysisPage'
+import { ProjectPage } from './pages/ProjectPage'
+import { PreparedDatasetPage } from './pages/PreparedDatasetPage'
+
+const theme = createTheme({
+  palette: {
+    mode: 'light',
+    primary: { main: '#155e75' },
+    secondary: { main: '#7c3aed' },
+    background: { default: '#f4f7f8' },
+  },
+  typography: {
+    fontFamily: 'Inter, system-ui, sans-serif',
+    h1: { fontWeight: 750, letterSpacing: '-0.04em' },
+  },
+  shape: { borderRadius: 12 },
+})
+
+export function App() {
+  const health = useQuery({
+    queryKey: ['health'],
+    queryFn: ({ signal }) => fetchHealth(signal),
+    retry: 1,
+  })
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <AppBar position="static" elevation={0}>
+        <Toolbar>
+          <Stack component={RouterLink} to="/" direction="row" alignItems="center" color="inherit" sx={{ textDecoration: 'none', flexGrow: 1 }}>
+            <ScienceRoundedIcon sx={{ mr: 1.5 }} />
+            <Typography variant="h6" component="div" fontWeight={700}>TranscriptForge</Typography>
+          </Stack>
+          {health.data && <CheckCircleRoundedIcon aria-label="API connected" sx={{ mr: 1, fontSize: 18 }} />}
+          <Chip label="Research use only" color="secondary" size="small" />
+        </Toolbar>
+      </AppBar>
+      <Container maxWidth="lg" sx={{ py: { xs: 4, md: 7 } }}>
+        <Routes>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/projects/:projectId" element={<ProjectPage />} />
+          <Route path="/prepared-datasets/:preparedDatasetId" element={<PreparedDatasetPage />} />
+          <Route path="/analyses/:analysisId" element={<AnalysisPage />} />
+          <Route path="*" element={<Typography>Page not found.</Typography>} />
+        </Routes>
+      </Container>
+    </ThemeProvider>
+  )
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_id": "demo_airway_counts",
+  "name": "Synthetic airway count matrix",
+  "organism": "Homo sapiens",
+  "modality": "bulk_rnaseq",
+  "source_kind": "count_matrix",
+  "genome_build": "GRCh38",
+  "annotation_release": "GENCODE 49",
+  "feature_id_type": "ensembl_gene_id",
+  "value_type": "raw_counts",
+  "matrix_orientation": "features_by_samples",
+  "matrix_file": "inputs/counts.tsv",
+  "sample_metadata_file": "inputs/sample_metadata.tsv",
+  "sample_id_column": "sample_id",
+  "feature_id_column": "gene_id",
+  "paired_end": null,
+  "strandedness": null,
+  "created_by": "transcriptforge",
+  "checksums": {}
+}

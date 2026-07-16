@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.dev/schemas/validation-report/1.0.0",
+  "title": "TranscriptForge Matrix Validation Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "matrix", "metadata", "findings", "suppressed_findings", "preview"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "status": { "enum": ["VALID", "INVALID"] },
+    "matrix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["orientation", "sample_count", "feature_count", "data_cell_count", "missing_cell_count", "non_numeric_cell_count", "negative_cell_count", "non_integer_cell_count", "duplicate_sample_count", "duplicate_feature_count"],
+      "properties": {
+        "orientation": { "enum": ["features_by_samples", "samples_by_features"] },
+        "sample_count": { "type": "integer", "minimum": 0 },
+        "feature_count": { "type": "integer", "minimum": 0 },
+        "data_cell_count": { "type": "integer", "minimum": 0 },
+        "missing_cell_count": { "type": "integer", "minimum": 0 },
+        "non_numeric_cell_count": { "type": "integer", "minimum": 0 },
+        "negative_cell_count": { "type": "integer", "minimum": 0 },
+        "non_integer_cell_count": { "type": "integer", "minimum": 0 },
+        "duplicate_sample_count": { "type": "integer", "minimum": 0 },
+        "duplicate_feature_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sample_count", "column_count", "duplicate_sample_count", "missing_sample_id_count", "matrix_only_samples", "metadata_only_samples"],
+      "properties": {
+        "sample_count": { "type": "integer", "minimum": 0 },
+        "column_count": { "type": "integer", "minimum": 0 },
+        "duplicate_sample_count": { "type": "integer", "minimum": 0 },
+        "missing_sample_id_count": { "type": "integer", "minimum": 0 },
+        "matrix_only_samples": { "type": "array", "items": { "type": "string" } },
+        "metadata_only_samples": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "code", "message", "location", "details"],
+        "properties": {
+          "severity": { "enum": ["ERROR", "WARNING"] },
+          "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" },
+          "message": { "type": "string", "minLength": 1 },
+          "location": { "type": ["string", "null"] },
+          "details": { "type": "object" }
+        }
+      }
+    },
+    "suppressed_findings": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 } },
+    "preview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["matrix_columns", "matrix_rows", "metadata_rows"],
+      "properties": {
+        "matrix_columns": { "type": "array", "maxItems": 10, "items": { "type": "string" } },
+        "matrix_rows": { "type": "array", "maxItems": 5, "items": { "type": "object" } },
+        "metadata_rows": { "type": "array", "maxItems": 5, "items": { "type": "object" } }
+      }
+    }
+  }
+}
