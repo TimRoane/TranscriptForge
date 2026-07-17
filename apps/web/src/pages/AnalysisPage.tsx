@@ -1,7 +1,9 @@
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
+import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
 import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded'
+import StopCircleRoundedIcon from '@mui/icons-material/StopCircleRounded'
 import {
   Alert,
   Box,
@@ -39,6 +41,7 @@ import { Link as RouterLink, useParams } from 'react-router-dom'
 
 import {
   artifactDownloadUrl,
+  cancelRun,
   createGeneSignature,
   fetchAnalysis,
   fetchAnalysisRuns,
@@ -77,7 +80,13 @@ import {
 } from '../api/client'
 import { ErrorState, LoadingState } from '../components/ApiState'
 
-const activeStates = new Set<Run['state']>(['CREATED', 'QUEUED', 'STARTING', 'RUNNING'])
+const activeStates = new Set<Run['state']>([
+  'CREATED',
+  'QUEUED',
+  'STARTING',
+  'RUNNING',
+  'CANCELLING',
+])
 const colors = ['#155e75', '#7c3aed', '#d97706', '#be123c', '#15803d', '#0369a1', '#9333ea']
 
 export function AnalysisPage() {
@@ -177,6 +186,15 @@ export function AnalysisPage() {
     mutationFn: () => runAnalysis(analysisId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['analysis-runs', analysisId] }),
   })
+  const cancel = useMutation({
+    mutationFn: (runId: string) => cancelRun(runId),
+    onSuccess: (cancelledRun) => {
+      queryClient.setQueryData<Run[]>(['analysis-runs', analysisId], (current) =>
+        current?.map((run) => (run.id === cancelledRun.id ? cancelledRun : run)),
+      )
+      return queryClient.invalidateQueries({ queryKey: ['analysis-runs', analysisId] })
+    },
+  })
 
   if (analysis.isPending || runs.isPending) return <LoadingState label="Loading analysis…" />
   if (analysis.isError) return <ErrorState error={analysis.error} />
@@ -215,6 +233,9 @@ export function AnalysisPage() {
           </Box>
           <Stack direction="row" spacing={1} alignItems="center">
             {latest && <RunStateChip run={latest} />}
+            {latest && activeStates.has(latest.state) && (
+              <CancelRunButton run={latest} pending={cancel.isPending} onCancel={cancel.mutate} />
+            )}
             <Button
               variant={latest ? 'outlined' : 'contained'}
               startIcon={<ReplayRoundedIcon />}
@@ -293,13 +314,16 @@ export function AnalysisPage() {
           </Box>
           <Stack direction="row" spacing={1} alignItems="center">
             {latest && <RunStateChip run={latest} />}
+            {latest && activeStates.has(latest.state) && (
+              <CancelRunButton run={latest} pending={cancel.isPending} onCancel={cancel.mutate} />
+            )}
             <Button
               variant={latest ? 'outlined' : 'contained'}
-              startIcon={<ReplayRoundedIcon />}
+              startIcon={latest ? <ReplayRoundedIcon /> : <PlayArrowRoundedIcon />}
               onClick={() => rerun.mutate()}
               disabled={rerun.isPending || Boolean(latest && activeStates.has(latest.state))}
             >
-              {latest ? 'Run again' : 'Run analysis'}
+              {latest ? 'Run again' : 'Run differential expression'}
             </Button>
           </Stack>
         </Stack>
@@ -331,7 +355,12 @@ export function AnalysisPage() {
             ))}
           </Stack>
         </Paper>
-        {!latest && <Alert severity="info">This validated design has not been run yet.</Alert>}
+        {!latest && (
+          <Alert severity="info">
+            Design saved. Review the frozen model above, then select “Run differential expression”
+            to start the workflow.
+          </Alert>
+        )}
         {latest && activeStates.has(latest.state) && (
           <Paper variant="outlined" sx={{ p: 4 }}>
             <LoadingState label={`Differential expression ${latest.state.toLowerCase()}…`} />
@@ -443,13 +472,16 @@ export function AnalysisPage() {
         </Box>
         <Stack direction="row" spacing={1} alignItems="center">
           {latest && <RunStateChip run={latest} />}
+          {latest && activeStates.has(latest.state) && (
+            <CancelRunButton run={latest} pending={cancel.isPending} onCancel={cancel.mutate} />
+          )}
           <Button
-            variant="outlined"
-            startIcon={<ReplayRoundedIcon />}
+            variant={latest ? 'outlined' : 'contained'}
+            startIcon={latest ? <ReplayRoundedIcon /> : <PlayArrowRoundedIcon />}
             onClick={() => rerun.mutate()}
             disabled={rerun.isPending || Boolean(latest && activeStates.has(latest.state))}
           >
-            Run again
+            {latest ? 'Run again' : 'Run analysis'}
           </Button>
         </Stack>
       </Stack>
@@ -531,6 +563,28 @@ export function AnalysisPage() {
 function RunStateChip({ run }: { run: Run }) {
   const color = run.state === 'SUCCEEDED' ? 'success' : run.state === 'FAILED' ? 'error' : 'warning'
   return <Chip label={run.state} color={color} />
+}
+
+function CancelRunButton({
+  run,
+  pending,
+  onCancel,
+}: {
+  run: Run
+  pending: boolean
+  onCancel: (runId: string) => void
+}) {
+  return (
+    <Button
+      color="error"
+      variant="outlined"
+      startIcon={<StopCircleRoundedIcon />}
+      disabled={pending || run.state === 'CANCELLING'}
+      onClick={() => onCancel(run.id)}
+    >
+      {run.state === 'CANCELLING' ? 'Stopping…' : 'Stop run'}
+    </Button>
+  )
 }
 
 function SignatureScoreResults({ summary }: { summary: SignatureScores }) {

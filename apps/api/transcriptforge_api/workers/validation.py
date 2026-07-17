@@ -6,12 +6,12 @@ import json
 import os
 import re
 import shutil
-import subprocess
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePath
+from subprocess import CompletedProcess
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -24,6 +24,11 @@ from transcriptforge_api.services.microarray import load_platform_adapter
 from transcriptforge_api.services.raw_rnaseq import REFERENCE_ROOT, load_reference_bundle
 from transcriptforge_api.storage import get_storage_backend
 from transcriptforge_api.storage.base import StorageBackend
+from transcriptforge_api.workers.process_control import (
+    RunCancelled,
+    raise_if_cancelled,
+    run_cancellable,
+)
 
 SESSION_PATTERN = re.compile(r"Session UUID:\s*([a-fA-F0-9-]+)")
 
@@ -57,7 +62,10 @@ def run_validation_workflow(
     """Stage immutable inputs, launch Nextflow, and index published contracts."""
     settings = settings or get_settings()
     storage = storage or get_storage_backend()
-    snapshot = asyncio.run(_mark_starting(settings, run_id))
+    try:
+        snapshot = asyncio.run(_mark_starting(settings, run_id))
+    except RunCancelled:
+        return {"run_id": run_id, "state": RunState.CANCELLED.value}
     frozen = json.loads(storage.read_bytes(snapshot.params_uri))
     previous_status = str(frozen["dataset"]["status_before_validation"])
 
@@ -119,18 +127,7 @@ def run_validation_workflow(
             run_name,
         )
         asyncio.run(_mark_running(settings, run_id, run_name))
-        environment = os.environ.copy()
-        environment["NXF_HOME"] = str(run_root / ".nextflow")
-        completed = subprocess.run(
-            command,
-            cwd=run_root,
-            env=environment,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        (provenance_dir / "stdout.log").write_text(completed.stdout, encoding="utf-8")
-        (provenance_dir / "stderr.log").write_text(completed.stderr, encoding="utf-8")
+        completed = _execute_nextflow(command, run_root, provenance_dir)
         nextflow_log = run_root / ".nextflow.log"
         log_text = nextflow_log.read_text(encoding="utf-8") if nextflow_log.is_file() else ""
         session_id = _session_id(completed.stdout + "\n" + completed.stderr + "\n" + log_text)
@@ -140,6 +137,7 @@ def run_validation_workflow(
                 f"{_error_tail(completed.stderr or completed.stdout)}"
             )
 
+        raise_if_cancelled(run_root)
         report_path = output_dir / "validation" / "validation_report.json"
         if not report_path.is_file():
             raise RuntimeError("Nextflow completed without publishing validation_report.json.")
@@ -169,6 +167,9 @@ def run_validation_workflow(
             )
         )
         return {"run_id": run_id, "state": RunState.SUCCEEDED.value, "status": report["status"]}
+    except RunCancelled as error:
+        asyncio.run(_mark_cancelled(settings, snapshot, previous_status, error))
+        return {"run_id": run_id, "state": RunState.CANCELLED.value}
     except Exception as error:
         asyncio.run(_mark_failed(settings, snapshot, previous_status, error))
         raise
@@ -220,6 +221,21 @@ def build_nextflow_command(
 
 def _uses_awsbatch(profile: str) -> bool:
     return "awsbatch" in {item.strip() for item in profile.split(",")}
+
+
+def _execute_nextflow(
+    command: list[str], run_root: Path, provenance_dir: Path
+) -> CompletedProcess[str]:
+    environment = os.environ.copy()
+    environment["NXF_HOME"] = str(run_root / ".nextflow")
+    return run_cancellable(
+        command,
+        cwd=run_root,
+        env=environment,
+        run_root=run_root,
+        stdout_path=provenance_dir / "stdout.log",
+        stderr_path=provenance_dir / "stderr.log",
+    )
 
 
 def _nextflow_work_dir(
@@ -311,18 +327,7 @@ def _run_raw_rnaseq_workflow(
             entry="PREPARE_RAW_RNASEQ",
         )
         asyncio.run(_mark_running(settings, snapshot.id, run_name))
-        environment = os.environ.copy()
-        environment["NXF_HOME"] = str(run_root / ".nextflow")
-        completed = subprocess.run(
-            command,
-            cwd=run_root,
-            env=environment,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        (provenance_dir / "stdout.log").write_text(completed.stdout, encoding="utf-8")
-        (provenance_dir / "stderr.log").write_text(completed.stderr, encoding="utf-8")
+        completed = _execute_nextflow(command, run_root, provenance_dir)
         nextflow_log = run_root / ".nextflow.log"
         log_text = nextflow_log.read_text(encoding="utf-8") if nextflow_log.is_file() else ""
         session_id = _session_id(completed.stdout + "\n" + completed.stderr + "\n" + log_text)
@@ -332,6 +337,7 @@ def _run_raw_rnaseq_workflow(
                 f"{_error_tail(completed.stderr or completed.stdout)}"
             )
 
+        raise_if_cancelled(run_root)
         summary_path = output_dir / "preparation/prepared/bundle_summary.json"
         if not summary_path.is_file():
             raise RuntimeError("Raw RNA-seq preparation did not publish bundle_summary.json.")
@@ -352,6 +358,9 @@ def _run_raw_rnaseq_workflow(
             "state": RunState.SUCCEEDED.value,
             "status": "QUANTIFIED",
         }
+    except RunCancelled as error:
+        asyncio.run(_mark_cancelled(settings, snapshot, previous_status, error))
+        return {"run_id": snapshot.id, "state": RunState.CANCELLED.value}
     except Exception as error:
         asyncio.run(_mark_failed(settings, snapshot, previous_status, error))
         raise
@@ -421,18 +430,7 @@ def _run_microarray_workflow(
             entry="PREPARE_AFFYMETRIX_CEL",
         )
         asyncio.run(_mark_running(settings, snapshot.id, run_name))
-        environment = os.environ.copy()
-        environment["NXF_HOME"] = str(run_root / ".nextflow")
-        completed = subprocess.run(
-            command,
-            cwd=run_root,
-            env=environment,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        (provenance_dir / "stdout.log").write_text(completed.stdout, encoding="utf-8")
-        (provenance_dir / "stderr.log").write_text(completed.stderr, encoding="utf-8")
+        completed = _execute_nextflow(command, run_root, provenance_dir)
         nextflow_log = run_root / ".nextflow.log"
         log_text = nextflow_log.read_text(encoding="utf-8") if nextflow_log.is_file() else ""
         session_id = _session_id(completed.stdout + "\n" + completed.stderr + "\n" + log_text)
@@ -442,6 +440,7 @@ def _run_microarray_workflow(
                 f"{_error_tail(completed.stderr or completed.stdout)}"
             )
 
+        raise_if_cancelled(run_root)
         summary_path = output_dir / "preparation/prepared/bundle_summary.json"
         if not summary_path.is_file():
             raise RuntimeError("Microarray preparation did not publish bundle_summary.json.")
@@ -462,6 +461,9 @@ def _run_microarray_workflow(
             "state": RunState.SUCCEEDED.value,
             "status": "RMA_NORMALIZED",
         }
+    except RunCancelled as error:
+        asyncio.run(_mark_cancelled(settings, snapshot, previous_status, error))
+        return {"run_id": snapshot.id, "state": RunState.CANCELLED.value}
     except Exception as error:
         asyncio.run(_mark_failed(settings, snapshot, previous_status, error))
         raise
@@ -1004,6 +1006,8 @@ async def _mark_starting(settings: Settings, run_id: str) -> RunSnapshot:
         run = await session.get(Run, run_id)
         if run is None or run.dataset_id is None:
             raise RuntimeError(f"Validation run '{run_id}' does not exist.")
+        if run.state in {RunState.CANCELLING.value, RunState.CANCELLED.value}:
+            raise RunCancelled("Cancelled by user.")
         if run.state != RunState.QUEUED.value:
             raise RuntimeError(f"Validation run '{run_id}' is in state {run.state}, not QUEUED.")
         run.state = RunState.STARTING.value
@@ -1017,6 +1021,8 @@ async def _mark_running(settings: Settings, run_id: str, run_name: str) -> None:
         run = await session.get(Run, run_id)
         if run is None:
             raise RuntimeError(f"Validation run '{run_id}' disappeared.")
+        if run.state in {RunState.CANCELLING.value, RunState.CANCELLED.value}:
+            raise RunCancelled("Cancelled by user.")
         run.state = RunState.RUNNING.value
         run.nextflow_run_name = run_name
         await session.commit()
@@ -1036,6 +1042,8 @@ async def _mark_succeeded(
         dataset = await session.get(Dataset, snapshot.dataset_id)
         if run is None or dataset is None:
             raise RuntimeError("Run or dataset disappeared before completion.")
+        if run.state in {RunState.CANCELLING.value, RunState.CANCELLED.value}:
+            raise RunCancelled("Cancelled by user.")
         for item in artifacts:
             session.add(Artifact(run_id=run.id, metadata_json={}, **item))
         if bundle_summary is not None:
@@ -1062,6 +1070,25 @@ async def _mark_succeeded(
         run.nextflow_session_id = session_id
         run.finished_at = datetime.now(UTC)
         dataset.status = dataset_status
+        await session.commit()
+
+
+async def _mark_cancelled(
+    settings: Settings,
+    snapshot: RunSnapshot,
+    previous_status: str,
+    error: RunCancelled,
+) -> None:
+    async with _worker_session(settings) as session:
+        run = await session.get(Run, snapshot.id)
+        dataset = await session.get(Dataset, snapshot.dataset_id)
+        if run is not None:
+            run.state = RunState.CANCELLED.value
+            run.exit_code = 143
+            run.error_summary = str(error)[:4000]
+            run.finished_at = datetime.now(UTC)
+        if dataset is not None:
+            dataset.status = previous_status
         await session.commit()
 
 

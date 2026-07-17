@@ -70,6 +70,7 @@ services:
       TRANSCRIPTFORGE_CELERY_BROKER_URL: redis://redis:6379/0
       TRANSCRIPTFORGE_CELERY_RESULT_BACKEND: redis://redis:6379/1
       TRANSCRIPTFORGE_LOCAL_STORAGE_ROOT: /data/transcriptforge
+      TRANSCRIPTFORGE_RUN_WORK_ROOT: /data/transcriptforge/runtime
     command:
       - /bin/sh
       - -c

@@ -2,6 +2,7 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import ScienceRoundedIcon from '@mui/icons-material/ScienceRounded'
 import {
   AppBar,
+  Button,
   Chip,
   Container,
   CssBaseline,
@@ -17,6 +18,7 @@ import { Link as RouterLink, Route, Routes } from 'react-router-dom'
 import { fetchHealth } from './api/client'
 import { DashboardPage } from './pages/DashboardPage'
 import { AnalysisPage } from './pages/AnalysisPage'
+import { HomePage } from './pages/HomePage'
 import { ProjectPage } from './pages/ProjectPage'
 import { PreparedDatasetPage } from './pages/PreparedDatasetPage'
 
@@ -50,13 +52,16 @@ export function App() {
             <ScienceRoundedIcon sx={{ mr: 1.5 }} />
             <Typography variant="h6" component="div" fontWeight={700}>TranscriptForge</Typography>
           </Stack>
+          <Button component={RouterLink} to="/" color="inherit" sx={{ display: { xs: 'none', sm: 'inline-flex' }, mr: 0.5 }}>Overview</Button>
+          <Button component={RouterLink} to="/projects" color="inherit" sx={{ mr: 1.5 }}>Projects</Button>
           {health.data && <CheckCircleRoundedIcon aria-label="API connected" sx={{ mr: 1, fontSize: 18 }} />}
           <Chip label="Research use only" color="secondary" size="small" />
         </Toolbar>
       </AppBar>
       <Container maxWidth="lg" sx={{ py: { xs: 4, md: 7 } }}>
         <Routes>
-          <Route path="/" element={<DashboardPage />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/projects" element={<DashboardPage />} />
           <Route path="/projects/:projectId" element={<ProjectPage />} />
           <Route path="/prepared-datasets/:preparedDatasetId" element={<PreparedDatasetPage />} />
           <Route path="/analyses/:analysisId" element={<AnalysisPage />} />

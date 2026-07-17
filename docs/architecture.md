@@ -51,6 +51,12 @@ derived full-genome-decoy index is cached outside run directories by reference-d
 gene/transcript abundances, original Salmon outputs, identifier-aware QC, MultiQC, and reference
 provenance are immutable run artifacts.
 
+Local API and worker containers share the run root. A cancellation request first moves durable state
+to `CANCELLING`, then publishes a run-scoped marker. The worker observes that marker, sends SIGTERM
+to the isolated Nextflow process group, escalates only after a bounded timeout, restores the
+dataset's prior state, and records `CANCELLED`. The reference materializer converts SIGTERM into a
+controlled exception so its atomic-build cleanup removes incomplete index directories.
+
 Raw Affymetrix CEL preparation follows the same frozen-input boundary. The API accepts only an
 explicitly registered platform adapter, scans each CEL header for a compatible platform identity,
 requires exact sample-metadata assignments, and persists file and adapter checksums before queueing.

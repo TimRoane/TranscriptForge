@@ -3,7 +3,7 @@
   "gmt_file": "transcriptforge_acceptance_effects.gmt",
   "gmt_sha256": "2b8a5516f0e986d20ae51b6ba33c7f1d5875a830e2fc8375e4430058d018fcc4",
   "identifier_namespace": "acceptance_fixture_feature_id",
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "name": "TranscriptForge R acceptance controls",
   "schema_version": "1.0.0",
   "set_count": 3,

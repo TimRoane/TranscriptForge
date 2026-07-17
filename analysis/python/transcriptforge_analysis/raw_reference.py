@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
 import urllib.request
@@ -24,7 +25,17 @@ from transcriptforge_analysis.matrix_validation import write_json_atomic
 
 ASSET_ROLES = {"transcriptome_fasta", "primary_assembly_genome", "annotation_gtf"}
 ATTRIBUTE = re.compile(r'(\w+)\s+"([^"]+)"')
-MATERIALIZATION_SCHEMA_VERSION = "1.1.0"
+MATERIALIZATION_SCHEMA_VERSION = "1.2.0"
+
+
+class ReferenceMaterializationInterrupted(RuntimeError):
+    """Raised on SIGTERM so temporary reference bytes are removed before exit."""
+
+
+def _raise_on_termination(signum: int, _frame: Any) -> None:
+    raise ReferenceMaterializationInterrupted(
+        f"Reference materialization terminated by signal {signum}."
+    )
 
 
 def _digest(path: Path, algorithm: str) -> str:
@@ -144,6 +155,32 @@ def _salmon_version(executable: str) -> str:
     if match is None:
         raise RuntimeError(f"Could not parse Salmon version from: {completed.stdout.strip()}.")
     return match.group(1)
+
+
+def _salmon_index_command(
+    executable: str,
+    gentrome: Path,
+    decoys: Path,
+    index: Path,
+    kmer_length: int,
+) -> list[str]:
+    """Build the GENCODE-aware Salmon index command used by every materialization."""
+    return [
+        executable,
+        "index",
+        "--transcripts",
+        str(gentrome),
+        "--decoys",
+        str(decoys),
+        "--index",
+        str(index),
+        "--kmerLen",
+        str(kmer_length),
+        # GENCODE transcript headers contain pipe-delimited annotations. Salmon must
+        # index only the identifier before the first pipe so quant.sf agrees with
+        # the plain transcript IDs generated from the matching GTF in tx2gene.tsv.
+        "--gencode",
+    ]
 
 
 def _index_checksums(index: Path) -> dict[str, str]:
@@ -385,18 +422,13 @@ def materialize_reference(
                 mapping_count = _write_tx2gene(annotation, tx2gene)
                 index = build_dir / "salmon_index"
                 subprocess.run(
-                    [
+                    _salmon_index_command(
                         salmon_executable,
-                        "index",
-                        "--transcripts",
-                        str(gentrome),
-                        "--decoys",
-                        str(decoys),
-                        "--index",
-                        str(index),
-                        "--kmerLen",
-                        str(definition["salmon"]["kmer_length"]),
-                    ],
+                        gentrome,
+                        decoys,
+                        index,
+                        int(definition["salmon"]["kmer_length"]),
+                    ),
                     check=True,
                     env={**os.environ, "LANG": "en_US.UTF-8", "LC_ALL": "en_US.UTF-8"},
                 )
@@ -468,14 +500,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cache-uri")
     parser.add_argument("--salmon", default="salmon")
     args = parser.parse_args(argv)
-    materialize_reference(
-        args.definition,
-        args.cache_root,
-        args.output_dir,
-        asset_dir=args.asset_dir,
-        salmon_executable=args.salmon,
-        cache_uri=args.cache_uri,
-    )
+    previous_sigterm = signal.signal(signal.SIGTERM, _raise_on_termination)
+    try:
+        materialize_reference(
+            args.definition,
+            args.cache_root,
+            args.output_dir,
+            asset_dir=args.asset_dir,
+            salmon_executable=args.salmon,
+            cache_uri=args.cache_uri,
+        )
+    finally:
+        signal.signal(signal.SIGTERM, previous_sigterm)
     return 0
 
 

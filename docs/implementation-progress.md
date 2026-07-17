@@ -1,6 +1,6 @@
 # TranscriptForge implementation progress
 
-Last updated: 2026-07-16
+Last updated: 2026-07-17
 
 This file is the durable continuation checkpoint for Codex sessions. Update it after every implementation session.
 
@@ -208,6 +208,13 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 - [x] Reworked the root README as a hiring-manager-facing product overview with real RNA-seq and public-microarray user-flow screenshots, architecture, verification evidence, local setup, repository map, and explicit constraints.
 - [x] Materialized a live eight-array GSE39795 project through the public API, published its 23,702-gene/257,430-probe-set RMA Expression Bundle, and ran a full-rank paired `~ donor + zone` limma analysis for the portfolio walkthrough.
 - [x] Corrected server design preview so numeric-looking declared block identifiers are encoded categorically, matching the independent R scientific boundary and preserving paired-design semantics.
+- [x] Corrected Expression Bundle design defaults to prioritize biological variables over per-sample identifiers and to offer repeated numeric-looking subject identifiers as blocks; the public microarray page now opens directly on the valid `~ donor + zone` paired design.
+- [x] Added a product-facing application home with workflow framing, capability summaries, recent-project access, and direct workspace/start-project actions; `/projects` now owns project management explicitly.
+- [x] Added project deletion from workspace cards and project detail pages with exact-name confirmation, cascade/retention warnings, API error feedback, cache invalidation, and post-delete navigation.
+- [x] Corrected project deletion for nonempty execution graphs with migration `20260717_0005`: dataset/prepared/analysis run references and dependent model/signature records now cascade, while the preparation-run back-reference safely clears to break the ownership cycle.
+- [x] Removed roadmap-phase labels from every user-visible application section and renamed the two persisted development smoke projects that still exposed phase numbers.
+- [x] Replaced the repository MIT grant with the unmodified PolyForm Noncommercial 1.0.0 terms, aligned package and bundled synthetic-collection metadata, updated the public README, and recorded the remaining legal-review and prior-distribution limitations under TD-008.
+- [x] Promoted saved analyses from small trailing chips to a high-visibility continuation panel near the top of each Expression Bundle, with full-width typed navigation actions; clarified differential-expression handoff with “Save design & continue to run,” explanatory copy, and a distinct “Run differential expression” action on the saved-analysis page.
 
 ## Verification
 
@@ -366,8 +373,48 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
   limma and succeeded with complete result, visualization, report, and Nextflow artifacts.
 - The Docker-profile RMA process completed on all eight CEL files in the pinned Bioconductor image;
   the generic bundle-builder image's missing `ps` utility is recorded as TD-015 rather than hidden.
-- Seven 1440-pixel-wide application screenshots were inspected and added under
-  `docs/images/readme/` for the GitHub walkthrough.
+- Eight README-linked 1440-pixel-wide application screenshots were inspected and added under
+  `docs/images/readme/` for the GitHub walkthrough, including the product home.
+- Application-home/project-management regression: 14 frontend integration tests passed in the
+  Node 22 container; ESLint and the production TypeScript/Vite build passed. The build retains the
+  already-recorded bundle-size warning under TD-006.
+- A live browser acceptance created a temporary project, kept deletion disabled until its exact name
+  was entered, deleted it through the UI and public API, removed the card after cache invalidation,
+  and confirmed that no temporary project record remained.
+- Public-microarray design regression: 14 frontend integration tests passed, including automatic
+  `zone` selection, superficial-versus-deep direction, numeric `donor` blocking, and full-rank 5/5
+  validation. ESLint and the Node.js 22 production build passed, and a live headless-browser check
+  found `Design valid`, `Rank 5/5`, and `~ donor + zone` with no blocked-design state.
+- The existing public limma table was audited rather than relabeled: 23,702 genes were tested;
+  2,084 have nominal p < 0.05, 665 have nominal p < 0.01, 53 have FDR < 0.20, and zero have FDR
+  < 0.05. The README and TD-013 now explain this low-powered but biologically nonempty result.
+- Saved-analysis navigation/handoff regression: 14 frontend integration tests passed, including the
+  prominent saved-analysis link and save-to-run transition; ESLint and the Node.js 22 production
+  build passed. The live public-microarray page was visually inspected at 1440 pixels and shows two
+  saved differential-expression analyses as primary action cards above array QC.
+- Project-cascade regression: 79 combined Python tests passed, including deletion of a project with
+  a queued validation run; Ruff, strict mypy across 60 source files, Docker Compose validation, and
+  `git diff --check` passed. Migration `20260717_0005` applied at PostgreSQL head with no model/schema
+  drift. The live “Validation workflow smoke test” project then deleted with HTTP 204, removing its
+  dataset, 11 run records, and 106 artifact-index records.
+- Stopped the first live full-GENCODE raw RNA-seq preparation after confirming that reference
+  materialization, rather than the tiny FASTQ fixture, dominated runtime; removed its abandoned 11 GB
+  atomic-build directory and restored 10 GB of host capacity.
+- Added end-to-end local cancellation for queued and executing validation, preparation, and analysis
+  runs: durable `CANCELLING`/`CANCELLED` transitions, process-group termination, dataset-state
+  restoration, in-app Stop actions, preserved launcher logs, and SIGTERM-aware reference temp cleanup.
+- Corrected production GENCODE indexing with Salmon `--gencode` so pipe-delimited FASTA headers agree
+  with GTF-derived transcript IDs, and bumped the immutable materialization schema to `1.2.0` so no
+  incompatible index can be reused.
+- Cancellation/reference regression: 85 combined Python tests and 15 frontend integration tests
+  passed; Ruff, strict mypy across 61 source files, ESLint, and the production TypeScript/Vite build
+  passed. The remaining frontend chunk-size warning stays tracked under TD-006.
+- Refreshed the GitHub README walkthrough from the live application at 1440 pixels. The RNA-seq
+  sequence now consistently uses TranscriptForge Visualization Study, visibly presents its 14 saved
+  exploration, differential-expression, enrichment, and signature analyses, and retains the public
+  Affymetrix ingestion/RMA/limma sequence. Renamed the live development-facing “Phase 7 weighted
+  acceptance” records to “Weighted treatment signature” without changing their frozen inputs or
+  results.
 
 The development stack remains running. The large-study project is at `http://localhost:5173/projects/0694625c-23e1-4847-9622-e508ad95b895`, its prepared bundle at `http://localhost:5173/prepared-datasets/ac5bbe72-ec4e-40ec-9258-f9eae3679209`, and live results are available for PCA (`74cfc4a8-bdea-49b5-ab94-69d8534c52d6`), clustering (`2af084ac-6e90-4beb-b07c-4eabd214f066`), UMAP (`e94db15b-ab8a-4fee-ab6f-9d8e3a2ef63c`), t-SNE (`1dac23c8-5621-46bd-bb71-ddc38640647e`), DESeq2 (`e033fb5c-0516-4a74-9bf8-8e0b77d1eeaa`), limma (`2a13c140-0f8a-4617-bb59-e17b386469f9`), edgeR QL (`c31e8833-39a1-4aa8-a33b-ca87b5df90d4`), limma-voom (`339a7348-f43b-402e-be0a-555c69a0267c`), and edgeR QL with enrichment (`53509cd4-532c-4173-b505-a65e43101b6b`). The polished raw RNA-seq ingestion dashboard is at `http://localhost:5173/projects/e9574d9b-dc8f-480d-b844-64e5be0bdf31`. The public microarray project is at `http://localhost:5173/projects/32eb730d-7bda-43c1-a930-a37d91789e44`, its prepared bundle at `http://localhost:5173/prepared-datasets/75deff90-236b-4055-9c1b-e74c2ba9ec67`, and its paired limma result at `http://localhost:5173/analyses/0a800b33-6940-4b55-8928-c6c491ebe53d`.
 

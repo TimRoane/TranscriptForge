@@ -1,6 +1,6 @@
 # TranscriptForge debt register
 
-Last reviewed: 2026-07-16
+Last reviewed: 2026-07-17
 
 This is the owner-facing register for work that should not disappear inside implementation notes.
 Items marked **Manual decision** need scientific, product, legal, infrastructure, or operational
@@ -14,8 +14,10 @@ judgment from the repository owner before they can be closed safely.
 - Status: Open
 - Manual decision: Choose retention periods, recovery expectations, and whether deletion is soft,
   delayed, or immediate.
-- Current state: Deleting database records does not enqueue deletion of every corresponding object.
-  Immutable uploaded inputs and run artifacts can therefore remain in storage.
+- Current state: Project deletion now cascades through its complete relational ownership graph,
+  including datasets, prepared bundles, analyses, runs, artifact indexes, models, and signatures.
+  It does not yet enqueue deletion of every corresponding stored object, so immutable uploaded
+  inputs and run artifacts can remain in storage.
 - Exit criteria: Define retention policy; add an outbox/cleanup worker; make cleanup idempotent;
   audit storage versus database ownership; test partial-failure recovery.
 
@@ -60,13 +62,17 @@ judgment from the repository owner before they can be closed safely.
 ### TD-005 — Run cancellation and abandoned-work cleanup
 
 - Type: Technical and operational
-- Status: Open
+- Status: Partially resolved
 - Manual decision: Define cancellation semantics and which partial outputs should be retained for
   debugging.
-- Current state: Run states include cancelling/cancelled values, but end-to-end Nextflow cancellation,
-  worker acknowledgement, and work-directory cleanup are not implemented.
-- Exit criteria: Add cancellation API/UI, terminate the correct workflow session, preserve actionable
-  logs, and clean work data without deleting published immutable results.
+- Current state: The API and UI cancel queued or locally executing validation, preparation, and
+  analysis runs. Workers terminate the isolated Nextflow process group, acknowledge `CANCELLED`,
+  restore dataset state, retain launcher logs, and allow interrupted reference materialization to
+  remove its atomic temporary build. General run work directories remain retained, and cancellation
+  across independently deployed API/worker control planes still needs an explicit remote transport.
+- Exit criteria: Define retention for cancelled run work, add scheduled cleanup without deleting
+  published immutable results, and implement/test AWS Batch cancellation from a separately deployed
+  API control plane.
 
 ### TD-006 — Frontend bundle size
 
@@ -92,12 +98,18 @@ judgment from the repository owner before they can be closed safely.
 
 - Type: Product content and legal
 - Status: Open
-- Manual decision: Approve the final research-use disclaimer, privacy language, and any deployment-
-  specific terms.
+- Manual decision: Approve the final research-use disclaimer, privacy language, copyright-holder
+  identity, PolyForm Noncommercial terms, commercial-license contact/process, and any deployment-
+  specific terms with qualified counsel.
 - Current state: The application consistently states that outputs are research-use only and not
-  clinically validated, but the wording has not received formal legal review.
+  clinically validated. Repository-owned code and bundled synthetic collections are now marked
+  PolyForm Noncommercial 1.0.0, but the wording and license transition have not received formal
+  legal review. Copyright licensing does not protect the underlying product idea, and any copies
+  already distributed under MIT retain the rights granted for those copies.
 - Exit criteria: Review all user-visible warnings, reports, exports, and documentation; record the
-  approved language and owner.
+  approved language and owner; confirm contributor authority and the license cutoff commit; publish
+  a commercial-license contact path; and separately assess trademark, patent, and confidentiality
+  strategy if protection beyond source-code copyright is required.
 
 ### TD-015 — Docker-profile bundle-builder runtime
 
@@ -174,14 +186,22 @@ judgment from the repository owner before they can be closed safely.
 - Type: Scientific content and technical
 - Status: Open
 - Manual decision: Approve the Human Gene 1.0 ST probe/transcript-cluster/gene mapping policy and
-  choose the next supported Affymetrix platform and public validation study.
+  choose the next supported Affymetrix platform and public validation study. Decide whether the
+  portfolio should retain the current honest, low-powered public contrast or add a separate,
+  prospectively selected higher-powered public study for positive differential-expression calls.
 - Current state: Version 1 explicitly supports only Human Gene 1.0 ST through pinned Bioconductor
   design and annotation packages. An eight-CEL, four-donor public fixture proves real RMA execution,
   mapping, QC, bundle construction, and paired limma plumbing, but it is not an independent
   annotation benchmark. Other array families fail explicitly instead of guessing.
+- Result interpretation: The paired superficial-versus-deep limma run tests 23,702 genes from four
+  donors. It contains 2,084 genes at nominal p < 0.05, 665 at nominal p < 0.01, large effects in
+  cartilage-relevant genes, and 53 genes at FDR < 0.20, but none at FDR < 0.05. The workflow should
+  not lower FDR or select filters after seeing these results merely to manufacture significant calls.
 - Exit criteria: Compare mappings and aggregation against an independent trusted reference; record
   annotation release/update semantics; then add a second checksum-pinned platform adapter with the
-  same acceptance evidence. The replicated public limma benchmark criterion is complete.
+  same acceptance evidence. If a positive portfolio study is added, prespecify its study-selection
+  and feature-filtering criteria before fitting the contrast. The replicated public limma benchmark
+  criterion is complete.
 
 ### TD-014 — Signature scoring and cross-platform interpretation policy
 

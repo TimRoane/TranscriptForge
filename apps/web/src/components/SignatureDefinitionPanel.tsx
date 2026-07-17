@@ -58,7 +58,7 @@ export function SignatureDefinitionPanel({ projectId }: { projectId: string }) {
       <Stack spacing={2.5}>
         <div>
           <Typography variant="overline" color="secondary.main" fontWeight={750}>
-            Phase 7 · Signature analysis
+            Signature library
           </Typography>
           <Typography variant="h5" fontWeight={700}>Reusable signature definitions</Typography>
           <Typography color="text.secondary" mt={0.5}>

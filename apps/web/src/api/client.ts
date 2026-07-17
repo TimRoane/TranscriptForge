@@ -841,6 +841,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(message, response.status)
   }
+  if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }
 
@@ -862,6 +863,10 @@ export function createProject(payload: { name: string; description?: string }): 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
+}
+
+export function deleteProject(projectId: string): Promise<void> {
+  return request(`/projects/${projectId}`, { method: 'DELETE' })
 }
 
 export function fetchDatasets(projectId: string, signal?: AbortSignal): Promise<Dataset[]> {
@@ -966,6 +971,10 @@ export function fetchValidationRuns(datasetId: string, signal?: AbortSignal): Pr
 
 export function fetchRun(runId: string, signal?: AbortSignal): Promise<Run> {
   return request(`/runs/${runId}`, { signal })
+}
+
+export function cancelRun(runId: string): Promise<Run> {
+  return request(`/runs/${runId}/cancel`, { method: 'POST' })
 }
 
 export function fetchValidationReport(runId: string, signal?: AbortSignal): Promise<ValidationReport> {

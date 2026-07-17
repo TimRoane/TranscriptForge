@@ -1,4 +1,5 @@
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
 import {
@@ -17,7 +18,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
 
 import {
@@ -38,6 +39,48 @@ import {
 } from '../api/client'
 import { ErrorState, LoadingState } from '../components/ApiState'
 import { SignatureMappingPanel } from '../components/SignatureMappingPanel'
+
+const PRIMARY_VARIABLE_PRIORITY = [
+  'treatment',
+  'condition',
+  'zone',
+  'phenotype',
+  'group',
+  'genotype',
+  'disease',
+  'status',
+]
+
+const BLOCK_VARIABLE_PRIORITY = [
+  'donor',
+  'subject_id',
+  'subject',
+  'patient_id',
+  'patient',
+  'participant_id',
+  'participant',
+  'individual_id',
+  'individual',
+]
+
+const SAMPLE_IDENTIFIER_NAMES = new Set([
+  'cel_file',
+  'file_name',
+  'filename',
+  'geo_accession',
+  'sample_id',
+  'sample_name',
+])
+
+const ANALYSIS_TYPE_LABELS = {
+  dimension_reduction: 'Exploratory analysis',
+  differential_expression: 'Differential expression',
+  signature: 'Signature analysis',
+}
+
+function normalizedVariableName(name: string) {
+  return name.trim().toLowerCase().replace(/[\s-]+/g, '_')
+}
 
 export function PreparedDatasetPage() {
   const { preparedDatasetId = '' } = useParams()
@@ -60,6 +103,7 @@ export function PreparedDatasetPage() {
   const [fdrThreshold, setFdrThreshold] = useState(0.05)
   const [foldChangeThreshold, setFoldChangeThreshold] = useState(1)
   const [enrichmentEnabled, setEnrichmentEnabled] = useState(false)
+  const blockDefaultDataset = useRef('')
   const prepared = useQuery({
     queryKey: ['prepared-dataset', preparedDatasetId],
     queryFn: ({ signal }) => fetchPreparedDataset(preparedDatasetId, signal),
@@ -103,16 +147,55 @@ export function PreparedDatasetPage() {
     ) ?? [],
     [designOptions.data?.variables],
   )
+  const blockVariables = useMemo(
+    () => designOptions.data?.variables.filter((variable) => (
+      variable.missing_count === 0
+      && variable.unique_count >= 2
+      && variable.unique_count < designOptions.data.sample_count
+    )) ?? [],
+    [designOptions.data],
+  )
   const selectedPrimary = categoricalVariables.find((variable) => variable.name === primaryVariable)
   useEffect(() => {
     if (categoricalVariables.length === 0) return
     if (!categoricalVariables.some((variable) => variable.name === primaryVariable)) {
-      const preferred = categoricalVariables.find((variable) =>
-        ['treatment', 'condition', 'genotype'].includes(variable.name),
-      ) ?? categoricalVariables[0]
+      const preferred = PRIMARY_VARIABLE_PRIORITY
+        .map((name) => categoricalVariables.find(
+          (variable) => normalizedVariableName(variable.name) === name,
+        ))
+        .find((variable) => variable !== undefined)
+        ?? categoricalVariables.find((variable) => (
+          variable.unique_count < (designOptions.data?.sample_count ?? Number.POSITIVE_INFINITY)
+          && !SAMPLE_IDENTIFIER_NAMES.has(normalizedVariableName(variable.name))
+        ))
+        ?? categoricalVariables[0]
       setPrimaryVariable(preferred.name)
     }
-  }, [categoricalVariables, primaryVariable])
+  }, [categoricalVariables, designOptions.data?.sample_count, primaryVariable])
+  useEffect(() => {
+    if (!designOptions.data || blockDefaultDataset.current === preparedDatasetId) return
+    blockDefaultDataset.current = preparedDatasetId
+    const preferred = BLOCK_VARIABLE_PRIORITY
+      .map((name) => blockVariables.find(
+        (variable) => normalizedVariableName(variable.name) === name,
+      ))
+      .find((variable) => variable !== undefined)
+    if (preferred && preferred.name !== primaryVariable && preferred.name !== covariate) {
+      setBlockColumn(preferred.name)
+    }
+  }, [blockVariables, covariate, designOptions.data, preparedDatasetId, primaryVariable])
+  useEffect(() => {
+    if (
+      blockColumn
+      && (
+        blockColumn === primaryVariable
+        || blockColumn === covariate
+        || !blockVariables.some((variable) => variable.name === blockColumn)
+      )
+    ) {
+      setBlockColumn('')
+    }
+  }, [blockColumn, blockVariables, covariate, primaryVariable])
   useEffect(() => {
     if (!selectedPrimary) return
     const reference = selectedPrimary.levels.find((level) =>
@@ -273,6 +356,68 @@ export function PreparedDatasetPage() {
         ))}
       </Stack>
 
+      {(analyses.data?.length ?? 0) > 0 && (
+        <Paper
+          variant="outlined"
+          sx={{ p: 3, borderWidth: 2, borderColor: 'primary.light' }}
+        >
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            justifyContent="space-between"
+            alignItems={{ sm: 'center' }}
+            gap={1}
+          >
+            <Box>
+              <Typography variant="overline" color="primary.main" fontWeight={750}>
+                Continue your work
+              </Typography>
+              <Typography variant="h5" fontWeight={700}>Saved analyses</Typography>
+              <Typography color="text.secondary" mt={0.5}>
+                Open an analysis to view its results, check run status, or launch a saved design.
+              </Typography>
+            </Box>
+            <Chip label={`${analyses.data?.length ?? 0} saved`} color="primary" />
+          </Stack>
+          <Box
+            mt={2}
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, minmax(0, 1fr))' },
+              gap: 1.5,
+            }}
+          >
+            {analyses.data?.map((analysis) => (
+              <Button
+                key={analysis.id}
+                component={RouterLink}
+                to={`/analyses/${analysis.id}`}
+                variant="outlined"
+                endIcon={<ArrowForwardRoundedIcon />}
+                sx={{
+                  p: 2,
+                  minHeight: 82,
+                  justifyContent: 'space-between',
+                  textAlign: 'left',
+                  textTransform: 'none',
+                }}
+              >
+                <Box>
+                  <Typography variant="overline" color="text.secondary" lineHeight={1.2}>
+                    {ANALYSIS_TYPE_LABELS[analysis.analysis_type]}
+                  </Typography>
+                  <Typography variant="subtitle1" color="text.primary" fontWeight={700}>
+                    {analysis.name}
+                  </Typography>
+                  <Typography variant="body2" color="primary.main" fontWeight={650}>
+                    Open analysis
+                  </Typography>
+                </Box>
+              </Button>
+            ))}
+          </Box>
+        </Paper>
+      )}
+
       {isMicroarray ? (
         <Paper variant="outlined" sx={{ p: 3 }}>
           <Typography variant="h5" fontWeight={700}>Array QC</Typography>
@@ -355,7 +500,7 @@ export function PreparedDatasetPage() {
         <Stack spacing={2.5}>
           <Box>
             <Typography variant="overline" color="secondary.main" fontWeight={750}>
-              Phase 4 · Differential expression
+              Differential expression
             </Typography>
             <Typography variant="h5" fontWeight={700}>Define the biological comparison</Typography>
             <Typography color="text.secondary" mt={0.5}>
@@ -471,10 +616,12 @@ export function PreparedDatasetPage() {
               sx={{ minWidth: 175 }}
             >
               <MenuItem value="">No block</MenuItem>
-              {categoricalVariables
+              {blockVariables
                 .filter((variable) => variable.name !== primaryVariable && variable.name !== covariate)
                 .map((variable) => (
-                  <MenuItem key={variable.name} value={variable.name}>{variable.name}</MenuItem>
+                  <MenuItem key={variable.name} value={variable.name}>
+                    {variable.name} ({variable.unique_count} IDs)
+                  </MenuItem>
                 ))}
             </TextField>
             <TextField
@@ -557,15 +704,22 @@ export function PreparedDatasetPage() {
             </Paper>
           )}
 
-          <Button
-            variant="contained"
-            startIcon={<PlayArrowRoundedIcon />}
-            onClick={() => saveDifferentialExpression.mutate()}
-            disabled={!designValidation.data?.valid || saveDifferentialExpression.isPending}
-            sx={{ width: 'fit-content' }}
-          >
-            {saveDifferentialExpression.isPending ? 'Saving…' : 'Save validated design'}
-          </Button>
+          <Box>
+            <Button
+              variant="contained"
+              endIcon={<ArrowForwardRoundedIcon />}
+              onClick={() => saveDifferentialExpression.mutate()}
+              disabled={!designValidation.data?.valid || saveDifferentialExpression.isPending}
+              sx={{ width: { xs: '100%', sm: 'fit-content' } }}
+            >
+              {saveDifferentialExpression.isPending
+                ? 'Saving design…'
+                : 'Save design & continue to run'}
+            </Button>
+            <Typography variant="body2" color="text.secondary" mt={1}>
+              Opens the saved analysis page, where you can review the frozen model and start the run.
+            </Typography>
+          </Box>
           {saveDifferentialExpression.isError && (
             <Alert severity="error">{saveDifferentialExpression.error.message}</Alert>
           )}
@@ -609,7 +763,7 @@ export function PreparedDatasetPage() {
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems={{ md: 'flex-end' }}>
           <Box sx={{ flex: 1 }}>
             <Typography variant="overline" color="secondary.main" fontWeight={750}>
-              Phase 3 · Analysis
+              Exploratory analysis
             </Typography>
             <Typography variant="h5" fontWeight={700}>Explore sample structure</Typography>
             <Typography color="text.secondary" mt={0.5}>
@@ -673,21 +827,6 @@ export function PreparedDatasetPage() {
         </Stack>
         </Stack>
         {launchAnalysis.isError && <Alert severity="error" sx={{ mt: 2 }}>{launchAnalysis.error.message}</Alert>}
-        {(analyses.data?.length ?? 0) > 0 && (
-          <Stack direction="row" spacing={1} mt={2} alignItems="center" flexWrap="wrap">
-            <Typography variant="body2" color="text.secondary">Saved analyses:</Typography>
-            {analyses.data?.map((analysis) => (
-              <Chip
-                key={analysis.id}
-                label={analysis.name}
-                component={RouterLink}
-                to={`/analyses/${analysis.id}`}
-                clickable
-                variant="outlined"
-              />
-            ))}
-          </Stack>
-        )}
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 3 }}>

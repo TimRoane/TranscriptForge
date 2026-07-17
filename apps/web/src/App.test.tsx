@@ -76,6 +76,8 @@ describe('App', () => {
     renderApp()
 
     expect(screen.getByText('Research use only')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'From expression data to auditable results.' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open workspace' })).toHaveAttribute('href', '/projects')
     expect(await screen.findByText('Airway study')).toBeInTheDocument()
     expect(await screen.findByLabelText('API connected')).toBeInTheDocument()
   })
@@ -91,7 +93,7 @@ describe('App', () => {
       return jsonResponse({ detail: 'Not found' }, 404)
     })
 
-    renderApp()
+    renderApp('/projects')
     fireEvent.click(await screen.findByRole('button', { name: 'New project' }))
     fireEvent.change(screen.getByRole('textbox', { name: /Project name/ }), {
       target: { value: 'Airway study' },
@@ -100,6 +102,37 @@ describe('App', () => {
 
     await waitFor(() => expect(screen.getByText('Datasets')).toBeInTheDocument())
     expect(screen.getByText('No datasets registered yet.')).toBeInTheDocument()
+  })
+
+  it('requires the exact project name before deleting a project', async () => {
+    let deleted = false
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return jsonResponse(health)
+      if (url.endsWith('/projects/project-1') && init?.method === 'DELETE') {
+        deleted = true
+        return new Response(null, { status: 204 })
+      }
+      if (url.endsWith('/projects')) return jsonResponse(deleted ? [] : [project])
+      return jsonResponse({ detail: 'Not found' }, 404)
+    })
+
+    renderApp('/projects')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete Airway study' }))
+    const confirm = screen.getByRole('button', { name: 'Delete project' })
+    expect(confirm).toBeDisabled()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Project name' }), {
+      target: { value: 'Airway study' },
+    })
+    expect(confirm).toBeEnabled()
+    fireEvent.click(confirm)
+
+    await waitFor(() => expect(screen.queryByText('Airway study')).not.toBeInTheDocument())
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/projects/project-1'),
+      expect.objectContaining({ method: 'DELETE' }),
+    )
   })
 
   it('uploads a checksum-frozen signature definition from the project page', async () => {
@@ -184,6 +217,48 @@ describe('App', () => {
     expect(await screen.findByText(/VALID: 1 features and 1 samples/)).toBeInTheDocument()
     expect(screen.getByRole('table', { name: 'Matrix orientation preview' })).toBeInTheDocument()
     expect(screen.getByText('ENSG000001')).toBeInTheDocument()
+  })
+
+  it('stops an active Expression Bundle preparation from the project dashboard', async () => {
+    let preparationState = 'RUNNING'
+    const preparationRun = {
+      ...completedRun,
+      id: 'run-preparation',
+      run_type: 'dataset_preparation',
+      state: preparationState,
+      exit_code: null,
+      finished_at: null,
+    }
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return jsonResponse(health)
+      if (url.endsWith('/projects/project-1')) return jsonResponse(project)
+      if (url.endsWith('/projects/project-1/datasets')) return jsonResponse([dataset])
+      if (url.endsWith('/datasets/dataset-1/validation-runs')) return jsonResponse([completedRun])
+      if (url.endsWith('/datasets/dataset-1/preparation-runs')) {
+        return jsonResponse([{ ...preparationRun, state: preparationState }])
+      }
+      if (url.endsWith('/datasets/dataset-1/prepared-versions')) return jsonResponse([])
+      if (url.endsWith('/runs/run-1')) return jsonResponse(completedRun)
+      if (url.endsWith('/runs/run-1/artifacts')) return jsonResponse([])
+      if (url.endsWith('/runs/run-preparation/cancel') && init?.method === 'POST') {
+        preparationState = 'CANCELLING'
+        return jsonResponse({ ...preparationRun, state: preparationState }, 202)
+      }
+      if (url.endsWith('/runs/run-preparation')) {
+        return jsonResponse({ ...preparationRun, state: preparationState })
+      }
+      return jsonResponse({ detail: 'Not found' }, 404)
+    })
+
+    renderApp('/projects/project-1')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Stop run' }))
+    expect(await screen.findByRole('button', { name: 'Stopping…' })).toBeDisabled()
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/runs/run-preparation/cancel'),
+      expect.objectContaining({ method: 'POST' }),
+    )
   })
 
   it('validates a paired FASTQ sample sheet against the pinned reference', async () => {
@@ -586,14 +661,14 @@ describe('App', () => {
           id: 'prepared-microarray', dataset_id: 'dataset-1', version: 1,
           preparation_run_id: 'microarray-run-1',
           value_types_available: ['log_expression', 'probe_expression'],
-          sample_count: 2, feature_count: 23702, qc_status: 'PASS',
+          sample_count: 8, feature_count: 23702, qc_status: 'PASS',
           created_at: '2026-07-16T00:00:00Z',
         })
       }
       if (url.endsWith('/datasets/dataset-1')) return jsonResponse(microarrayDataset)
       if (url.endsWith('/runs/microarray-run-1/qc-summary')) {
         return jsonResponse({
-          schema_version: '1.0.0', status: 'PASS', sample_count: 2,
+          schema_version: '1.0.0', status: 'PASS', sample_count: 8,
           probe_count: 257430, gene_count: 23702, reviewed_sample_count: 0,
           plots: ['plots/pca.svg'],
         })
@@ -601,7 +676,7 @@ describe('App', () => {
       if (url.endsWith('/runs/microarray-run-1/feature-mapping-summary')) {
         return jsonResponse({
           prepared_dataset_id: 'prepared-microarray', prepared_version: 1,
-          sample_count: 2, feature_count: 23702,
+          sample_count: 8, feature_count: 23702,
           value_types_available: ['log_expression', 'probe_expression'], qc_status: 'PASS',
           mapped_feature_count: 23702, unmapped_feature_count: 0,
           duplicate_group_count: 0, mapping_coverage: 1,
@@ -615,9 +690,51 @@ describe('App', () => {
           plotArtifact('microarray_pca', 'Microarray PCA'),
         ])
       }
-      if (url.endsWith('/prepared-datasets/prepared-microarray/analyses')) return jsonResponse([])
+      if (url.endsWith('/prepared-datasets/prepared-microarray/analyses')) {
+        return jsonResponse([{
+          id: 'analysis-microarray-de', project_id: 'project-1',
+          prepared_dataset_id: 'prepared-microarray', analysis_type: 'differential_expression',
+          name: 'Superficial versus deep', description: null, configuration_json: {},
+          created_at: '2026-07-16T00:00:00Z',
+        }])
+      }
       if (url.endsWith('/prepared-datasets/prepared-microarray/differential-expression/design-options')) {
-        return jsonResponse({ sample_count: 2, assays: ['log_expression'], variables: [] })
+        return jsonResponse({
+          sample_count: 8,
+          assays: ['log_expression'],
+          variables: [
+            {
+              name: 'cel_file', kind: 'categorical',
+              levels: Array.from({ length: 8 }, (_, index) => `GSM${index + 1}.CEL.gz`),
+              missing_count: 0, unique_count: 8,
+            },
+            {
+              name: 'donor', kind: 'numeric', levels: [],
+              missing_count: 0, unique_count: 4,
+            },
+            {
+              name: 'zone', kind: 'categorical', levels: ['deep', 'superficial'],
+              missing_count: 0, unique_count: 2,
+            },
+          ],
+        })
+      }
+      if (url.endsWith('/prepared-datasets/prepared-microarray/differential-expression/validate-design')) {
+        return jsonResponse({
+          valid: true,
+          formula: '~ donor + zone',
+          resolved_method: 'limma',
+          contrast_label: 'superficial versus deep within zone',
+          sample_count: 8,
+          contrast_counts: { superficial: 4, deep: 4 },
+          design_matrix_columns: [
+            'Intercept', 'donor[72]', 'donor[73]', 'donor[74]', 'zone[superficial]',
+          ],
+          design_matrix_rank: 5,
+          design_cells: [],
+          errors: [],
+          warnings: [],
+        })
       }
       return jsonResponse({ detail: 'Not found' }, 404)
     })
@@ -631,6 +748,18 @@ describe('App', () => {
     expect(screen.getByRole('img', { name: 'Microarray PCA' })).toBeInTheDocument()
     expect(screen.getByText('257,430 probe sets retained')).toBeInTheDocument()
     expect(screen.getByText('Aggregation: highest mad')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Saved analyses' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Superficial versus deep.*Open analysis/i }))
+      .toHaveAttribute('href', '/analyses/analysis-microarray-de')
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: 'Primary variable' })).toHaveTextContent('zone')
+      expect(screen.getByRole('combobox', { name: 'Numerator' })).toHaveTextContent('superficial')
+      expect(screen.getByRole('combobox', { name: 'Denominator' })).toHaveTextContent('deep')
+      expect(screen.getByRole('combobox', { name: 'Subject / block' })).toHaveTextContent('donor')
+    })
+    expect(await screen.findByText('~ donor + zone')).toBeInTheDocument()
+    expect(screen.getByText('Design valid')).toBeInTheDocument()
+    expect(screen.getByText('Rank 5/5')).toBeInTheDocument()
   })
 
   it('selects UMAP controls and launches the frozen method configuration', async () => {
@@ -872,9 +1001,13 @@ describe('App', () => {
     expect(await screen.findByText('Method: edger_ql')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('checkbox', { name: 'Run optional gene-set enrichment' }))
     expect(await screen.findByText(/not a curated biological pathway database/i)).toBeInTheDocument()
-    const saveButton = screen.getByRole('button', { name: 'Save validated design' })
+    const saveButton = screen.getByRole('button', { name: 'Save design & continue to run' })
     await waitFor(() => expect(saveButton).toBeEnabled())
     fireEvent.click(saveButton)
+
+    expect(await screen.findByRole('button', { name: 'Run differential expression' }))
+      .toBeInTheDocument()
+    expect(screen.getByText(/Design saved.*start the workflow/i)).toBeInTheDocument()
 
     await waitFor(() => {
       const createCall = fetchMock.mock.calls.find(
@@ -999,7 +1132,8 @@ describe('App', () => {
             collection_id: 'transcriptforge_demo_effects',
             name: 'TranscriptForge simulated-effect controls', version: '1.0.0',
             identifier_namespace: 'transcriptforge_demo_feature_id',
-            source: 'TranscriptForge bundled deterministic demo experiment', license: 'MIT',
+            source: 'TranscriptForge bundled deterministic demo experiment',
+            license: 'PolyForm-Noncommercial-1.0.0',
             gmt_sha256: 'b'.repeat(64), set_count: 7,
           },
           source_result: {

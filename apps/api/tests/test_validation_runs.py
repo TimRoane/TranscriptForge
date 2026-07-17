@@ -67,6 +67,33 @@ async def test_validation_creates_queued_run_and_dispatches(
     assert report.status_code == 404
 
 
+async def test_project_delete_cascades_validation_run_metadata(client: AsyncClient) -> None:
+    project = await client.post("/api/projects", json={"name": "Disposable validation study"})
+    assert project.status_code == 201
+    project_id = str(project.json()["id"])
+    dataset = await client.post(
+        f"/api/projects/{project_id}/datasets",
+        json={
+            "name": "Disposable counts",
+            "modality": "bulk_rnaseq",
+            "source_kind": "count_matrix",
+        },
+    )
+    assert dataset.status_code == 201
+    dataset_id = str(dataset.json()["id"])
+    await _upload_inputs(client, dataset_id)
+    validation = await client.post(f"/api/datasets/{dataset_id}/validate", json={})
+    assert validation.status_code == 202
+    run_id = str(validation.json()["id"])
+
+    deleted = await client.delete(f"/api/projects/{project_id}")
+
+    assert deleted.status_code == 204
+    assert (await client.get(f"/api/projects/{project_id}")).status_code == 404
+    assert (await client.get(f"/api/datasets/{dataset_id}")).status_code == 404
+    assert (await client.get(f"/api/runs/{run_id}")).status_code == 404
+
+
 async def test_validation_rejects_a_second_active_run(
     client: AsyncClient, dispatched_run_ids: list[str]
 ) -> None:
@@ -77,6 +104,63 @@ async def test_validation_rejects_a_second_active_run(
     assert duplicate.status_code == 409
     assert "active validation run" in duplicate.json()["detail"]
     assert len(dispatched_run_ids) == 1
+
+
+async def test_queued_validation_can_be_cancelled_and_restores_dataset(
+    client: AsyncClient,
+) -> None:
+    dataset_id = await _create_dataset(client)
+    await _upload_inputs(client, dataset_id)
+    launched = await client.post(f"/api/datasets/{dataset_id}/validate", json={})
+
+    cancelled = await client.post(f"/api/runs/{launched.json()['id']}/cancel")
+
+    assert cancelled.status_code == 202
+    assert cancelled.json()["state"] == "CANCELLED"
+    assert cancelled.json()["error_summary"] == "Cancelled by user."
+    dataset = await client.get(f"/api/datasets/{dataset_id}")
+    assert dataset.json()["status"] == "draft"
+
+
+async def test_running_validation_enters_cancelling_state(
+    client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    dataset_id = await _create_dataset(client)
+    await _upload_inputs(client, dataset_id)
+    launched = await client.post(f"/api/datasets/{dataset_id}/validate", json={})
+    run_id = str(launched.json()["id"])
+    async with session_factory() as session:
+        run = await session.get(Run, run_id)
+        assert run is not None
+        run.state = "RUNNING"
+        await session.commit()
+
+    cancelling = await client.post(f"/api/runs/{run_id}/cancel")
+
+    assert cancelling.status_code == 202
+    assert cancelling.json()["state"] == "CANCELLING"
+    assert (await client.get(f"/api/datasets/{dataset_id}")).json()["status"] == "validating"
+
+
+async def test_terminal_run_rejects_cancellation(
+    client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    dataset_id = await _create_dataset(client)
+    await _upload_inputs(client, dataset_id)
+    launched = await client.post(f"/api/datasets/{dataset_id}/validate", json={})
+    run_id = str(launched.json()["id"])
+    async with session_factory() as session:
+        run = await session.get(Run, run_id)
+        assert run is not None
+        run.state = "SUCCEEDED"
+        await session.commit()
+
+    response = await client.post(f"/api/runs/{run_id}/cancel")
+
+    assert response.status_code == 409
+    assert "already succeeded" in response.json()["detail"]
 
 
 async def test_validated_dataset_can_launch_immutable_preparation(

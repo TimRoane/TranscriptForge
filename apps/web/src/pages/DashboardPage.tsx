@@ -1,5 +1,6 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import {
   Button,
   Card,
@@ -16,15 +17,18 @@ import {
 } from '@mui/material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link as RouterLink, useNavigate } from 'react-router-dom'
+import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { createProject, fetchProjects } from '../api/client'
+import { createProject, deleteProject, fetchProjects, type Project } from '../api/client'
 import { ErrorState, LoadingState } from '../components/ApiState'
+import { DeleteProjectDialog } from '../components/DeleteProjectDialog'
 
 export function DashboardPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [dialogOpen, setDialogOpen] = useState(searchParams.get('new') === '1')
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const projects = useQuery({ queryKey: ['projects'], queryFn: ({ signal }) => fetchProjects(signal) })
@@ -35,6 +39,18 @@ export function DashboardPage() {
       navigate(`/projects/${project.id}`)
     },
   })
+  const remove = useMutation({
+    mutationFn: (project: Project) => deleteProject(project.id),
+    onSuccess: async () => {
+      setProjectToDelete(null)
+      await queryClient.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+
+  const closeCreateDialog = () => {
+    setDialogOpen(false)
+    if (searchParams.has('new')) setSearchParams({}, { replace: true })
+  }
 
   return (
     <Stack spacing={4}>
@@ -62,15 +78,26 @@ export function DashboardPage() {
                 <Typography variant="h6">{project.name}</Typography>
                 <Typography color="text.secondary" mt={1}>{project.description || 'No description provided.'}</Typography>
               </CardContent>
-              <CardActions>
+              <CardActions sx={{ justifyContent: 'space-between' }}>
                 <Button component={RouterLink} to={`/projects/${project.id}`} endIcon={<ArrowForwardRoundedIcon />}>Open project</Button>
+                <Button
+                  color="error"
+                  startIcon={<DeleteOutlineRoundedIcon />}
+                  onClick={() => {
+                    remove.reset()
+                    setProjectToDelete(project)
+                  }}
+                  aria-label={`Delete ${project.name}`}
+                >
+                  Delete
+                </Button>
               </CardActions>
             </Card>
           </Grid>
         ))}
       </Grid>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen} onClose={closeCreateDialog} fullWidth maxWidth="sm">
         <DialogTitle>Create a project</DialogTitle>
         <DialogContent><Stack spacing={2} mt={1}>
           <TextField label="Project name" required autoFocus value={name} onChange={(event) => setName(event.target.value)} />
@@ -78,12 +105,25 @@ export function DashboardPage() {
           {create.isError && <ErrorState error={create.error} />}
         </Stack></DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={closeCreateDialog}>Cancel</Button>
           <Button variant="contained" disabled={!name.trim() || create.isPending} onClick={() => create.mutate({ name: name.trim(), description: description.trim() || undefined })}>
             {create.isPending ? 'Creating…' : 'Create'}
           </Button>
         </DialogActions>
       </Dialog>
+      <DeleteProjectDialog
+        project={projectToDelete}
+        open={projectToDelete !== null}
+        pending={remove.isPending}
+        error={remove.isError ? remove.error : null}
+        onClose={() => {
+          remove.reset()
+          setProjectToDelete(null)
+        }}
+        onConfirm={() => {
+          if (projectToDelete) remove.mutate(projectToDelete)
+        }}
+      />
     </Stack>
   )
 }

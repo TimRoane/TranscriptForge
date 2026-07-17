@@ -96,7 +96,12 @@ class PreparedDataset(UUIDPrimaryKeyMixin, Base):
     )
     version: Mapped[int]
     preparation_run_id: Mapped[str | None] = mapped_column(
-        ForeignKey("runs.id", name="fk_prepared_datasets_preparation_run_id_runs", use_alter=True),
+        ForeignKey(
+            "runs.id",
+            name="fk_prepared_datasets_preparation_run_id_runs",
+            use_alter=True,
+            ondelete="SET NULL",
+        ),
         unique=True,
     )
     bundle_uri: Mapped[str] = mapped_column(String(2000), unique=True)
@@ -122,7 +127,7 @@ class Analysis(UUIDPrimaryKeyMixin, Base):
         ForeignKey("projects.id", ondelete="CASCADE"), index=True
     )
     prepared_dataset_id: Mapped[str] = mapped_column(
-        ForeignKey("prepared_datasets.id", ondelete="RESTRICT"), index=True
+        ForeignKey("prepared_datasets.id", ondelete="CASCADE"), index=True
     )
     analysis_type: Mapped[str] = mapped_column(String(50), index=True)
     name: Mapped[str] = mapped_column(String(200))
@@ -142,11 +147,15 @@ class Run(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "runs"
 
     run_type: Mapped[str] = mapped_column(String(40), index=True)
-    dataset_id: Mapped[str | None] = mapped_column(ForeignKey("datasets.id"), index=True)
-    prepared_dataset_id: Mapped[str | None] = mapped_column(
-        ForeignKey("prepared_datasets.id"), index=True
+    dataset_id: Mapped[str | None] = mapped_column(
+        ForeignKey("datasets.id", ondelete="CASCADE"), index=True
     )
-    analysis_id: Mapped[str | None] = mapped_column(ForeignKey("analyses.id"), index=True)
+    prepared_dataset_id: Mapped[str | None] = mapped_column(
+        ForeignKey("prepared_datasets.id", ondelete="CASCADE"), index=True
+    )
+    analysis_id: Mapped[str | None] = mapped_column(
+        ForeignKey("analyses.id", ondelete="CASCADE"), index=True
+    )
     state: Mapped[str] = mapped_column(String(30), default="CREATED", index=True)
     profile: Mapped[str] = mapped_column(String(50), default="docker")
     params_uri: Mapped[str] = mapped_column(String(2000))
@@ -192,8 +201,10 @@ class ModelRecord(UUIDPrimaryKeyMixin, Base):
 
     __tablename__ = "model_records"
 
-    analysis_id: Mapped[str] = mapped_column(ForeignKey("analyses.id"), index=True)
-    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), index=True)
+    analysis_id: Mapped[str] = mapped_column(
+        ForeignKey("analyses.id", ondelete="CASCADE"), index=True
+    )
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id", ondelete="CASCADE"), index=True)
     model_name: Mapped[str] = mapped_column(String(200))
     algorithm: Mapped[str] = mapped_column(String(100))
     outcome_column: Mapped[str] = mapped_column(String(200))
@@ -217,13 +228,13 @@ class GeneSignature(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ForeignKey("projects.id", ondelete="CASCADE"), index=True
     )
     prepared_dataset_id: Mapped[str] = mapped_column(
-        ForeignKey("prepared_datasets.id", ondelete="RESTRICT"), index=True
+        ForeignKey("prepared_datasets.id", ondelete="CASCADE"), index=True
     )
     source_analysis_id: Mapped[str] = mapped_column(
-        ForeignKey("analyses.id", ondelete="RESTRICT"), index=True
+        ForeignKey("analyses.id", ondelete="CASCADE"), index=True
     )
     source_run_id: Mapped[str] = mapped_column(
-        ForeignKey("runs.id", ondelete="RESTRICT"), index=True
+        ForeignKey("runs.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(200), index=True)
     description: Mapped[str | None] = mapped_column(Text)

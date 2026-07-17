@@ -4,7 +4,6 @@ import asyncio
 import hashlib
 import json
 import os
-import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -17,6 +16,11 @@ from transcriptforge_api.models import Artifact, Run
 from transcriptforge_api.models.enums import RunState, RunType
 from transcriptforge_api.storage import get_storage_backend
 from transcriptforge_api.storage.base import StorageBackend
+from transcriptforge_api.workers.process_control import (
+    RunCancelled,
+    raise_if_cancelled,
+    run_cancellable,
+)
 from transcriptforge_api.workers.validation import (
     ArtifactSpec,
     _confined_run_root,
@@ -49,7 +53,10 @@ def run_analysis_workflow(
     """Stage a frozen analysis request, launch Nextflow, and index its outputs."""
     settings = settings or get_settings()
     storage = storage or get_storage_backend()
-    snapshot = asyncio.run(_mark_starting(settings, run_id))
+    try:
+        snapshot = asyncio.run(_mark_starting(settings, run_id))
+    except RunCancelled:
+        return {"run_id": run_id, "state": RunState.CANCELLED.value}
     try:
         frozen = json.loads(storage.read_bytes(snapshot.params_uri))
         _validate_json_contract(frozen, "analysis_request.schema.json", "Frozen analysis request")
@@ -87,16 +94,14 @@ def run_analysis_workflow(
         asyncio.run(_mark_running(settings, run_id, run_name))
         environment = os.environ.copy()
         environment["NXF_HOME"] = str(run_root / ".nextflow")
-        completed = subprocess.run(
+        completed = run_cancellable(
             command,
             cwd=run_root,
             env=environment,
-            check=False,
-            capture_output=True,
-            text=True,
+            run_root=run_root,
+            stdout_path=provenance_dir / "stdout.log",
+            stderr_path=provenance_dir / "stderr.log",
         )
-        (provenance_dir / "stdout.log").write_text(completed.stdout, encoding="utf-8")
-        (provenance_dir / "stderr.log").write_text(completed.stderr, encoding="utf-8")
         nextflow_log = run_root / ".nextflow.log"
         log_text = nextflow_log.read_text(encoding="utf-8") if nextflow_log.is_file() else ""
         session_id = _session_id(completed.stdout + "\n" + completed.stderr + "\n" + log_text)
@@ -105,6 +110,7 @@ def run_analysis_workflow(
                 f"Nextflow exited with code {completed.returncode}: "
                 f"{_error_tail(completed.stdout or log_text or completed.stderr)}"
             )
+        raise_if_cancelled(run_root)
         result_manifest = output_dir / "analysis" / "results" / "result_manifest.json"
         if not result_manifest.is_file():
             raise RuntimeError("Analysis completed without publishing result_manifest.json.")
@@ -139,6 +145,9 @@ def run_analysis_workflow(
         artifacts = _store_artifacts(storage, run_id, _artifact_specs(run_root))
         asyncio.run(_mark_succeeded(settings, snapshot, artifacts, session_id))
         return {"run_id": run_id, "state": RunState.SUCCEEDED.value}
+    except RunCancelled as error:
+        asyncio.run(_mark_cancelled(settings, snapshot, error))
+        return {"run_id": run_id, "state": RunState.CANCELLED.value}
     except Exception as error:
         asyncio.run(_mark_failed(settings, snapshot, error))
         raise
@@ -542,6 +551,8 @@ async def _mark_starting(settings: Settings, run_id: str) -> AnalysisRunSnapshot
             or run.run_type != RunType.ANALYSIS.value
         ):
             raise RuntimeError(f"Analysis run '{run_id}' does not exist.")
+        if run.state in {RunState.CANCELLING.value, RunState.CANCELLED.value}:
+            raise RunCancelled("Cancelled by user.")
         if run.state != RunState.QUEUED.value:
             raise RuntimeError(f"Analysis run '{run_id}' is in state {run.state}, not QUEUED.")
         run.state = RunState.STARTING.value
@@ -557,6 +568,8 @@ async def _mark_running(settings: Settings, run_id: str, run_name: str) -> None:
         run = await session.get(Run, run_id)
         if run is None:
             raise RuntimeError(f"Analysis run '{run_id}' disappeared.")
+        if run.state in {RunState.CANCELLING.value, RunState.CANCELLED.value}:
+            raise RunCancelled("Cancelled by user.")
         run.state = RunState.RUNNING.value
         run.nextflow_run_name = run_name
         await session.commit()
@@ -572,12 +585,27 @@ async def _mark_succeeded(
         run = await session.get(Run, snapshot.id)
         if run is None:
             raise RuntimeError("Analysis run disappeared before completion.")
+        if run.state in {RunState.CANCELLING.value, RunState.CANCELLED.value}:
+            raise RunCancelled("Cancelled by user.")
         for item in artifacts:
             session.add(Artifact(run_id=run.id, metadata_json={}, **item))
         run.state = RunState.SUCCEEDED.value
         run.exit_code = 0
         run.nextflow_session_id = session_id
         run.finished_at = datetime.now(UTC)
+        await session.commit()
+
+
+async def _mark_cancelled(
+    settings: Settings, snapshot: AnalysisRunSnapshot, error: RunCancelled
+) -> None:
+    async with _worker_session(settings) as session:
+        run = await session.get(Run, snapshot.id)
+        if run is not None:
+            run.state = RunState.CANCELLED.value
+            run.exit_code = 143
+            run.error_summary = str(error)[:4000]
+            run.finished_at = datetime.now(UTC)
         await session.commit()
 
 

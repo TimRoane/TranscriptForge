@@ -56,7 +56,7 @@ def main() -> None:
         version="1.0.0",
         namespace="synthetic_ensembl_like_feature_id",
         source="TranscriptForge deterministic 72-sample demonstration ground truth",
-        license_name="MIT",
+        license_name="PolyForm-Noncommercial-1.0.0",
         sets=[
             (
                 "TF_DEMO_TREATMENT_UP",
@@ -101,7 +101,7 @@ def main() -> None:
         version="1.0.0",
         namespace="acceptance_fixture_feature_id",
         source="TranscriptForge deterministic R differential-expression acceptance fixture",
-        license_name="MIT",
+        license_name="PolyForm-Noncommercial-1.0.0",
         sets=[
             ("TF_ACCEPTANCE_UP", "Known positive fixture effects", fixture_ids("up", 15)),
             ("TF_ACCEPTANCE_DOWN", "Known negative fixture effects", fixture_ids("down", 15)),

@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from transcriptforge_api.config import Settings, get_settings
 from transcriptforge_api.db.session import get_session
 from transcriptforge_api.main import create_app
 from transcriptforge_api.models import Base
@@ -63,6 +64,7 @@ async def session_factory(
 
 @pytest_asyncio.fixture
 async def test_app(
+    tmp_path: Path,
     storage: LocalStorage,
     dispatched_run_ids: list[str],
     dispatched_preparation_ids: list[str],
@@ -86,7 +88,14 @@ async def test_app(
         return dispatched_analysis_ids.append
 
     application = create_app()
+    test_settings = Settings(
+        environment="test",
+        run_work_root=tmp_path / "runs",
+        reference_cache_root=tmp_path / "references",
+        local_storage_root=tmp_path / "objects",
+    )
     application.dependency_overrides[get_session] = override_session
+    application.dependency_overrides[get_settings] = lambda: test_settings
     application.dependency_overrides[get_storage_backend] = override_storage
     application.dependency_overrides[get_validation_dispatcher] = override_dispatcher
     application.dependency_overrides[get_preparation_dispatcher] = override_preparation_dispatcher

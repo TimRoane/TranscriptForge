@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
+from transcriptforge_api.config import Settings, get_settings
 from transcriptforge_api.db.session import get_session
 from transcriptforge_api.models import Artifact, Run
 from transcriptforge_api.schemas.runs import (
@@ -25,6 +26,7 @@ from transcriptforge_api.storage.base import StorageBackend
 router = APIRouter(tags=["runs"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 Storage = Annotated[StorageBackend, Depends(get_storage_backend)]
+Configuration = Annotated[Settings, Depends(get_settings)]
 
 
 async def require_run(session: AsyncSession, run_id: str) -> Run:
@@ -44,6 +46,29 @@ async def require_artifact(session: AsyncSession, artifact_id: str) -> Artifact:
 @router.get("/runs/{run_id}", response_model=RunRead)
 async def get_run(run_id: str, session: Session) -> Run:
     return await require_run(session, run_id)
+
+
+@router.post(
+    "/runs/{run_id}/cancel",
+    response_model=RunRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def cancel_run(
+    run_id: str,
+    session: Session,
+    storage: Storage,
+    settings: Configuration,
+) -> Run:
+    run = await require_run(session, run_id)
+    try:
+        return await run_service.cancel_run(
+            session,
+            storage,
+            run,
+            run_work_root=str(settings.run_work_root),
+        )
+    except run_service.RunCancellationError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
 
 
 @router.get("/runs/{run_id}/artifacts", response_model=list[ArtifactRead])

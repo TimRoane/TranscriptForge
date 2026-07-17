@@ -10,7 +10,12 @@ from botocore.exceptions import ClientError
 from jsonschema import Draft202012Validator
 from transcriptforge_analysis.raw_bundle_cli import build_raw_bundle
 from transcriptforge_analysis.raw_inputs import verify_inputs
-from transcriptforge_analysis.raw_reference import _publish_s3_cache, _restore_s3_cache
+from transcriptforge_analysis.raw_reference import (
+    MATERIALIZATION_SCHEMA_VERSION,
+    _publish_s3_cache,
+    _restore_s3_cache,
+    _salmon_index_command,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -58,7 +63,7 @@ def _reference_cache_fixture(root: Path) -> dict[str, Any]:
     (root / "tx2gene.tsv").write_text("transcript_id\tgene_id\ntx1\tg1\n")
     (root / "salmon_index/versionInfo.json").write_text("{}\n", encoding="utf-8")
     manifest = {
-        "schema_version": "1.1.0",
+        "schema_version": MATERIALIZATION_SCHEMA_VERSION,
         "reference_id": "tiny-grch38",
         "definition_sha256": "a" * 64,
         "salmon_version": "1.11.4",
@@ -79,6 +84,19 @@ def _reference_cache_fixture(root: Path) -> dict[str, Any]:
         json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
     )
     return manifest
+
+
+def test_salmon_index_uses_gencode_transcript_identifiers(tmp_path: Path) -> None:
+    command = _salmon_index_command(
+        "salmon",
+        tmp_path / "gentrome.fa",
+        tmp_path / "decoys.txt",
+        tmp_path / "salmon_index",
+        31,
+    )
+
+    assert command[-1] == "--gencode"
+    assert command[command.index("--kmerLen") + 1] == "31"
 
 
 def test_reference_cache_round_trips_through_immutable_s3_prefix(tmp_path: Path) -> None:

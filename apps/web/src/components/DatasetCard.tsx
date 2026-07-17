@@ -1,6 +1,7 @@
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded'
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
+import StopCircleRoundedIcon from '@mui/icons-material/StopCircleRounded'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import {
   Alert,
@@ -31,6 +32,7 @@ import { Link as RouterLink } from 'react-router-dom'
 
 import {
   artifactDownloadUrl,
+  cancelRun,
   type Dataset,
   type DatasetFile,
   type DatasetFileRole,
@@ -52,7 +54,7 @@ import {
   validateDataset,
 } from '../api/client'
 
-const activeStates = new Set(['CREATED', 'QUEUED', 'STARTING', 'RUNNING'])
+const activeStates = new Set(['CREATED', 'QUEUED', 'STARTING', 'RUNNING', 'CANCELLING'])
 
 export function DatasetCard({ dataset }: { dataset: Dataset }) {
   const queryClient = useQueryClient()
@@ -167,6 +169,20 @@ export function DatasetCard({ dataset }: { dataset: Dataset }) {
     mutationFn: () => prepareDataset(dataset.id),
     onSuccess: async (createdRun) => {
       queryClient.setQueryData(['run', createdRun.id], createdRun)
+      await queryClient.invalidateQueries({ queryKey: ['preparation-runs', dataset.id] })
+    },
+  })
+  const cancelValidation = useMutation({
+    mutationFn: (id: string) => cancelRun(id),
+    onSuccess: async (cancelledRun) => {
+      queryClient.setQueryData(['run', cancelledRun.id], cancelledRun)
+      await queryClient.invalidateQueries({ queryKey: ['validation-runs', dataset.id] })
+    },
+  })
+  const cancelPreparation = useMutation({
+    mutationFn: (id: string) => cancelRun(id),
+    onSuccess: async (cancelledRun) => {
+      queryClient.setQueryData(['run', cancelledRun.id], cancelledRun)
       await queryClient.invalidateQueries({ queryKey: ['preparation-runs', dataset.id] })
     },
   })
@@ -352,6 +368,8 @@ export function DatasetCard({ dataset }: { dataset: Dataset }) {
         {upload.isError && <Alert severity="error" sx={{ mt: 2 }}>{upload.error.message}</Alert>}
         {validation.isError && <Alert severity="error" sx={{ mt: 2 }}>{validation.error.message}</Alert>}
         {preparation.isError && <Alert severity="error" sx={{ mt: 2 }}>{preparation.error.message}</Alert>}
+        {cancelValidation.isError && <Alert severity="error" sx={{ mt: 2 }}>{cancelValidation.error.message}</Alert>}
+        {cancelPreparation.isError && <Alert severity="error" sx={{ mt: 2 }}>{cancelPreparation.error.message}</Alert>}
         {rawIngest.isError && <Alert severity="error" sx={{ mt: 2 }}>{rawIngest.error.message}</Alert>}
         {microarrayIngest.isError && <Alert severity="error" sx={{ mt: 2 }}>{microarrayIngest.error.message}</Alert>}
         {lastUpload && (
@@ -414,6 +432,8 @@ export function DatasetCard({ dataset }: { dataset: Dataset }) {
             </Stack>
             <Alert severity="info" sx={{ mt: 2 }}>
               Reference: GENCODE 50, GRCh38.p14, Salmon 1.11.4, full-genome decoy index.
+              Its first materialization can take tens of minutes; the completed index is stored
+              outside Git and reused by every project in this deployment.
             </Alert>
             {rawIngestion.data && (
               <Stack spacing={2} mt={2}>
@@ -615,14 +635,28 @@ export function DatasetCard({ dataset }: { dataset: Dataset }) {
             <Divider sx={{ mb: 2 }} />
             <Stack direction="row" justifyContent="space-between" alignItems="center" gap={2}>
               <Typography fontWeight={650}>Validation run</Typography>
-              <Chip
-                size="small"
-                label={run.data.state}
-                color={run.data.state === 'FAILED' ? 'error' : run.data.state === 'SUCCEEDED' ? 'success' : 'info'}
-              />
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Chip
+                  size="small"
+                  label={run.data.state}
+                  color={run.data.state === 'FAILED' ? 'error' : run.data.state === 'SUCCEEDED' ? 'success' : 'info'}
+                />
+                {isActive && (
+                  <Button
+                    size="small"
+                    color="error"
+                    variant="outlined"
+                    startIcon={<StopCircleRoundedIcon />}
+                    disabled={cancelValidation.isPending || run.data.state === 'CANCELLING'}
+                    onClick={() => cancelValidation.mutate(run.data.id)}
+                  >
+                    {run.data.state === 'CANCELLING' ? 'Stopping…' : 'Stop run'}
+                  </Button>
+                )}
+              </Stack>
             </Stack>
             {isActive && <LinearProgress aria-label="Validation in progress" sx={{ mt: 1.5 }} />}
-            {run.data.error_summary && <Alert severity="error" sx={{ mt: 1.5 }}>{run.data.error_summary}</Alert>}
+            {run.data.error_summary && <Alert severity={run.data.state === 'CANCELLED' ? 'info' : 'error'} sx={{ mt: 1.5 }}>{run.data.error_summary}</Alert>}
           </Box>
         )}
         {report.data && (
@@ -674,14 +708,28 @@ export function DatasetCard({ dataset }: { dataset: Dataset }) {
             <Divider sx={{ mb: 2 }} />
             <Stack direction="row" justifyContent="space-between" alignItems="center" gap={2}>
               <Typography fontWeight={650}>Expression Bundle preparation</Typography>
-              <Chip
-                size="small"
-                label={preparationRun.data.state}
-                color={preparationRun.data.state === 'FAILED' ? 'error' : preparationRun.data.state === 'SUCCEEDED' ? 'success' : 'info'}
-              />
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Chip
+                  size="small"
+                  label={preparationRun.data.state}
+                  color={preparationRun.data.state === 'FAILED' ? 'error' : preparationRun.data.state === 'SUCCEEDED' ? 'success' : 'info'}
+                />
+                {isPreparing && (
+                  <Button
+                    size="small"
+                    color="error"
+                    variant="outlined"
+                    startIcon={<StopCircleRoundedIcon />}
+                    disabled={cancelPreparation.isPending || preparationRun.data.state === 'CANCELLING'}
+                    onClick={() => cancelPreparation.mutate(preparationRun.data.id)}
+                  >
+                    {preparationRun.data.state === 'CANCELLING' ? 'Stopping…' : 'Stop run'}
+                  </Button>
+                )}
+              </Stack>
             </Stack>
             {isPreparing && <LinearProgress aria-label="Preparation in progress" sx={{ mt: 1.5 }} />}
-            {preparationRun.data.error_summary && <Alert severity="error" sx={{ mt: 1.5 }}>{preparationRun.data.error_summary}</Alert>}
+            {preparationRun.data.error_summary && <Alert severity={preparationRun.data.state === 'CANCELLED' ? 'info' : 'error'} sx={{ mt: 1.5 }}>{preparationRun.data.error_summary}</Alert>}
             {preparationArtifacts.data && (
               <Stack direction="row" spacing={2} mt={2} flexWrap="wrap">
                 {preparationArtifacts.data

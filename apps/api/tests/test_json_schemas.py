@@ -216,7 +216,7 @@ def test_enrichment_summary_contract() -> None:
             "version": "1.0.0",
             "identifier_namespace": "transcriptforge_demo_feature_id",
             "source": "TranscriptForge bundled deterministic demo experiment",
-            "license": "MIT",
+            "license": "PolyForm-Noncommercial-1.0.0",
             "gmt_sha256": "b" * 64,
             "set_count": 7,
         },

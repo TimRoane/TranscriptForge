@@ -110,7 +110,7 @@ export function SignatureMappingPanel({
       <Stack spacing={2.5}>
         <div>
           <Typography variant="overline" color="secondary.main" fontWeight={750}>
-            Phase 7 · Signature mapping
+            Signature mapping
           </Typography>
           <Typography variant="h5" fontWeight={700}>Map signatures to this bundle</Typography>
           <Typography color="text.secondary" mt={0.5}>

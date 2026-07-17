@@ -1,7 +1,9 @@
 """Durable validation-run creation and query operations."""
 
 import json
+from datetime import UTC, datetime
 from io import BytesIO
+from pathlib import Path
 from typing import Any, cast
 
 from sqlalchemy import func, select
@@ -17,17 +19,23 @@ from transcriptforge_api.services.microarray import (
 )
 from transcriptforge_api.services.raw_rnaseq import RawRNASeqIngestionError, load_reference_bundle
 from transcriptforge_api.storage.base import StorageBackend
+from transcriptforge_api.workers.process_control import request_cancellation
 
 ACTIVE_STATES = (
     RunState.CREATED.value,
     RunState.QUEUED.value,
     RunState.STARTING.value,
     RunState.RUNNING.value,
+    RunState.CANCELLING.value,
 )
 
 
 class ValidationInputError(ValueError):
     """Raised when a dataset is not ready to enter matrix validation."""
+
+
+class RunCancellationError(ValueError):
+    """Raised when a durable run can no longer be cancelled."""
 
 
 async def create_validation_run(
@@ -314,6 +322,47 @@ async def _latest_files(
 
 async def get_run(session: AsyncSession, run_id: str) -> Run | None:
     return await session.get(Run, run_id)
+
+
+async def cancel_run(
+    session: AsyncSession,
+    storage: StorageBackend,
+    run: Run,
+    *,
+    run_work_root: str,
+) -> Run:
+    """Cancel a queued run immediately or request termination of an active launcher."""
+    terminal_states = {
+        RunState.SUCCEEDED.value,
+        RunState.FAILED.value,
+        RunState.CANCELLED.value,
+    }
+    if run.state in terminal_states:
+        raise RunCancellationError(f"Run is already {run.state.lower()}.")
+
+    if run.state == RunState.CANCELLING.value:
+        request_cancellation(Path(run_work_root).resolve() / run.id)
+        return run
+
+    if run.state in {RunState.CREATED.value, RunState.QUEUED.value}:
+        if run.dataset_id is not None:
+            frozen = dict(json.loads(storage.read_bytes(run.params_uri)))
+            previous_status = frozen.get("dataset", {}).get("status_before_validation")
+            dataset = await session.get(Dataset, run.dataset_id)
+            if dataset is not None and isinstance(previous_status, str):
+                dataset.status = previous_status
+        run.state = RunState.CANCELLED.value
+        run.error_summary = "Cancelled by user."
+        run.finished_at = datetime.now(UTC)
+    elif run.state in {RunState.STARTING.value, RunState.RUNNING.value}:
+        run.state = RunState.CANCELLING.value
+    else:
+        raise RunCancellationError(f"Run in state {run.state} cannot be cancelled.")
+
+    await session.commit()
+    request_cancellation(Path(run_work_root).resolve() / run.id)
+    await session.refresh(run)
+    return run
 
 
 async def list_validation_runs(

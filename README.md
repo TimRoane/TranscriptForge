@@ -7,12 +7,7 @@ analysis-ready Expression Bundles, interactive exploration, differential express
 and gene-signature scoring. Every scientific run crosses a typed contract boundary, executes through
 Nextflow, and publishes immutable results with checksums and software provenance.
 
-> **Portfolio status:** the local product is operational through raw-data preparation, exploratory
-> analysis, four differential-expression engines, enrichment, and six signature-scoring methods.
-> Phenotype association is the next active milestone. The AWS deployment is implemented as optional
-> infrastructure-as-code but has deliberately not been provisioned.
-
-![Interactive PCA of a 72-sample paired RNA-seq experiment](docs/images/readme/rnaseq-pca.png)
+![TranscriptForge application home](docs/images/readme/app-home.png)
 
 ## What this project demonstrates
 
@@ -34,16 +29,18 @@ treatments, two genotypes, and three balanced processing batches across 2,000 si
 known-effect and null blocks let the workflow test model behavior and reproducibility without
 presenting simulated biology as external validation.
 
-#### 1. Declare and validate the input contract
+#### 1. Register the study and validate the input contract
 
 RNA-seq can enter as a feature-count matrix or as paired-/single-end FASTQ. Raw ingestion binds every
 sample and lane to exact R1/R2 checksums, validates layout and metadata consistency, and freezes a
-versioned GENCODE/GRCh38/Salmon reference definition before expensive work is enabled.
+versioned GENCODE/GRCh38/Salmon reference definition before expensive work is enabled. The primary
+walkthrough starts from the validated 72-sample count-matrix path so its complete analysis catalog is
+available for inspection.
 
-![Paired FASTQ ingestion with sample-sheet validation and a pinned reference](docs/images/readme/rnaseq-fastq-ingestion.png)
+![TranscriptForge Visualization Study with its validated paired RNA-seq dataset](docs/images/readme/rnaseq-project.png)
 
-*The pre-run card exposes the sample-sheet contract, paired files, strandedness, and exact reference
-release. Multi-lane libraries are represented explicitly rather than inferred from filenames.*
+*The project workspace keeps reusable signature definitions, the 2,000-feature by 72-sample
+validation result, source files, preparation state, and immutable checksums in one navigable record.*
 
 #### 2. Build an immutable Expression Bundle and review QC
 
@@ -51,10 +48,11 @@ Count matrices are validated for orientation, sample alignment, numeric integrit
 feature identity. Raw reads additionally run through FastQC, fastp, Salmon, tximport, and MultiQC.
 Both paths converge on the same versioned Expression Bundle contract.
 
-![RNA-seq Expression Bundle with sample QC and mapping coverage](docs/images/readme/rnaseq-prepared-qc.png)
+![RNA-seq Expression Bundle with its saved analysis catalog](docs/images/readme/rnaseq-prepared-qc.png)
 
 *The 72-sample bundle preserves raw counts and log expression, reports 100% fixture mapping, and
-flags samples for review without silently excluding them.*
+surfaces 14 saved analyses—including PCA, clustering, UMAP, t-SNE, four differential-expression
+routes, enrichment, and signature scoring—before the detailed sample QC and provenance panels.*
 
 #### 3. Explore structure before testing hypotheses
 
@@ -113,6 +111,10 @@ superficial-minus-deep contrast.
 
 ![Paired public microarray limma analysis and volcano plot](docs/images/readme/microarray-limma.png)
 
+*This small real-world study produces strong exploratory effects but no gene passes Benjamini-Hochberg
+FDR 0.05 across all 23,702 tested genes. TranscriptForge keeps that negative multiplicity-corrected
+result visible rather than weakening the threshold or altering public data for a more dramatic demo.*
+
 ## Implemented capabilities
 
 | Workflow | Current implementation |
@@ -124,7 +126,7 @@ superficial-minus-deep contrast.
 | Differential expression | DESeq2, edgeR QL, limma-voom, and limma with design preview, contrast validation, result tables, plots, feature drill-down, and reports |
 | Enrichment | Seeded ranked-list and over-representation analysis against checksum-versioned GMT collections |
 | Gene signatures | Immutable weighted TSV/GMT definitions; Ensembl/symbol/Entrez mapping evidence; mean, z-score, weighted, rank, GSVA, and ssGSEA scoring |
-| Operations | Durable run state, retries through the workflow layer, artifact indexing, local/S3-compatible storage, and opt-in AWS Batch infrastructure |
+| Operations | Durable run state, in-app cancellation, retries through the workflow layer, artifact indexing, local/S3-compatible storage, and opt-in AWS Batch infrastructure |
 
 ## Architecture
 
@@ -178,7 +180,7 @@ The durable boundaries are described in [architecture](docs/architecture.md),
 The latest full regression checkpoint records:
 
 - 78 combined API, worker, contract, and scientific Python tests.
-- 13 frontend integration tests plus ESLint and a Node 22 production build.
+- 14 frontend integration tests plus ESLint and a Node 22 production build.
 - Strict mypy across 60 source files and Ruff across the Python codebase.
 - Containerized acceptance for all four differential-expression engines and enrichment.
 - Paired/single-end and multi-lane RNA-seq acceptance, shared reference-cache reuse, and Nextflow
@@ -186,9 +188,6 @@ The latest full regression checkpoint records:
 - Eight-public-CEL RMA-to-bundle-to-paired-limma acceptance.
 - Deterministic GSVA/ssGSEA fixtures with constant-gene handling and package provenance.
 - JSON Schema, Docker Compose, Nextflow configuration, Alembic drift, and Terraform validation.
-
-The detailed, run-by-run evidence and current handoff point live in
-[`docs/implementation-progress.md`](docs/implementation-progress.md).
 
 ## Run locally
 
@@ -222,6 +221,12 @@ make seed-demo
 The seed command uses the public API and durable worker path to create, validate, prepare, and
 analyze the study; it is not a database fixture shortcut.
 
+The full GENCODE/GRCh38 Salmon index is generated data and is deliberately excluded from Git. The
+first raw RNA-seq run for an exact reference definition materializes it once in the shared Docker
+`run-data` volume; later projects reuse the checksum-verified cache. The AWS profile uses the same
+immutable cache key in S3 so Batch workers restore the index instead of rebuilding it. Active
+validation, preparation, and analysis cards expose a **Stop run** action.
+
 ### Run verification
 
 ```bash
@@ -253,25 +258,12 @@ infra/aws/           Optional AWS Batch/S3 Terraform and operational tooling
 docs/               Architecture, contracts, progress, security, and debt records
 ```
 
-## Delivery status and honest constraints
-
-- Phases 0–6 are complete: platform foundation through raw RNA-seq and Affymetrix workflows.
-- Phase 7 has durable signature ingestion, mapping, and six scoring methods. Phenotype-aware score
-  comparisons are next.
-- The local build is a single-user development product. Authentication, authorization, retention,
-  and deletion policy are intentionally tracked before any multi-user deployment.
-- AWS resources and cost-incurring Batch parity tests require owner account, network, budget, and
-  data-locality decisions; no cloud resources have been created from this repository.
-- Synthetic controls establish correctness and repeatability, not biological validity. Public
-  benchmarks are labeled exploratory until prespecified external validation is added.
-
-See the owner-facing [debt register](docs/debt-register.md) for security, scientific-content,
-operations, and deployment decisions that should not be hidden behind a polished demo.
-
 > [!IMPORTANT]
 > TranscriptForge is intended for research and software demonstration only. It is not clinically
 > validated and must not be used for diagnosis or patient-care decisions.
 
 ## License
 
-Licensed under the [MIT License](LICENSE).
+TranscriptForge is source-available under the
+[PolyForm Noncommercial License 1.0.0](LICENSE). Commercial use requires a separate license from
+the copyright holder.
