@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.dev/schemas/enrichment-summary/1.0.0",
+  "title": "TranscriptForge Differential-Expression Enrichment Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "analysis_id", "collection", "source_result", "parameters", "ranked_list", "over_representation", "warnings"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "analysis_id": { "type": "string", "minLength": 1 },
+    "collection": { "$ref": "#/$defs/collection" },
+    "source_result": { "$ref": "#/$defs/source_result" },
+    "parameters": { "$ref": "#/$defs/parameters" },
+    "ranked_list": { "type": "array", "items": { "$ref": "#/$defs/result" } },
+    "over_representation": { "type": "array", "items": { "$ref": "#/$defs/result" } },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "collection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["collection_id", "name", "version", "identifier_namespace", "source", "license", "gmt_sha256", "set_count"],
+      "properties": {
+        "collection_id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "identifier_namespace": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "license": { "type": "string", "minLength": 1 },
+        "gmt_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "set_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "source_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "contrast", "result_sha256", "tested_feature_count", "significant_feature_count"],
+      "properties": {
+        "method": { "type": "string", "minLength": 1 },
+        "contrast": { "type": "string", "minLength": 1 },
+        "result_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "tested_feature_count": { "type": "integer", "minimum": 1 },
+        "significant_feature_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identifier_field", "ranking_metric", "random_seed", "permutation_count", "minimum_gene_set_size", "maximum_gene_set_size", "fdr_threshold", "absolute_log2_fold_change"],
+      "properties": {
+        "identifier_field": { "const": "feature_id" },
+        "ranking_metric": { "const": "signed_log10_p_value" },
+        "random_seed": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "permutation_count": { "type": "integer", "minimum": 100 },
+        "minimum_gene_set_size": { "type": "integer", "minimum": 2 },
+        "maximum_gene_set_size": { "type": "integer", "minimum": 2 },
+        "fdr_threshold": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "absolute_log2_fold_change": { "type": "number", "minimum": 0 }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gene_set_id", "gene_set_name", "direction", "set_size", "overlap_size", "enrichment_score", "normalized_enrichment_score", "odds_ratio", "p_value", "adjusted_p_value", "leading_edge", "significant"],
+      "properties": {
+        "gene_set_id": { "type": "string", "minLength": 1 },
+        "gene_set_name": { "type": "string", "minLength": 1 },
+        "direction": { "enum": ["up", "down", "mixed"] },
+        "set_size": { "type": "integer", "minimum": 1 },
+        "overlap_size": { "type": "integer", "minimum": 0 },
+        "enrichment_score": { "type": ["number", "null"] },
+        "normalized_enrichment_score": { "type": ["number", "null"] },
+        "odds_ratio": { "type": ["number", "null"], "minimum": 0 },
+        "p_value": { "type": "number", "minimum": 0, "maximum": 1 },
+        "adjusted_p_value": { "type": "number", "minimum": 0, "maximum": 1 },
+        "leading_edge": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "significant": { "type": "boolean" }
+      }
+    }
+  }
+}

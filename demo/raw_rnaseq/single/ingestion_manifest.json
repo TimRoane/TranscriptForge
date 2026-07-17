@@ -1,0 +1,118 @@
+{
+  "dataset_id": "fixture-single",
+  "genome_build": "GRCh38.p14",
+  "lane_count": 4,
+  "library_layout": "single_end",
+  "organism": "Homo sapiens",
+  "read_file_count": 4,
+  "reference": {
+    "annotation_release": "GENCODE 50",
+    "definition_sha256": "46f28a6c8342aa667b70510a2c1128f9e174f4cb4135a0f99f875f8a24acdad0",
+    "name": "TranscriptForge deterministic tiny GRCh38 Salmon fixture",
+    "reference_id": "transcriptforge_tiny_grch38_salmon_1_11_4",
+    "salmon_version": "1.11.4"
+  },
+  "sample_count": 4,
+  "sample_sheet": {
+    "dataset_file_id": "fixture-single-sample_sheet.tsv",
+    "original_name": "sample_sheet.tsv",
+    "role": "sample_sheet",
+    "sha256": "b3fba0550264d0bc5a86ea87bb23ca43761fe2caac0a060c85c72fa4a2884978",
+    "size_bytes": 300,
+    "storage_uri": "fixture://single/sample_sheet.tsv"
+  },
+  "samples": [
+    {
+      "lanes": [
+        {
+          "lane_id": "L001",
+          "read1": {
+            "dataset_file_id": "fixture-single-control_1_L001_R1.fastq.gz",
+            "original_name": "control_1_L001_R1.fastq.gz",
+            "role": "fastq_r1",
+            "sha256": "26283121935faa111b4690164cb1c0ed228fbc5b6c8da467e60dc9f7d66f2e85",
+            "size_bytes": 685,
+            "storage_uri": "fixture://single/control_1_L001_R1.fastq.gz"
+          },
+          "read2": null
+        }
+      ],
+      "metadata": {
+        "batch": "batch_A",
+        "condition": "control",
+        "replicate": "1"
+      },
+      "sample_id": "control_1"
+    },
+    {
+      "lanes": [
+        {
+          "lane_id": "L001",
+          "read1": {
+            "dataset_file_id": "fixture-single-control_2_L001_R1.fastq.gz",
+            "original_name": "control_2_L001_R1.fastq.gz",
+            "role": "fastq_r1",
+            "sha256": "f3b158b1e48ca2251bd09ac92fe248218b58ba418064bcdd3eae90c4145de5ca",
+            "size_bytes": 695,
+            "storage_uri": "fixture://single/control_2_L001_R1.fastq.gz"
+          },
+          "read2": null
+        }
+      ],
+      "metadata": {
+        "batch": "batch_A",
+        "condition": "control",
+        "replicate": "2"
+      },
+      "sample_id": "control_2"
+    },
+    {
+      "lanes": [
+        {
+          "lane_id": "L001",
+          "read1": {
+            "dataset_file_id": "fixture-single-treated_1_L001_R1.fastq.gz",
+            "original_name": "treated_1_L001_R1.fastq.gz",
+            "role": "fastq_r1",
+            "sha256": "72f79a54cb4d68f8876e223c01d2ad9b0d8905499e9f7fce515a70e519fd19da",
+            "size_bytes": 693,
+            "storage_uri": "fixture://single/treated_1_L001_R1.fastq.gz"
+          },
+          "read2": null
+        }
+      ],
+      "metadata": {
+        "batch": "batch_A",
+        "condition": "treated",
+        "replicate": "1"
+      },
+      "sample_id": "treated_1"
+    },
+    {
+      "lanes": [
+        {
+          "lane_id": "L001",
+          "read1": {
+            "dataset_file_id": "fixture-single-treated_2_L001_R1.fastq.gz",
+            "original_name": "treated_2_L001_R1.fastq.gz",
+            "role": "fastq_r1",
+            "sha256": "de3ce2d532410b4dc83d56e8cefdb6a07941d36c05851f7564bcc6e609ee198d",
+            "size_bytes": 699,
+            "storage_uri": "fixture://single/treated_2_L001_R1.fastq.gz"
+          },
+          "read2": null
+        }
+      ],
+      "metadata": {
+        "batch": "batch_A",
+        "condition": "treated",
+        "replicate": "2"
+      },
+      "sample_id": "treated_2"
+    }
+  ],
+  "schema_version": "1.1.0",
+  "source_kind": "fastq",
+  "strandedness": "unstranded",
+  "warnings": []
+}

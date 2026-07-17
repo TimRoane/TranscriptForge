@@ -32,6 +32,9 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     gene_signatures: Mapped[list["GeneSignature"]] = relationship(
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )
+    signature_definitions: Mapped[list["SignatureDefinition"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class Dataset(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -230,3 +233,66 @@ class GeneSignature(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     selection_json: Mapped[dict[str, Any]] = mapped_column(JSON)
 
     project: Mapped[Project] = relationship(back_populates="gene_signatures")
+
+
+class SignatureDefinition(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Immutable uploaded signature definition for cross-dataset evaluation."""
+
+    __tablename__ = "signature_definitions"
+
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    definition_format: Mapped[str] = mapped_column(String(40))
+    identifier_type: Mapped[str] = mapped_column(String(40))
+    original_name: Mapped[str] = mapped_column(String(500))
+    source_uri: Mapped[str] = mapped_column(String(2000), unique=True)
+    source_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    source_size_bytes: Mapped[int] = mapped_column(BigInteger)
+    manifest_uri: Mapped[str] = mapped_column(String(2000), unique=True)
+    manifest_sha256: Mapped[str] = mapped_column(String(64))
+    set_count: Mapped[int]
+    requested_identifier_count: Mapped[int]
+    unique_identifier_count: Mapped[int]
+    duplicate_identifier_count: Mapped[int]
+    weighted: Mapped[bool]
+    definition_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+
+    project: Mapped[Project] = relationship(back_populates="signature_definitions")
+
+
+class SignatureMapping(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Immutable mapping of one signature definition to one prepared dataset."""
+
+    __tablename__ = "signature_mappings"
+    __table_args__ = (
+        Index(
+            "uq_signature_mapping_definition_prepared",
+            "signature_definition_id",
+            "prepared_dataset_id",
+            unique=True,
+        ),
+    )
+
+    signature_definition_id: Mapped[str] = mapped_column(
+        ForeignKey("signature_definitions.id", ondelete="CASCADE"), index=True
+    )
+    prepared_dataset_id: Mapped[str] = mapped_column(
+        ForeignKey("prepared_datasets.id", ondelete="CASCADE"), index=True
+    )
+    report_uri: Mapped[str] = mapped_column(String(2000), unique=True)
+    report_sha256: Mapped[str] = mapped_column(String(64))
+    missing_uri: Mapped[str] = mapped_column(String(2000), unique=True)
+    missing_sha256: Mapped[str] = mapped_column(String(64))
+    ambiguous_uri: Mapped[str] = mapped_column(String(2000), unique=True)
+    ambiguous_sha256: Mapped[str] = mapped_column(String(64))
+    requested_identifier_count: Mapped[int]
+    unique_identifier_count: Mapped[int]
+    mapped_identifier_count: Mapped[int]
+    missing_identifier_count: Mapped[int]
+    ambiguous_identifier_count: Mapped[int]
+    duplicate_identifier_count: Mapped[int]
+    mapping_coverage: Mapped[float]
+    report_json: Mapped[dict[str, Any]] = mapped_column(JSON)

@@ -48,6 +48,124 @@ export interface DatasetFile {
   created_at: string
 }
 
+export type DatasetFileRole =
+  | 'count_matrix'
+  | 'expression_matrix'
+  | 'sample_metadata'
+  | 'fastq_r1'
+  | 'fastq_r2'
+  | 'sample_sheet'
+  | 'cel_file'
+  | 'platform_manifest'
+
+export interface RawRNASeqIngestion {
+  schema_version: '1.1.0'
+  dataset_id: string
+  organism: 'Homo sapiens'
+  genome_build: string
+  source_kind: 'fastq'
+  reference: {
+    reference_id: string
+    definition_sha256: string
+    name: string
+    annotation_release: string
+    salmon_version: string
+  }
+  sample_sheet: RawRNASeqFile
+  library_layout: 'single_end' | 'paired_end'
+  strandedness: 'auto' | 'unstranded' | 'forward' | 'reverse'
+  sample_count: number
+  lane_count: number
+  read_file_count: number
+  samples: Array<{
+    sample_id: string
+    lanes: Array<{
+      lane_id: string
+      read1: RawRNASeqFile
+      read2: RawRNASeqFile | null
+    }>
+    metadata: Record<string, string>
+  }>
+  warnings: string[]
+}
+
+export interface RawRNASeqFile {
+  dataset_file_id: string
+  role: 'sample_sheet' | 'fastq_r1' | 'fastq_r2'
+  original_name: string
+  storage_uri: string
+  size_bytes: number
+  sha256: string
+}
+
+export type MicroarrayAggregationMethod = 'highest_mad' | 'median' | 'mean'
+
+export interface MicroarrayPlatformCatalog {
+  platform_id: string
+  definition_sha256: string
+  adapter_version: string
+  vendor: 'Affymetrix'
+  array_design: string
+  organism: 'Homo sapiens'
+  chip_type_aliases: string[]
+  cel_formats: Array<'calvin' | 'xda'>
+  normalization: {
+    engine: string
+    method: string
+    target: string
+    pd_info_package: string
+  }
+  annotation: {
+    package: string
+    probe_key: string
+    gene_id_field: string
+    gene_symbol_field: string
+    confidence: string
+  }
+  aggregation: {
+    default_method: MicroarrayAggregationMethod
+    supported_methods: MicroarrayAggregationMethod[]
+  }
+  sources: string[]
+}
+
+export interface MicroarrayFile {
+  dataset_file_id: string
+  role: 'cel_file' | 'sample_metadata'
+  original_name: string
+  storage_uri: string
+  size_bytes: number
+  sha256: string
+}
+
+export interface MicroarrayIngestion {
+  schema_version: '1.0.0'
+  dataset_id: string
+  organism: 'Homo sapiens'
+  source_kind: 'affymetrix_cel'
+  platform: {
+    platform_id: string
+    definition_sha256: string
+    adapter_version: string
+    vendor: 'Affymetrix'
+    array_design: string
+    detected_chip_type: string
+    cel_format: 'calvin' | 'xda'
+    normalization: MicroarrayPlatformCatalog['normalization']
+    annotation: MicroarrayPlatformCatalog['annotation']
+  }
+  aggregation_method: MicroarrayAggregationMethod
+  sample_metadata: MicroarrayFile
+  sample_count: number
+  cel_file_count: number
+  samples: Array<{
+    sample_id: string
+    cel_file: MicroarrayFile
+    metadata: Record<string, string>
+  }>
+  warnings: string[]
+}
+
 export type RunState =
   | 'CREATED'
   | 'QUEUED'
@@ -142,11 +260,23 @@ export interface QCSample {
   zero_fraction: number
 }
 
-export interface QCSummary {
+export interface MatrixQCSummary {
   status: 'PASS' | 'REVIEW' | 'SEVERE_REVIEW'
   samples: QCSample[]
   flags: Array<{ sample_id: string; status: 'PASS' | 'REVIEW'; reasons: string[] }>
 }
+
+export interface MicroarrayQCSummary {
+  schema_version: '1.0.0'
+  status: 'PASS' | 'REVIEW' | 'SEVERE_REVIEW'
+  sample_count: number
+  probe_count: number
+  gene_count: number
+  reviewed_sample_count: number
+  plots: string[]
+}
+
+export type QCSummary = MatrixQCSummary | MicroarrayQCSummary
 
 export interface FeatureMappingSummary {
   prepared_dataset_id: string
@@ -159,6 +289,10 @@ export interface FeatureMappingSummary {
   unmapped_feature_count: number
   duplicate_group_count: number
   mapping_coverage: number
+  probe_count?: number
+  gene_count?: number
+  aggregation_method?: MicroarrayAggregationMethod
+  probe_mapping_path?: string
 }
 
 export type DimensionReductionMethod = 'pca' | 'hierarchical_clustering' | 'umap' | 'tsne'
@@ -197,6 +331,14 @@ export interface DifferentialExpressionParameters {
   absolute_log2_fold_change: number
   independent_filtering: boolean
   shrinkage: boolean
+  enrichment: {
+    enabled: boolean
+    collection_id: string
+    ranking_metric: 'signed_log10_p_value'
+    permutation_count: number
+    minimum_gene_set_size: number
+    maximum_gene_set_size: number
+  }
 }
 
 export interface DifferentialExpressionConfiguration {
@@ -210,14 +352,48 @@ export interface DifferentialExpressionConfiguration {
   design_validation: DesignValidation
 }
 
+export type SignatureScoringMethod =
+  | 'mean_expression'
+  | 'mean_z_score'
+  | 'weighted_linear'
+  | 'rank_based'
+  | 'gsva'
+  | 'ssgsea'
+
+export interface SignatureScoringParameters {
+  signature_mapping_id: string
+  minimum_gene_set_size: number
+  maximum_gene_set_size: number
+  gsva_kcdf: 'auto' | 'Gaussian' | 'Poisson' | 'none'
+  gsva_tau: number
+  gsva_max_diff: boolean
+  gsva_abs_ranking: boolean
+  ssgsea_alpha: number
+  ssgsea_normalize: boolean
+}
+
+export interface SignatureScoringConfiguration {
+  analysis_type: 'signature'
+  method: SignatureScoringMethod
+  assay: 'log_expression'
+  parameters: SignatureScoringParameters
+  random_seed: number
+  signature_mapping_report_sha256: string
+  signature_definition_id: string
+  mapping_coverage: number
+}
+
 export interface Analysis {
   id: string
   project_id: string
   prepared_dataset_id: string
-  analysis_type: 'dimension_reduction' | 'differential_expression'
+  analysis_type: 'dimension_reduction' | 'differential_expression' | 'signature'
   name: string
   description: string | null
-  configuration_json: DimensionReductionConfiguration | DifferentialExpressionConfiguration
+  configuration_json:
+    | DimensionReductionConfiguration
+    | DifferentialExpressionConfiguration
+    | SignatureScoringConfiguration
   created_at: string
 }
 
@@ -421,6 +597,176 @@ export interface GeneSignature {
   research_use_warning: string
 }
 
+export interface SignatureDefinition {
+  id: string
+  project_id: string
+  name: string
+  description: string | null
+  definition_format: 'gene_list' | 'gmt'
+  identifier_type: 'ensembl_gene_id' | 'gene_symbol' | 'entrez_id'
+  original_name: string
+  source_sha256: string
+  source_size_bytes: number
+  manifest_sha256: string
+  set_count: number
+  requested_identifier_count: number
+  unique_identifier_count: number
+  duplicate_identifier_count: number
+  weighted: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface SignatureMappingReport {
+  schema_version: '1.0.0'
+  signature_definition_id: string
+  prepared_dataset_id: string
+  signature_definition_sha256: string
+  expression_bundle_sha256: string
+  identifier_type: SignatureDefinition['identifier_type']
+  strip_ensembl_version: boolean
+  set_count: number
+  requested_identifier_count: number
+  unique_identifier_count: number
+  mapped_identifier_count: number
+  missing_identifier_count: number
+  ambiguous_identifier_count: number
+  duplicate_identifier_count: number
+  mapping_coverage: number
+  sets: Array<{
+    signature_id: string
+    name: string
+    requested_identifier_count: number
+    unique_identifier_count: number
+    mapped_identifier_count: number
+    missing_identifier_count: number
+    ambiguous_identifier_count: number
+    duplicate_identifier_count: number
+    mapping_coverage: number
+    mapped_entries: Array<{ identifier: string; feature_id: string; weight?: number }>
+    mapped_feature_ids: string[]
+    missing_identifiers: string[]
+    ambiguous_identifiers: string[]
+  }>
+}
+
+export interface SignatureMappingRecord {
+  id: string
+  signature_definition_id: string
+  prepared_dataset_id: string
+  report_sha256: string
+  missing_sha256: string
+  ambiguous_sha256: string
+  requested_identifier_count: number
+  unique_identifier_count: number
+  mapped_identifier_count: number
+  missing_identifier_count: number
+  ambiguous_identifier_count: number
+  duplicate_identifier_count: number
+  mapping_coverage: number
+  report_json: SignatureMappingReport
+  created_at: string
+  updated_at: string
+}
+
+export interface SignatureScores {
+  schema_version: '1.0.0'
+  analysis_id: string
+  prepared_dataset_id: string
+  method: SignatureScoringMethod
+  assay: 'log_expression'
+  formula: string
+  signature_mapping: {
+    id: string
+    report_sha256: string
+    signature_definition_id: string
+    signature_definition_sha256: string
+    expression_bundle_sha256: string
+    mapping_coverage: number
+    requested_identifier_count: number
+    mapped_identifier_count: number
+    missing_identifier_count: number
+    ambiguous_identifier_count: number
+    duplicate_identifier_count: number
+  }
+  sample_count: number
+  set_count: number
+  sets: Array<{
+    signature_id: string
+    name: string
+    requested_identifier_count: number
+    mapped_identifier_count: number
+    scored_feature_count: number
+    excluded_constant_feature_count: number
+    mapping_coverage: number
+    score_minimum: number
+    score_maximum: number
+    score_mean: number
+    scores: Array<{
+      sample_id: string
+      score: number
+      metadata: Record<string, string>
+    }>
+  }>
+  warnings: string[]
+  software: {
+    language: string
+    language_version: string
+    implementation: string
+    packages: Record<string, string>
+  }
+}
+
+export interface EnrichmentResult {
+  gene_set_id: string
+  gene_set_name: string
+  direction: 'up' | 'down' | 'mixed'
+  set_size: number
+  overlap_size: number
+  enrichment_score: number | null
+  normalized_enrichment_score: number | null
+  odds_ratio: number | null
+  p_value: number
+  adjusted_p_value: number
+  leading_edge: string[]
+  significant: boolean
+}
+
+export interface EnrichmentSummary {
+  schema_version: '1.0.0'
+  analysis_id: string
+  collection: {
+    collection_id: string
+    name: string
+    version: string
+    identifier_namespace: string
+    source: string
+    license: string
+    gmt_sha256: string
+    set_count: number
+  }
+  source_result: {
+    method: string
+    contrast: string
+    result_sha256: string
+    tested_feature_count: number
+    significant_feature_count: number
+  }
+  parameters: {
+    identifier_field: 'feature_id'
+    ranking_metric: 'signed_log10_p_value'
+    random_seed: number
+    permutation_count: number
+    minimum_gene_set_size: number
+    maximum_gene_set_size: number
+    fdr_threshold: number
+    absolute_log2_fold_change: number
+  }
+  ranked_list: EnrichmentResult[]
+  over_representation: EnrichmentResult[]
+  warnings: string[]
+}
+
 export interface CreateGeneSignatureRequest {
   name: string
   description?: string
@@ -539,13 +885,68 @@ export function createDataset(
 
 export function uploadDatasetFile(
   datasetId: string,
-  role: 'count_matrix' | 'expression_matrix' | 'sample_metadata',
+  role: DatasetFileRole,
   file: File,
 ): Promise<DatasetFile> {
   const form = new FormData()
   form.append('role', role)
   form.append('file', file)
   return request(`/datasets/${datasetId}/files`, { method: 'POST', body: form })
+}
+
+export function fetchDatasetFiles(
+  datasetId: string,
+  signal?: AbortSignal,
+): Promise<DatasetFile[]> {
+  return request(`/datasets/${datasetId}/files`, { signal })
+}
+
+export function ingestRawRNASeq(
+  datasetId: string,
+  payload: {
+    reference_bundle_id?: string
+    strandedness: 'auto' | 'unstranded' | 'forward' | 'reverse'
+  },
+): Promise<RawRNASeqIngestion> {
+  return request(`/datasets/${datasetId}/raw-rnaseq/ingest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function fetchRawRNASeqIngestion(
+  datasetId: string,
+  signal?: AbortSignal,
+): Promise<RawRNASeqIngestion | null> {
+  return request(`/datasets/${datasetId}/raw-rnaseq/ingestion`, { signal })
+}
+
+export function fetchMicroarrayPlatforms(
+  signal?: AbortSignal,
+): Promise<MicroarrayPlatformCatalog[]> {
+  return request('/microarray-platforms', { signal })
+}
+
+export function ingestMicroarray(
+  datasetId: string,
+  payload: {
+    platform_id: string
+    aggregation_method: MicroarrayAggregationMethod
+  },
+): Promise<MicroarrayIngestion> {
+  return request(`/datasets/${datasetId}/microarray/ingest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function fetchMicroarrayIngestion(
+  datasetId: string,
+  signal?: AbortSignal,
+): Promise<MicroarrayIngestion | null> {
+  return request(`/datasets/${datasetId}/microarray/ingestion`, { signal })
 }
 
 export function validateDataset(
@@ -654,6 +1055,32 @@ export function createDifferentialExpressionAnalysis(
   })
 }
 
+export function createSignatureScoringAnalysis(
+  preparedDatasetId: string,
+  payload: {
+    name: string
+    method: SignatureScoringMethod
+    signatureMappingId: string
+    parameters?: Partial<Omit<SignatureScoringParameters, 'signature_mapping_id'>>
+  },
+): Promise<Analysis> {
+  return request(`/prepared-datasets/${preparedDatasetId}/analyses`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: payload.name,
+      analysis_type: 'signature',
+      method: payload.method,
+      assay: 'log_expression',
+      parameters: {
+        signature_mapping_id: payload.signatureMappingId,
+        ...payload.parameters,
+      },
+      random_seed: 0,
+    }),
+  })
+}
+
 export function fetchPreparedAnalyses(
   preparedDatasetId: string,
   signal?: AbortSignal,
@@ -734,6 +1161,20 @@ export function fetchExpressionHeatmap(
   return request(`/runs/${runId}/expression-heatmap`, { signal })
 }
 
+export function fetchEnrichmentSummary(
+  runId: string,
+  signal?: AbortSignal,
+): Promise<EnrichmentSummary> {
+  return request(`/runs/${runId}/enrichment-summary`, { signal })
+}
+
+export function fetchSignatureScores(
+  runId: string,
+  signal?: AbortSignal,
+): Promise<SignatureScores> {
+  return request(`/runs/${runId}/signature-scores`, { signal })
+}
+
 function differentialExpressionResultParams(
   query: DifferentialExpressionResultQuery,
 ): URLSearchParams {
@@ -797,4 +1238,57 @@ export function createGeneSignature(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
+}
+
+export function fetchSignatureDefinitions(
+  projectId: string,
+  signal?: AbortSignal,
+): Promise<SignatureDefinition[]> {
+  return request(`/projects/${projectId}/signature-definitions`, { signal })
+}
+
+export function uploadSignatureDefinition(
+  projectId: string,
+  payload: {
+    name: string
+    description?: string
+    definitionFormat: SignatureDefinition['definition_format']
+    identifierType: SignatureDefinition['identifier_type']
+    file: File
+  },
+): Promise<SignatureDefinition> {
+  const form = new FormData()
+  form.append('name', payload.name)
+  if (payload.description) form.append('description', payload.description)
+  form.append('definition_format', payload.definitionFormat)
+  form.append('identifier_type', payload.identifierType)
+  form.append('file', payload.file)
+  return request(`/projects/${projectId}/signature-definitions`, {
+    method: 'POST',
+    body: form,
+  })
+}
+
+export function mapSignatureDefinition(
+  definitionId: string,
+  preparedDatasetId: string,
+): Promise<SignatureMappingRecord> {
+  return request(
+    `/signature-definitions/${definitionId}/map/${preparedDatasetId}`,
+    { method: 'POST' },
+  )
+}
+
+export function fetchSignatureMappings(
+  preparedDatasetId: string,
+  signal?: AbortSignal,
+): Promise<SignatureMappingRecord[]> {
+  return request(`/prepared-datasets/${preparedDatasetId}/signature-mappings`, { signal })
+}
+
+export function signatureMappingDownloadUrl(
+  mappingId: string,
+  document: 'report.json' | 'missing.tsv' | 'ambiguous.tsv',
+): string {
+  return `${apiBaseUrl}/signature-mappings/${mappingId}/${document}`
 }

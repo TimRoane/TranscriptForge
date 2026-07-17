@@ -1,5 +1,6 @@
 """Cross-language JSON Schema contract tests."""
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -20,10 +21,18 @@ def load_json(path: Path) -> dict[str, Any]:
     "schema_name",
     [
         "dataset_manifest.schema.json",
+        "enrichment_summary.schema.json",
         "expression_bundle.schema.json",
+        "microarray_ingestion.schema.json",
+        "microarray_platform.schema.json",
         "analysis_request.schema.json",
+        "raw_rnaseq_ingestion.schema.json",
+        "reference_bundle.schema.json",
         "result_manifest.schema.json",
         "sample_metadata.schema.json",
+        "signature_definition.schema.json",
+        "signature_mapping.schema.json",
+        "signature_scores.schema.json",
         "validation_report.schema.json",
     ],
 )
@@ -35,6 +44,45 @@ def test_demo_count_manifest_is_valid() -> None:
     schema = load_json(SCHEMAS / "dataset_manifest.schema.json")
     manifest = load_json(ROOT / "demo/configs/count_matrix_dataset_manifest.json")
     Draft202012Validator(schema).validate(manifest)
+
+
+def test_pinned_human_reference_bundle_is_valid() -> None:
+    schema = load_json(SCHEMAS / "reference_bundle.schema.json")
+    reference = load_json(ROOT / "references/human/gencode_v50_grch38_salmon_1_11_4.json")
+    Draft202012Validator(schema).validate(reference)
+
+
+def test_affymetrix_platform_adapter_is_valid() -> None:
+    schema = load_json(SCHEMAS / "microarray_platform.schema.json")
+    adapter = load_json(ROOT / "microarray/platforms/affymetrix_hugene_1_0_st_v1.json")
+    Draft202012Validator(schema).validate(adapter)
+
+
+def test_tiny_raw_rnaseq_fixtures_match_reference_and_ingestion_contracts() -> None:
+    reference_schema = load_json(SCHEMAS / "reference_bundle.schema.json")
+    ingestion_schema = load_json(SCHEMAS / "raw_rnaseq_ingestion.schema.json")
+    reference = load_json(ROOT / "demo/raw_rnaseq/reference/reference.json")
+    Draft202012Validator(reference_schema).validate(reference)
+    for layout in ("paired", "single"):
+        ingestion = load_json(ROOT / f"demo/raw_rnaseq/{layout}/ingestion_manifest.json")
+        Draft202012Validator(ingestion_schema).validate(ingestion)
+
+
+def test_public_microarray_acceptance_manifest_is_valid() -> None:
+    schema = load_json(SCHEMAS / "microarray_ingestion.schema.json")
+    manifest = load_json(ROOT / "demo/microarray/rma_acceptance_manifest.json")
+    Draft202012Validator(schema).validate(manifest)
+    metadata = ROOT / "demo/microarray/sample_metadata.tsv"
+    assert metadata.stat().st_size == manifest["sample_metadata"]["size_bytes"]
+    assert (
+        hashlib.sha256(metadata.read_bytes()).hexdigest() == (manifest["sample_metadata"]["sha256"])
+    )
+
+
+def test_public_microarray_limma_request_is_valid() -> None:
+    schema = load_json(SCHEMAS / "analysis_request.schema.json")
+    request = load_json(ROOT / "demo/microarray/limma_request.json")
+    Draft202012Validator(schema).validate(request)
 
 
 def test_dataset_manifest_rejects_modality_source_mismatch() -> None:
@@ -87,6 +135,14 @@ def test_differential_expression_analysis_request_contract() -> None:
             "absolute_log2_fold_change": 1,
             "independent_filtering": True,
             "shrinkage": True,
+            "enrichment": {
+                "enabled": True,
+                "collection_id": "transcriptforge_demo_effects",
+                "ranking_metric": "signed_log10_p_value",
+                "permutation_count": 250,
+                "minimum_gene_set_size": 10,
+                "maximum_gene_set_size": 500,
+            },
         },
         "random_seed": 42,
     }
@@ -99,3 +155,97 @@ def test_differential_expression_analysis_request_contract() -> None:
     request["method"] = "pca"
     with pytest.raises(ValidationError):
         Draft202012Validator(schema).validate(request)
+
+
+def test_gsva_analysis_request_contract_freezes_method_parameters() -> None:
+    schema = load_json(SCHEMAS / "analysis_request.schema.json")
+    request = {
+        "schema_version": "1.0.0",
+        "analysis_id": "analysis-gsva-1",
+        "prepared_dataset_id": "prepared-1",
+        "analysis_type": "signature",
+        "method": "gsva",
+        "assay": "log_expression",
+        "parameters": {
+            "signature_mapping_id": "mapping-1",
+            "minimum_gene_set_size": 2,
+            "maximum_gene_set_size": 500,
+            "gsva_kcdf": "Gaussian",
+            "gsva_tau": 1,
+            "gsva_max_diff": True,
+            "gsva_abs_ranking": False,
+            "ssgsea_alpha": 0.25,
+            "ssgsea_normalize": True,
+        },
+        "signature_mapping": {
+            "id": "mapping-1",
+            "report_sha256": "a" * 64,
+            "report": {"expression_bundle_sha256": "b" * 64},
+        },
+        "random_seed": 0,
+    }
+    Draft202012Validator(schema).validate(request)
+
+    del request["parameters"]["gsva_tau"]
+    with pytest.raises(ValidationError):
+        Draft202012Validator(schema).validate(request)
+
+
+def test_enrichment_summary_contract() -> None:
+    schema = load_json(SCHEMAS / "enrichment_summary.schema.json")
+    result = {
+        "gene_set_id": "TF_DEMO_TREATMENT_UP",
+        "gene_set_name": "Synthetic treatment-up controls",
+        "direction": "up",
+        "set_size": 150,
+        "overlap_size": 31,
+        "enrichment_score": 0.82,
+        "normalized_enrichment_score": 2.1,
+        "odds_ratio": None,
+        "p_value": 0.004,
+        "adjusted_p_value": 0.028,
+        "leading_edge": ["gene_00001"],
+        "significant": True,
+    }
+    summary = {
+        "schema_version": "1.0.0",
+        "analysis_id": "analysis-de-1",
+        "collection": {
+            "collection_id": "transcriptforge_demo_effects",
+            "name": "TranscriptForge synthetic experiment controls",
+            "version": "1.0.0",
+            "identifier_namespace": "transcriptforge_demo_feature_id",
+            "source": "TranscriptForge bundled deterministic demo experiment",
+            "license": "MIT",
+            "gmt_sha256": "b" * 64,
+            "set_count": 7,
+        },
+        "source_result": {
+            "method": "edgeR QL",
+            "contrast": "treated versus control within treatment",
+            "result_sha256": "a" * 64,
+            "tested_feature_count": 2000,
+            "significant_feature_count": 31,
+        },
+        "parameters": {
+            "identifier_field": "feature_id",
+            "ranking_metric": "signed_log10_p_value",
+            "random_seed": 42,
+            "permutation_count": 250,
+            "minimum_gene_set_size": 10,
+            "maximum_gene_set_size": 500,
+            "fdr_threshold": 0.05,
+            "absolute_log2_fold_change": 1,
+        },
+        "ranked_list": [result],
+        "over_representation": [
+            {
+                **result,
+                "enrichment_score": None,
+                "normalized_enrichment_score": None,
+                "odds_ratio": 4.2,
+            }
+        ],
+        "warnings": ["Synthetic demonstration controls."],
+    }
+    Draft202012Validator(schema).validate(summary)

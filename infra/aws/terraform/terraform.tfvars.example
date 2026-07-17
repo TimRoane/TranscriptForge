@@ -1,0 +1,19 @@
+aws_region = "us-west-2"
+vpc_id     = "vpc-0123456789abcdef0"
+subnet_ids = [
+  "subnet-0123456789abcdef0",
+  "subnet-0fedcba9876543210",
+]
+
+# Private subnets need NAT or VPC endpoints for Batch, ECR (api+dkr), S3,
+# CloudWatch Logs, STS, and KMS. Review data residency before changing Region.
+compute_resource_type = "SPOT"
+max_vcpus             = 32
+monthly_budget_usd    = 50
+budget_alert_email    = "owner@example.org"
+
+tags = {
+  Owner      = "replace-me"
+  CostCenter = "portfolio"
+  DataClass  = "research"
+}

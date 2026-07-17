@@ -182,10 +182,18 @@ async def get_p_value_distribution(
 
 
 @router.get("/runs/{run_id}/expression-heatmap")
-async def get_expression_heatmap(
-    run_id: str, session: Session, storage: Storage
-) -> dict[str, Any]:
+async def get_expression_heatmap(run_id: str, session: Session, storage: Storage) -> dict[str, Any]:
     return await _json_artifact(session, storage, run_id, "expression_heatmap")
+
+
+@router.get("/runs/{run_id}/enrichment-summary")
+async def get_enrichment_summary(run_id: str, session: Session, storage: Storage) -> dict[str, Any]:
+    return await _json_artifact(session, storage, run_id, "enrichment_summary")
+
+
+@router.get("/runs/{run_id}/signature-scores")
+async def get_signature_scores(run_id: str, session: Session, storage: Storage) -> dict[str, Any]:
+    return await _json_artifact(session, storage, run_id, "signature_scores")
 
 
 @router.get(
@@ -205,9 +213,7 @@ async def get_differential_expression_results(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 25,
 ) -> DifferentialExpressionResultsPage:
-    payload = await _artifact_payload(
-        session, storage, run_id, "differential_expression_results"
-    )
+    payload = await _artifact_payload(session, storage, run_id, "differential_expression_results")
     assert payload is not None
     try:
         return await run_in_threadpool(
@@ -239,9 +245,7 @@ async def download_filtered_differential_expression_results(
     sort_by: DifferentialExpressionSort = "adjusted_p_value",
     direction: SortDirection = "asc",
 ) -> Response:
-    payload = await _artifact_payload(
-        session, storage, run_id, "differential_expression_results"
-    )
+    payload = await _artifact_payload(session, storage, run_id, "differential_expression_results")
     assert payload is not None
     try:
         filtered = await run_in_threadpool(

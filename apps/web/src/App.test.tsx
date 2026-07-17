@@ -102,6 +102,53 @@ describe('App', () => {
     expect(screen.getByText('No datasets registered yet.')).toBeInTheDocument()
   })
 
+  it('uploads a checksum-frozen signature definition from the project page', async () => {
+    let uploaded = false
+    let uploadName: FormDataEntryValue | null = null
+    let uploadIdentifierType: FormDataEntryValue | null = null
+    const definition = {
+      id: 'definition-1', project_id: 'project-1', name: 'Cartilage response',
+      description: null, definition_format: 'gene_list', identifier_type: 'ensembl_gene_id',
+      original_name: 'cartilage.tsv', source_sha256: 'a'.repeat(64), source_size_bytes: 32,
+      manifest_sha256: 'b'.repeat(64), set_count: 1, requested_identifier_count: 3,
+      unique_identifier_count: 3, duplicate_identifier_count: 0, weighted: true,
+      created_at: '2026-07-16T00:00:00Z', updated_at: '2026-07-16T00:00:00Z',
+    }
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return jsonResponse(health)
+      if (url.endsWith('/projects/project-1')) return jsonResponse(project)
+      if (url.endsWith('/projects/project-1/datasets')) return jsonResponse([])
+      if (url.endsWith('/projects/project-1/signature-definitions') && init?.method === 'POST') {
+        const form = init.body as FormData
+        uploadName = form.get('name')
+        uploadIdentifierType = form.get('identifier_type')
+        uploaded = true
+        return jsonResponse(definition, 201)
+      }
+      if (url.endsWith('/projects/project-1/signature-definitions')) {
+        return jsonResponse(uploaded ? [definition] : [])
+      }
+      return jsonResponse({ detail: 'Not found' }, 404)
+    })
+
+    const view = renderApp('/projects/project-1')
+    expect(await screen.findByRole('heading', { name: 'Reusable signature definitions' })).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Signature name' }), {
+      target: { value: 'Cartilage response' },
+    })
+    const fileInput = view.container.querySelector<HTMLInputElement>('input[type="file"]')
+    expect(fileInput).not.toBeNull()
+    fireEvent.change(fileInput as HTMLInputElement, {
+      target: { files: [new File(['gene_id\tweight\nTP53\t1\n'], 'cartilage.tsv')] },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Upload signature definition' }))
+
+    expect(await screen.findByText(/3 unique identifiers/)).toBeInTheDocument()
+    expect(uploadName).toBe('Cartilage response')
+    expect(uploadIdentifierType).toBe('ensembl_gene_id')
+  })
+
   it('renders completed validation state and matrix preview on the project dashboard', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input)
@@ -137,6 +184,186 @@ describe('App', () => {
     expect(await screen.findByText(/VALID: 1 features and 1 samples/)).toBeInTheDocument()
     expect(screen.getByRole('table', { name: 'Matrix orientation preview' })).toBeInTheDocument()
     expect(screen.getByText('ENSG000001')).toBeInTheDocument()
+  })
+
+  it('validates a paired FASTQ sample sheet against the pinned reference', async () => {
+    const rawDataset = {
+      ...dataset,
+      id: 'dataset-fastq',
+      name: 'Tiny paired FASTQ study',
+      source_kind: 'fastq',
+      annotation_release: 'GENCODE 50',
+      status: 'draft',
+    }
+    const file = (role: 'sample_sheet' | 'fastq_r1' | 'fastq_r2', name: string) => ({
+      dataset_file_id: `${role}-${name}`,
+      role,
+      original_name: name,
+      storage_uri: `local://${name}`,
+      size_bytes: 128,
+      sha256: role === 'sample_sheet' ? 'c'.repeat(64) : 'd'.repeat(64),
+    })
+    const ingestion = {
+      schema_version: '1.1.0',
+      dataset_id: 'dataset-fastq',
+      organism: 'Homo sapiens',
+      genome_build: 'GRCh38',
+      source_kind: 'fastq',
+      reference: {
+        reference_id: 'gencode_v50_grch38_salmon_1_11_4',
+        definition_sha256: 'a'.repeat(64),
+        name: 'GENCODE 50 GRCh38.p14 full-genome-decoy Salmon reference',
+        annotation_release: 'GENCODE 50',
+        salmon_version: '1.11.4',
+      },
+      sample_sheet: file('sample_sheet', 'samples.tsv'),
+      library_layout: 'paired_end',
+      strandedness: 'auto',
+      sample_count: 1,
+      lane_count: 1,
+      read_file_count: 2,
+      samples: [{
+        sample_id: 'sample_A',
+        lanes: [{
+          lane_id: 'lane_1',
+          read1: file('fastq_r1', 'sample_A_R1.fastq.gz'),
+          read2: file('fastq_r2', 'sample_A_R2.fastq.gz'),
+        }],
+        metadata: { condition: 'control' },
+      }],
+      warnings: [],
+    }
+    let ingestBody: Record<string, unknown> | null = null
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return jsonResponse(health)
+      if (url.endsWith('/projects/project-1')) return jsonResponse(project)
+      if (url.endsWith('/projects/project-1/datasets')) return jsonResponse([rawDataset])
+      if (url.endsWith('/datasets/dataset-fastq/files')) {
+        return jsonResponse([
+          { ...file('fastq_r1', 'sample_A_R1.fastq.gz'), id: 'r1', dataset_id: 'dataset-fastq', created_at: '2026-07-16T00:00:00Z' },
+          { ...file('fastq_r2', 'sample_A_R2.fastq.gz'), id: 'r2', dataset_id: 'dataset-fastq', created_at: '2026-07-16T00:00:00Z' },
+        ])
+      }
+      if (url.endsWith('/datasets/dataset-fastq/raw-rnaseq/ingestion')) {
+        return jsonResponse(null)
+      }
+      if (url.endsWith('/datasets/dataset-fastq/raw-rnaseq/ingest') && init?.method === 'POST') {
+        ingestBody = JSON.parse(String(init.body)) as Record<string, unknown>
+        return jsonResponse(ingestion, 201)
+      }
+      return jsonResponse({ detail: 'Not found' }, 404)
+    })
+
+    renderApp('/projects/project-1')
+
+    expect(await screen.findByText('Tiny paired FASTQ study')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'R1 FASTQ' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'R2 FASTQ' })).toBeInTheDocument()
+    expect(screen.getByText(/GENCODE 50, GRCh38.p14, Salmon 1.11.4/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Run QC & quantify' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Validate sample sheet' }))
+
+    expect(await screen.findByText(/VALID: 1 paired-end samples/)).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Raw RNA-seq sample sheet preview' })).toBeInTheDocument()
+    expect(screen.getByText('condition=control')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Run QC & quantify' })).toBeEnabled()
+    expect(ingestBody).toEqual({ strandedness: 'auto' })
+  })
+
+  it('validates Affymetrix CEL inputs with an explicit platform and aggregation policy', async () => {
+    const microarrayDataset = {
+      ...dataset,
+      id: 'dataset-cel',
+      name: 'Cartilage Human Gene arrays',
+      modality: 'microarray',
+      source_kind: 'affymetrix_cel',
+      annotation_release: null,
+      status: 'draft',
+    }
+    const platform = {
+      platform_id: 'affymetrix_hugene_1_0_st_v1',
+      definition_sha256: 'a'.repeat(64),
+      adapter_version: '1.0.0',
+      vendor: 'Affymetrix',
+      array_design: 'Human Gene 1.0 ST Array',
+      organism: 'Homo sapiens',
+      chip_type_aliases: ['HuGene-1_0-st-v1'],
+      cel_formats: ['calvin'],
+      normalization: {
+        engine: 'oligo', method: 'rma', target: 'probeset',
+        pd_info_package: 'pd.hugene.1.0.st.v1',
+      },
+      annotation: {
+        package: 'hugene10sttranscriptcluster.db', probe_key: 'PROBEID',
+        gene_id_field: 'ENSEMBL', gene_symbol_field: 'SYMBOL',
+        confidence: 'explicit_platform_adapter',
+      },
+      aggregation: {
+        default_method: 'highest_mad', supported_methods: ['highest_mad', 'median', 'mean'],
+      },
+      sources: [],
+    }
+    const celFile = {
+      dataset_file_id: 'cel-1', role: 'cel_file', original_name: 'sample_A.CEL.gz',
+      storage_uri: 'local://sample_A.CEL.gz', size_bytes: 1024, sha256: 'b'.repeat(64),
+    }
+    const metadataFile = {
+      dataset_file_id: 'metadata-1', role: 'sample_metadata', original_name: 'samples.tsv',
+      storage_uri: 'local://samples.tsv', size_bytes: 128, sha256: 'c'.repeat(64),
+    }
+    const ingestion = {
+      schema_version: '1.0.0', dataset_id: 'dataset-cel', organism: 'Homo sapiens',
+      source_kind: 'affymetrix_cel',
+      platform: {
+        ...platform,
+        detected_chip_type: 'HuGene-1_0-st-v1', cel_format: 'calvin',
+      },
+      aggregation_method: 'highest_mad', sample_metadata: metadataFile,
+      sample_count: 1, cel_file_count: 1,
+      samples: [{ sample_id: 'sample_A', cel_file: celFile, metadata: { condition: 'control' } }],
+      warnings: [],
+    }
+    let ingestBody: Record<string, unknown> | null = null
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return jsonResponse(health)
+      if (url.endsWith('/projects/project-1')) return jsonResponse(project)
+      if (url.endsWith('/projects/project-1/datasets')) return jsonResponse([microarrayDataset])
+      if (url.endsWith('/microarray-platforms')) return jsonResponse([platform])
+      if (url.endsWith('/datasets/dataset-cel/files')) {
+        return jsonResponse([
+          { ...celFile, id: 'cel-1', dataset_id: 'dataset-cel', created_at: '2026-07-16T00:00:00Z' },
+          { ...metadataFile, id: 'metadata-1', dataset_id: 'dataset-cel', created_at: '2026-07-16T00:00:00Z' },
+        ])
+      }
+      if (url.endsWith('/datasets/dataset-cel/microarray/ingestion')) return jsonResponse(null)
+      if (url.endsWith('/datasets/dataset-cel/microarray/ingest') && init?.method === 'POST') {
+        ingestBody = JSON.parse(String(init.body)) as Record<string, unknown>
+        return jsonResponse(ingestion, 201)
+      }
+      if (url.endsWith('/datasets/dataset-cel/preparation-runs')) return jsonResponse([])
+      if (url.endsWith('/datasets/dataset-cel/prepared-versions')) return jsonResponse([])
+      return jsonResponse({ detail: 'Not found' }, 404)
+    })
+
+    renderApp('/projects/project-1')
+
+    expect(await screen.findByText('Cartilage Human Gene arrays')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'CEL files' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sample metadata' })).toBeInTheDocument()
+    expect(await screen.findByText(/oligo RMA · annotation hugene10sttranscriptcluster.db/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Run RMA & prepare' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Validate CEL inputs' }))
+
+    expect(await screen.findByText(/VALID: 1 samples and 1 checksum-frozen CEL files/)).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Affymetrix CEL sample metadata preview' })).toBeInTheDocument()
+    expect(screen.getByText('condition=control')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Run RMA & prepare' })).toBeEnabled()
+    expect(ingestBody).toEqual({
+      platform_id: 'affymetrix_hugene_1_0_st_v1',
+      aggregation_method: 'highest_mad',
+    })
   })
 
   it('renders prepared dataset QC and mapping provenance', async () => {
@@ -185,6 +412,36 @@ describe('App', () => {
         })
       }
       if (url.endsWith('/runs/preparation-run-1/artifacts')) return jsonResponse([])
+      if (url.endsWith('/projects/project-1/signature-definitions')) {
+        return jsonResponse([{
+          id: 'definition-1', project_id: 'project-1', name: 'Cartilage response',
+          description: null, definition_format: 'gene_list', identifier_type: 'ensembl_gene_id',
+          original_name: 'cartilage.tsv', source_sha256: 'a'.repeat(64), source_size_bytes: 32,
+          manifest_sha256: 'b'.repeat(64), set_count: 1, requested_identifier_count: 3,
+          unique_identifier_count: 3, duplicate_identifier_count: 0, weighted: true,
+          created_at: '2026-07-16T00:00:00Z', updated_at: '2026-07-16T00:00:00Z',
+        }])
+      }
+      if (url.endsWith('/prepared-datasets/prepared-1/signature-mappings')) {
+        return jsonResponse([{
+          id: 'mapping-1', signature_definition_id: 'definition-1',
+          prepared_dataset_id: 'prepared-1', report_sha256: 'c'.repeat(64),
+          missing_sha256: 'd'.repeat(64), ambiguous_sha256: 'e'.repeat(64),
+          requested_identifier_count: 3, unique_identifier_count: 3,
+          mapped_identifier_count: 2, missing_identifier_count: 1,
+          ambiguous_identifier_count: 0, duplicate_identifier_count: 0,
+          mapping_coverage: 2 / 3,
+          report_json: {
+            sets: [{
+              mapped_entries: [
+                { identifier: 'TP53', feature_id: 'ENSG000001', weight: 1.5 },
+                { identifier: 'EGFR', feature_id: 'ENSG000002', weight: -0.5 },
+              ],
+            }],
+          },
+          created_at: '2026-07-16T00:00:00Z', updated_at: '2026-07-16T00:00:00Z',
+        }])
+      }
       return jsonResponse({ detail: 'Not found' }, 404)
     })
 
@@ -195,6 +452,185 @@ describe('App', () => {
     expect(await screen.findByText('sample_1')).toBeInTheDocument()
     expect(screen.getByText(/42 total · 1 detected/)).toBeInTheDocument()
     expect(screen.getByText('5 mapped')).toBeInTheDocument()
+    expect(await screen.findByText('Mapping coverage: 66.7%')).toBeInTheDocument()
+    expect(screen.getByText('1 missing')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Missing identifiers/ })).toHaveAttribute(
+      'href',
+      expect.stringContaining('/signature-mappings/mapping-1/missing.tsv'),
+    )
+    expect(screen.getByRole('button', { name: 'Score signature' })).toBeEnabled()
+    expect(screen.getByRole('combobox', { name: 'Scoring method' })).toHaveTextContent(
+      'Mean expression',
+    )
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Scoring method' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'GSVA (Bioconductor R)' }))
+    expect(screen.getByRole('spinbutton', { name: 'Minimum set size' })).toHaveValue(1)
+    expect(screen.getByRole('combobox', { name: 'Kernel' })).toHaveTextContent('Gaussian')
+    expect(screen.getByText(/pinned R environment/)).toBeInTheDocument()
+  })
+
+  it('renders deterministic signature scores with mapping evidence and downloads', async () => {
+    const analysis = {
+      id: 'signature-analysis-1', project_id: 'project-1', prepared_dataset_id: 'prepared-1',
+      analysis_type: 'signature', name: 'Cartilage response · mean z score', description: null,
+      configuration_json: {
+        analysis_type: 'signature', method: 'mean_z_score', assay: 'log_expression',
+        parameters: {
+          signature_mapping_id: 'mapping-1', minimum_gene_set_size: 1,
+          maximum_gene_set_size: 5000, gsva_kcdf: 'Gaussian', gsva_tau: 1,
+          gsva_max_diff: true, gsva_abs_ranking: false, ssgsea_alpha: 0.25,
+          ssgsea_normalize: true,
+        }, random_seed: 0,
+        signature_mapping_report_sha256: 'c'.repeat(64),
+        signature_definition_id: 'definition-1', mapping_coverage: 2 / 3,
+      },
+      created_at: '2026-07-16T00:00:00Z',
+    }
+    const run = {
+      ...completedRun, id: 'signature-run-1', run_type: 'analysis', dataset_id: 'dataset-1',
+      prepared_dataset_id: 'prepared-1', analysis_id: 'signature-analysis-1',
+    }
+    const scores = {
+      schema_version: '1.0.0', analysis_id: analysis.id, prepared_dataset_id: 'prepared-1',
+      method: 'mean_z_score', assay: 'log_expression',
+      formula: 'Arithmetic mean of mapped gene z-scores.', sample_count: 2, set_count: 1,
+      signature_mapping: {
+        id: 'mapping-1', report_sha256: 'c'.repeat(64),
+        signature_definition_id: 'definition-1', signature_definition_sha256: 'b'.repeat(64),
+        expression_bundle_sha256: 'a'.repeat(64), mapping_coverage: 2 / 3,
+        requested_identifier_count: 3, mapped_identifier_count: 2,
+        missing_identifier_count: 1, ambiguous_identifier_count: 0,
+        duplicate_identifier_count: 0,
+      },
+      sets: [{
+        signature_id: 'set-1', name: 'Cartilage response', requested_identifier_count: 3,
+        mapped_identifier_count: 2, scored_feature_count: 2,
+        excluded_constant_feature_count: 0, mapping_coverage: 2 / 3,
+        score_minimum: -0.75, score_maximum: 0.75, score_mean: 0,
+        scores: [
+          { sample_id: 'sample_A', score: -0.75, metadata: { condition: 'control' } },
+          { sample_id: 'sample_B', score: 0.75, metadata: { condition: 'treated' } },
+        ],
+      }],
+      warnings: ['Mapping report contains 1 missing identifier(s).'],
+      software: {
+        language: 'Python', language_version: '3.12.11',
+        implementation: 'transcriptforge_analysis.signature_scoring',
+        packages: { numpy: '2.3.1', scipy: '1.16.0' },
+      },
+    }
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return jsonResponse(health)
+      if (url.endsWith('/analyses/signature-analysis-1')) return jsonResponse(analysis)
+      if (url.endsWith('/analyses/signature-analysis-1/runs')) return jsonResponse([run])
+      if (url.endsWith('/prepared-datasets/prepared-1')) {
+        return jsonResponse({
+          id: 'prepared-1', dataset_id: 'dataset-1', version: 1,
+          preparation_run_id: 'preparation-run-1', value_types_available: ['log_expression'],
+          sample_count: 2, feature_count: 100, qc_status: 'PASS',
+          created_at: '2026-07-16T00:00:00Z',
+        })
+      }
+      if (url.endsWith('/runs/signature-run-1/signature-scores')) return jsonResponse(scores)
+      if (url.endsWith('/runs/signature-run-1/result-manifest')) {
+        return jsonResponse({
+          schema_version: '1.0.0', analysis_type: 'signature', title: 'Signature scoring',
+          summary_metrics: [], sections: [], downloads: [], warnings: scores.warnings,
+        })
+      }
+      if (url.endsWith('/runs/signature-run-1/artifacts')) {
+        return jsonResponse([{
+          id: 'score-table', run_id: run.id, artifact_type: 'signature_scores_table',
+          title: 'Per-sample signature scores table', relative_path: 'signature_scores.tsv',
+          mime_type: 'text/tab-separated-values', size_bytes: 128, sha256: 'd'.repeat(64),
+          display_order: 2, metadata_json: {},
+        }])
+      }
+      return jsonResponse({ detail: 'Not found' }, 404)
+    })
+
+    renderApp('/analyses/signature-analysis-1')
+
+    expect(await screen.findByRole('heading', { name: 'Cartilage response · mean z score' })).toBeInTheDocument()
+    expect(await screen.findByText('Mapped / requested')).toBeInTheDocument()
+    expect(screen.getByText('2/3')).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Cartilage response per-sample scores' })).toBeInTheDocument()
+    expect(screen.getByText('condition=treated')).toBeInTheDocument()
+    expect(screen.getByText(/1 missing identifier/)).toBeInTheDocument()
+    expect(screen.getByText(/numpy 2.3.1/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Per-sample signature scores table/ })).toHaveAttribute(
+      'href', expect.stringContaining('/artifacts/score-table/download'),
+    )
+  })
+
+  it('renders microarray-specific QC without count-library assumptions', async () => {
+    const microarrayDataset = {
+      ...dataset,
+      name: 'Cartilage Human Gene arrays',
+      modality: 'microarray',
+      source_kind: 'affymetrix_cel',
+      annotation_release: 'hugene10sttranscriptcluster.db',
+      status: 'prepared',
+    }
+    const plotArtifact = (artifactType: string, title: string) => ({
+      id: artifactType, run_id: 'microarray-run-1', artifact_type: artifactType, title,
+      relative_path: `rma/plots/${artifactType}.svg`, mime_type: 'image/svg+xml',
+      size_bytes: 1024, sha256: 'a'.repeat(64), display_order: 1, metadata_json: {},
+    })
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return jsonResponse(health)
+      if (url.endsWith('/prepared-datasets/prepared-microarray')) {
+        return jsonResponse({
+          id: 'prepared-microarray', dataset_id: 'dataset-1', version: 1,
+          preparation_run_id: 'microarray-run-1',
+          value_types_available: ['log_expression', 'probe_expression'],
+          sample_count: 2, feature_count: 23702, qc_status: 'PASS',
+          created_at: '2026-07-16T00:00:00Z',
+        })
+      }
+      if (url.endsWith('/datasets/dataset-1')) return jsonResponse(microarrayDataset)
+      if (url.endsWith('/runs/microarray-run-1/qc-summary')) {
+        return jsonResponse({
+          schema_version: '1.0.0', status: 'PASS', sample_count: 2,
+          probe_count: 257430, gene_count: 23702, reviewed_sample_count: 0,
+          plots: ['plots/pca.svg'],
+        })
+      }
+      if (url.endsWith('/runs/microarray-run-1/feature-mapping-summary')) {
+        return jsonResponse({
+          prepared_dataset_id: 'prepared-microarray', prepared_version: 1,
+          sample_count: 2, feature_count: 23702,
+          value_types_available: ['log_expression', 'probe_expression'], qc_status: 'PASS',
+          mapped_feature_count: 23702, unmapped_feature_count: 0,
+          duplicate_group_count: 0, mapping_coverage: 1,
+          probe_count: 257430, gene_count: 23702, aggregation_method: 'highest_mad',
+          probe_mapping_path: 'mappings/probe_mapping.tsv',
+        })
+      }
+      if (url.endsWith('/runs/microarray-run-1/artifacts')) {
+        return jsonResponse([
+          plotArtifact('microarray_raw_boxplot', 'Raw array intensity distributions'),
+          plotArtifact('microarray_pca', 'Microarray PCA'),
+        ])
+      }
+      if (url.endsWith('/prepared-datasets/prepared-microarray/analyses')) return jsonResponse([])
+      if (url.endsWith('/prepared-datasets/prepared-microarray/differential-expression/design-options')) {
+        return jsonResponse({ sample_count: 2, assays: ['log_expression'], variables: [] })
+      }
+      return jsonResponse({ detail: 'Not found' }, 404)
+    })
+
+    renderApp('/prepared-datasets/prepared-microarray')
+
+    expect(await screen.findByRole('heading', { name: 'Array QC' })).toBeInTheDocument()
+    expect(screen.getByText('257,430 probe sets')).toBeInTheDocument()
+    expect(screen.getByText('23,702 genes')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Raw array intensity distributions' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Microarray PCA' })).toBeInTheDocument()
+    expect(screen.getByText('257,430 probe sets retained')).toBeInTheDocument()
+    expect(screen.getByText('Aggregation: highest mad')).toBeInTheDocument()
   })
 
   it('selects UMAP controls and launches the frozen method configuration', async () => {
@@ -434,7 +870,11 @@ describe('App', () => {
     fireEvent.mouseDown(screen.getAllByRole('combobox', { name: 'Method' })[0])
     fireEvent.click(screen.getByRole('option', { name: 'edgeR QL' }))
     expect(await screen.findByText('Method: edger_ql')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Save validated design' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Run optional gene-set enrichment' }))
+    expect(await screen.findByText(/not a curated biological pathway database/i)).toBeInTheDocument()
+    const saveButton = screen.getByRole('button', { name: 'Save validated design' })
+    await waitFor(() => expect(saveButton).toBeEnabled())
+    fireEvent.click(saveButton)
 
     await waitFor(() => {
       const createCall = fetchMock.mock.calls.find(
@@ -448,6 +888,11 @@ describe('App', () => {
         parameters: {
           design: { primary_variable: 'treatment', covariates: [] },
           contrast: { numerator: 'stimulated', denominator: 'vehicle' },
+          enrichment: {
+            enabled: true,
+            collection_id: 'transcriptforge_demo_effects',
+            permutation_count: 250,
+          },
         },
       })
     })
@@ -475,6 +920,11 @@ describe('App', () => {
           contrast: { variable: 'treatment', numerator: 'stimulated', denominator: 'vehicle' },
           low_count_threshold: 10, minimum_samples: 2, fdr_threshold: 0.05,
           absolute_log2_fold_change: 1, independent_filtering: true, shrinkage: true,
+          enrichment: {
+            enabled: true, collection_id: 'transcriptforge_demo_effects',
+            ranking_metric: 'signed_log10_p_value', permutation_count: 250,
+            minimum_gene_set_size: 10, maximum_gene_set_size: 500,
+          },
         },
         random_seed: 20260716, design_formula: validation.formula,
         contrast_label: validation.contrast_label, design_validation: validation,
@@ -532,6 +982,46 @@ describe('App', () => {
             gene_null: { log2_fold_change: 0.1, adjusted_p_value: 0.8, significant: false },
           },
           contrast: { variable: 'treatment', numerator: 'stimulated', denominator: 'vehicle' },
+        })
+      }
+      if (url.endsWith('/runs/limma-run-1/enrichment-summary')) {
+        const rankedResult = {
+          gene_set_id: 'TF_DEMO_TREATMENT_UP',
+          gene_set_name: 'Synthetic treatment-up controls', direction: 'up',
+          set_size: 150, overlap_size: 31, enrichment_score: 0.82,
+          normalized_enrichment_score: 2.1, odds_ratio: null,
+          p_value: 0.004, adjusted_p_value: 0.028,
+          leading_edge: ['gene_up'], significant: true,
+        }
+        return jsonResponse({
+          schema_version: '1.0.0', analysis_id: 'analysis-limma',
+          collection: {
+            collection_id: 'transcriptforge_demo_effects',
+            name: 'TranscriptForge simulated-effect controls', version: '1.0.0',
+            identifier_namespace: 'transcriptforge_demo_feature_id',
+            source: 'TranscriptForge bundled deterministic demo experiment', license: 'MIT',
+            gmt_sha256: 'b'.repeat(64), set_count: 7,
+          },
+          source_result: {
+            method: 'limma', contrast: 'stimulated versus vehicle within treatment',
+            result_sha256: 'a'.repeat(64), tested_feature_count: 2,
+            significant_feature_count: 1,
+          },
+          parameters: {
+            identifier_field: 'feature_id', ranking_metric: 'signed_log10_p_value',
+            random_seed: 20260716,
+            permutation_count: 250, minimum_gene_set_size: 10,
+            maximum_gene_set_size: 500, fdr_threshold: 0.05,
+            absolute_log2_fold_change: 1,
+          },
+          ranked_list: [rankedResult],
+          over_representation: [{
+            ...rankedResult, enrichment_score: null, normalized_enrichment_score: null,
+            odds_ratio: 4.2,
+          }],
+          warnings: [
+            'This collection contains synthetic demonstration controls, not curated biological pathways.',
+          ],
         })
       }
       if (url.includes('/runs/limma-run-1/differential-expression/results?')) {
@@ -608,6 +1098,11 @@ describe('App', () => {
     expect(await screen.findByRole('img', { name: 'MA plot' })).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: 'P-value distribution' })).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: 'Top-feature expression heatmap' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Gene-set enrichment' })).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Ranked-list enrichment' })).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Over-representation analysis' })).toBeInTheDocument()
+    expect(screen.getAllByText('TF_DEMO_TREATMENT_UP')).toHaveLength(2)
+    expect(screen.getByText(/not curated biological pathways/i)).toBeInTheDocument()
     expect(await screen.findByRole('table', { name: 'Differential-expression results' })).toBeInTheDocument()
     expect(screen.getByText('UP1')).toBeInTheDocument()
     expect(screen.getByText('average log2 expression')).toBeInTheDocument()

@@ -65,6 +65,7 @@ services:
       - path: .env
         required: false
     environment:
+      PYTHONPATH: /app/apps/api:/app/analysis/python
       TRANSCRIPTFORGE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-transcriptforge}:${POSTGRES_PASSWORD:-transcriptforge}@postgres:5432/${POSTGRES_DB:-transcriptforge}
       TRANSCRIPTFORGE_CELERY_BROKER_URL: redis://redis:6379/0
       TRANSCRIPTFORGE_CELERY_RESULT_BACKEND: redis://redis:6379/1
@@ -87,6 +88,9 @@ services:
         condition: service_healthy
     volumes:
       - ./apps/api:/app/apps/api
+      - ./analysis/python:/app/analysis/python:ro
+      - ./microarray:/app/microarray:ro
+      - ./references:/app/references:ro
       - ./schemas:/app/schemas:ro
       - run-data:/data/transcriptforge
 
@@ -99,13 +103,15 @@ services:
       - path: .env
         required: false
     environment:
+      PYTHONPATH: /app/apps/api:/app/analysis/python
       TRANSCRIPTFORGE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-transcriptforge}:${POSTGRES_PASSWORD:-transcriptforge}@postgres:5432/${POSTGRES_DB:-transcriptforge}
       TRANSCRIPTFORGE_CELERY_BROKER_URL: redis://redis:6379/0
       TRANSCRIPTFORGE_CELERY_RESULT_BACKEND: redis://redis:6379/1
       TRANSCRIPTFORGE_LOCAL_STORAGE_ROOT: /data/transcriptforge
       TRANSCRIPTFORGE_RUN_WORK_ROOT: /data/transcriptforge/runtime
+      TRANSCRIPTFORGE_REFERENCE_CACHE_ROOT: /data/transcriptforge/reference-cache
       TRANSCRIPTFORGE_PIPELINE_PATH: /app/pipelines/main.nf
-      TRANSCRIPTFORGE_NEXTFLOW_PROFILE: test
+      TRANSCRIPTFORGE_NEXTFLOW_PROFILE: ${TRANSCRIPTFORGE_NEXTFLOW_PROFILE:-test}
     command: ["celery", "-A", "transcriptforge_api.workers.celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
     depends_on:
       postgres:
@@ -117,6 +123,8 @@ services:
       - ./analysis/python:/app/analysis/python:ro
       - ./analysis/r:/app/analysis/r:ro
       - ./pipelines:/app/pipelines:ro
+      - ./microarray:/app/microarray:ro
+      - ./references:/app/references:ro
       - ./schemas:/app/schemas:ro
       - run-data:/data/transcriptforge
 

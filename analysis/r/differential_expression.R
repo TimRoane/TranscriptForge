@@ -9,6 +9,11 @@ suppressPackageStartupMessages({
 
 abort <- function(message) stop(message, call. = FALSE)
 
+script_argument <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+if (length(script_argument) != 1L) abort("Unable to locate the differential-expression runner.")
+script_root <- dirname(normalizePath(sub("^--file=", "", script_argument[[1L]])))
+source(file.path(script_root, "enrichment.R"), local = TRUE)
+
 parse_args <- function(values) {
   result <- list()
   index <- 1L
@@ -389,6 +394,89 @@ if (!identical(request$method, "deseq2")) {
 }
 write_json(contrast_document, file.path(output_dir, "contrast.json"))
 
+enrichment_summary <- NULL
+enrichment_downloads <- list()
+enrichment_section <- NULL
+enrichment_config <- parameters$enrichment
+if (!is.null(enrichment_config) && isTRUE(enrichment_config$enabled)) {
+  collection <- load_gene_set_collection(script_root, enrichment_config$collection_id)
+  ranked_enrichment <- run_ranked_list_enrichment(
+    table, collection$sets, enrichment_config, request$random_seed, parameters$fdr_threshold
+  )
+  over_representation <- run_over_representation(
+    table, collection$sets, enrichment_config, parameters$fdr_threshold
+  )
+  enrichment_warnings <- character()
+  if (identical(enrichment_config$collection_id, "transcriptforge_demo_effects")) {
+    enrichment_warnings <- c(
+      enrichment_warnings,
+      "This collection contains synthetic demonstration controls, not curated biological pathways."
+    )
+  }
+  if (!length(ranked_enrichment)) {
+    enrichment_warnings <- c(
+      enrichment_warnings,
+      "No gene sets passed the configured identifier-overlap and size criteria."
+    )
+  }
+  collection_metadata <- collection$metadata
+  enrichment_summary <- list(
+    schema_version = "1.0.0",
+    analysis_id = request$analysis_id,
+    collection = list(
+      collection_id = collection_metadata$collection_id,
+      name = collection_metadata$name,
+      version = collection_metadata$version,
+      identifier_namespace = collection_metadata$identifier_namespace,
+      source = collection_metadata$source,
+      license = collection_metadata$license,
+      gmt_sha256 = collection$gmt_sha256,
+      set_count = collection_metadata$set_count
+    ),
+    source_result = list(
+      method = method_label,
+      contrast = request$contrast_label,
+      result_sha256 = sha256_file(file.path(output_dir, "differential_expression.tsv")),
+      tested_feature_count = nrow(table),
+      significant_feature_count = sum(table$significant)
+    ),
+    parameters = list(
+      identifier_field = "feature_id",
+      ranking_metric = enrichment_config$ranking_metric,
+      random_seed = request$random_seed,
+      permutation_count = enrichment_config$permutation_count,
+      minimum_gene_set_size = enrichment_config$minimum_gene_set_size,
+      maximum_gene_set_size = enrichment_config$maximum_gene_set_size,
+      fdr_threshold = parameters$fdr_threshold,
+      absolute_log2_fold_change = parameters$absolute_log2_fold_change
+    ),
+    ranked_list = ranked_enrichment,
+    over_representation = over_representation,
+    warnings = as.list(enrichment_warnings)
+  )
+  write_json(enrichment_summary, file.path(output_dir, "enrichment_summary.json"))
+  write_enrichment_table(
+    ranked_enrichment, "ranked_list", file.path(output_dir, "ranked_enrichment.tsv")
+  )
+  write_enrichment_table(
+    over_representation, "over_representation",
+    file.path(output_dir, "over_representation.tsv")
+  )
+  write_enrichment_plot(
+    ranked_enrichment, over_representation, file.path(output_dir, "enrichment_plot.svg")
+  )
+  enrichment_downloads <- list(
+    list(type = "file", title = "Enrichment summary", path = "enrichment_summary.json"),
+    list(type = "table", title = "Ranked-list enrichment", path = "ranked_enrichment.tsv"),
+    list(type = "table", title = "Over-representation analysis", path = "over_representation.tsv"),
+    list(type = "image", title = "Enrichment overview", path = "enrichment_plot.svg")
+  )
+  enrichment_section <- list(
+    id = "enrichment", title = "Gene-set enrichment", items = enrichment_downloads
+  )
+  runner_warnings <- c(runner_warnings, enrichment_warnings)
+}
+
 finite_p <- pmax(table$p_value, .Machine$double.xmin, na.rm = FALSE)
 p_values <- table$p_value[is.finite(table$p_value)]
 p_value_breaks <- seq(0, 1, length.out = 21L)
@@ -545,32 +633,61 @@ downloads <- list(
   list(type = "table", title = "Design matrix", path = "design_matrix.tsv"),
   list(type = "file", title = "Method diagnostics", path = "method_diagnostics.json")
 )
+downloads <- c(downloads, enrichment_downloads)
+result_sections <- list(
+  list(id = "effect_plots", title = "Effect plots", items = list(
+    list(type = "plotly_json", title = "Volcano plot", path = "volcano_plot.json"),
+    list(type = "plotly_json", title = "MA plot", path = "ma_plot.json"),
+    list(type = "plotly_json", title = "P-value distribution", path = "p_value_distribution.json"),
+    list(type = "plotly_json", title = "Top-feature expression heatmap", path = "expression_heatmap.json")
+  )),
+  list(id = "results", title = "Results", items = downloads)
+)
+if (!is.null(enrichment_section)) result_sections <- c(result_sections, list(enrichment_section))
 manifest <- list(
   schema_version = "1.0.0", analysis_type = "differential_expression",
   title = paste0(method_label, ": ", request$contrast_label), summary_metrics = summary_metrics,
-  sections = list(
-    list(id = "effect_plots", title = "Effect plots", items = list(
-      list(type = "plotly_json", title = "Volcano plot", path = "volcano_plot.json"),
-      list(type = "plotly_json", title = "MA plot", path = "ma_plot.json"),
-      list(type = "plotly_json", title = "P-value distribution", path = "p_value_distribution.json"),
-      list(type = "plotly_json", title = "Top-feature expression heatmap", path = "expression_heatmap.json")
-    )),
-    list(id = "results", title = "Results", items = downloads)
-  ), downloads = downloads, warnings = as.list(runner_warnings)
+  sections = result_sections, downloads = downloads, warnings = as.list(runner_warnings)
 )
 write_json(manifest, file.path(output_dir, "result_manifest.json"))
 
 report <- c(
   "---", "title: \"TranscriptForge differential expression\"", "format:", "  html:", "    embed-resources: true", "---", "",
-  "## Analysis", "", paste(paste("- Method:", method_label), paste("- Assay:", request$assay),
-                           "- Design:", paste0("`", generated_formula, "`"),
-                           "- Contrast:", request$contrast_label, "- Samples:", nrow(metadata),
-                           "- Features tested:", nrow(table), "- Significant features:", sum(table$significant), sep = "\n"), "",
+  "## Analysis", "",
+  paste("- Method:", method_label),
+  paste("- Assay:", request$assay),
+  paste0("- Design: `", generated_formula, "`"),
+  paste("- Contrast:", request$contrast_label),
+  paste("- Samples:", nrow(metadata)),
+  paste("- Features tested:", nrow(table)),
+  paste("- Significant features:", sum(table$significant)),
+  paste("- FDR threshold:", parameters$fdr_threshold),
+  paste("- Absolute log2 fold-change threshold:", parameters$absolute_log2_fold_change),
+  "",
   "## Volcano plot", "", "![](volcano_plot.svg)", "", "## MA plot", "", "![](ma_plot.svg)", "",
   "## P-value distribution", "", "![](p_value_distribution.svg)", "",
   "## Top-feature expression heatmap", "", "![](expression_heatmap.svg)", "",
   "## Gene-level exploration", "",
   "The normalized expression profile table supports the interactive per-gene detail view.", "",
-  "## Interpretation", "", "Results are for research use only and are not clinically validated. Evaluate effect sizes, uncertainty, sample QC, and study design together."
+  "## Interpretation", "", "Results are for research use only and are not clinically validated. Evaluate effect sizes, uncertainty, sample QC, and study design together.",
+  "", "## Reproducibility", "",
+  paste("- R:", diagnostics$r_version),
+  paste("- DESeq2:", diagnostics$deseq2_version),
+  paste("- edgeR:", diagnostics$edger_version),
+  paste("- limma:", diagnostics$limma_version),
+  "- Full package and platform details: `session_info.txt`"
 )
+if (!is.null(enrichment_summary)) {
+  report <- c(
+    report,
+    "", "## Gene-set enrichment", "",
+    paste("- Collection:", enrichment_summary$collection$name),
+    paste("- Version:", enrichment_summary$collection$version),
+    paste("- GMT SHA-256:", enrichment_summary$collection$gmt_sha256),
+    paste("- Ranked-list sets tested:", length(enrichment_summary$ranked_list)),
+    paste("- Over-representation sets tested:", length(enrichment_summary$over_representation)),
+    "", "![](enrichment_plot.svg)", "",
+    "Enrichment is exploratory, collection-dependent, and does not provide independent validation."
+  )
+}
 writeLines(report, file.path(output_dir, "report.qmd"))

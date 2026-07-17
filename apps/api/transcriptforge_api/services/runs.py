@@ -11,6 +11,11 @@ from transcriptforge_api.models import Artifact, Dataset, DatasetFile, PreparedD
 from transcriptforge_api.models.base import new_id
 from transcriptforge_api.models.enums import DatasetStatus, RunState, RunType
 from transcriptforge_api.schemas.runs import DatasetValidationRequest
+from transcriptforge_api.services.microarray import (
+    MicroarrayIngestionError,
+    load_platform_adapter,
+)
+from transcriptforge_api.services.raw_rnaseq import RawRNASeqIngestionError, load_reference_bundle
 from transcriptforge_api.storage.base import StorageBackend
 
 ACTIVE_STATES = (
@@ -126,19 +131,6 @@ async def create_preparation_run(
     )
     if active is not None:
         raise ValidationInputError("This dataset already has an active preparation run.")
-    validation_run = await session.scalar(
-        select(Run)
-        .where(
-            Run.dataset_id == dataset.id,
-            Run.run_type == RunType.DATASET_VALIDATION.value,
-            Run.state == RunState.SUCCEEDED.value,
-        )
-        .order_by(Run.created_at.desc())
-        .limit(1)
-    )
-    if validation_run is None:
-        raise ValidationInputError("No successful validation run is available for preparation.")
-    validated = json.loads(storage.read_bytes(validation_run.params_uri))
     next_version = int(
         (
             await session.scalar(
@@ -151,20 +143,134 @@ async def create_preparation_run(
     ) + 1
     run_id = new_id()
     prepared_dataset_id = new_id()
-    frozen: dict[str, Any] = {
-        "schema_version": "1.0.0",
-        "run_id": run_id,
-        "run_type": RunType.DATASET_PREPARATION.value,
-        "prepared_dataset_id": prepared_dataset_id,
-        "prepared_version": next_version,
-        "dataset": {
-            **validated["dataset"],
-            "status_before_validation": dataset.status,
-        },
-        "inputs": validated["inputs"],
-        "validation": validated["validation"],
-        "source_validation_run_id": validation_run.id,
-    }
+    if dataset.source_kind == "fastq":
+        manifest_file = (await _latest_files(session, dataset.id, ("raw_ingestion_manifest",))).get(
+            "raw_ingestion_manifest"
+        )
+        if manifest_file is None:
+            raise ValidationInputError("Validate the current raw RNA-seq sample sheet first.")
+        ingestion = json.loads(storage.read_bytes(manifest_file.storage_uri))
+        try:
+            reference, definition_sha256 = load_reference_bundle(
+                str(ingestion["reference"]["reference_id"])
+            )
+        except RawRNASeqIngestionError as error:
+            raise ValidationInputError(
+                "The pinned reference is no longer available; re-ingest before quantification."
+            ) from error
+        if definition_sha256 != ingestion["reference"]["definition_sha256"]:
+            raise ValidationInputError(
+                "The pinned reference definition changed; re-ingest before quantification."
+            )
+        frozen = {
+            "schema_version": "1.0.0",
+            "run_id": run_id,
+            "run_type": RunType.DATASET_PREPARATION.value,
+            "prepared_dataset_id": prepared_dataset_id,
+            "prepared_version": next_version,
+            "dataset": {
+                "id": dataset.id,
+                "name": dataset.name,
+                "modality": dataset.modality,
+                "source_kind": dataset.source_kind,
+                "organism": dataset.organism,
+                "genome_build": dataset.genome_build,
+                "annotation_release": dataset.annotation_release,
+                "status_before_validation": dataset.status,
+            },
+            "inputs": {
+                "raw_ingestion_manifest": {
+                    "dataset_file_id": manifest_file.id,
+                    "original_name": manifest_file.original_name,
+                    "storage_uri": manifest_file.storage_uri,
+                    "size_bytes": manifest_file.size_bytes,
+                    "sha256": manifest_file.sha256,
+                }
+            },
+            "raw_ingestion": ingestion,
+            "reference": {
+                "reference_id": reference["reference_id"],
+                "definition_sha256": definition_sha256,
+            },
+        }
+    elif dataset.source_kind == "affymetrix_cel":
+        manifest_file = (
+            await _latest_files(session, dataset.id, ("microarray_ingestion_manifest",))
+        ).get("microarray_ingestion_manifest")
+        if manifest_file is None:
+            raise ValidationInputError("Validate the current Affymetrix CEL inputs first.")
+        ingestion = json.loads(storage.read_bytes(manifest_file.storage_uri))
+        try:
+            platform, definition_sha256 = load_platform_adapter(
+                str(ingestion["platform"]["platform_id"])
+            )
+        except (KeyError, MicroarrayIngestionError) as error:
+            raise ValidationInputError(
+                "The pinned microarray platform is unavailable; re-ingest before RMA."
+            ) from error
+        if definition_sha256 != ingestion["platform"]["definition_sha256"]:
+            raise ValidationInputError(
+                "The pinned microarray platform definition changed; re-ingest before RMA."
+            )
+        frozen = {
+            "schema_version": "1.0.0",
+            "run_id": run_id,
+            "run_type": RunType.DATASET_PREPARATION.value,
+            "prepared_dataset_id": prepared_dataset_id,
+            "prepared_version": next_version,
+            "dataset": {
+                "id": dataset.id,
+                "name": dataset.name,
+                "modality": dataset.modality,
+                "source_kind": dataset.source_kind,
+                "organism": dataset.organism,
+                "genome_build": dataset.genome_build,
+                "annotation_release": dataset.annotation_release,
+                "status_before_validation": dataset.status,
+            },
+            "inputs": {
+                "microarray_ingestion_manifest": {
+                    "dataset_file_id": manifest_file.id,
+                    "original_name": manifest_file.original_name,
+                    "storage_uri": manifest_file.storage_uri,
+                    "size_bytes": manifest_file.size_bytes,
+                    "sha256": manifest_file.sha256,
+                }
+            },
+            "microarray_ingestion": ingestion,
+            "platform": {
+                "platform_id": platform["platform_id"],
+                "definition_sha256": definition_sha256,
+            },
+        }
+    else:
+        validation_run = await session.scalar(
+            select(Run)
+            .where(
+                Run.dataset_id == dataset.id,
+                Run.run_type == RunType.DATASET_VALIDATION.value,
+                Run.state == RunState.SUCCEEDED.value,
+            )
+            .order_by(Run.created_at.desc())
+            .limit(1)
+        )
+        if validation_run is None:
+            raise ValidationInputError("No successful validation run is available for preparation.")
+        validated = json.loads(storage.read_bytes(validation_run.params_uri))
+        frozen = {
+            "schema_version": "1.0.0",
+            "run_id": run_id,
+            "run_type": RunType.DATASET_PREPARATION.value,
+            "prepared_dataset_id": prepared_dataset_id,
+            "prepared_version": next_version,
+            "dataset": {
+                **validated["dataset"],
+                "status_before_validation": dataset.status,
+            },
+            "inputs": validated["inputs"],
+            "validation": validated["validation"],
+            "source_validation_run_id": validation_run.id,
+        }
     payload = (json.dumps(frozen, indent=2, sort_keys=True) + "\n").encode()
     stored = storage.put(
         ("projects", dataset.project_id, "datasets", dataset.id, "runs", run_id, "inputs"),

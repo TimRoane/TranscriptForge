@@ -9,6 +9,9 @@ from transcriptforge_api.models.enums import AnalysisType
 
 DimensionMethod = Literal["pca", "hierarchical_clustering", "umap", "tsne"]
 DifferentialExpressionMethod = Literal["auto", "deseq2", "limma", "edger_ql", "limma_voom"]
+SignatureScoringMethod = Literal[
+    "mean_expression", "mean_z_score", "weighted_linear", "rank_based", "gsva", "ssgsea"
+]
 VariableName = Annotated[
     str, StringConstraints(min_length=1, max_length=100, pattern=r"^[A-Za-z][A-Za-z0-9_]*$")
 ]
@@ -67,6 +70,26 @@ class DesignSpecification(BaseModel):
         return self
 
 
+class EnrichmentParameters(BaseModel):
+    enabled: bool = False
+    collection_id: str = Field(
+        default="transcriptforge_demo_effects",
+        min_length=1,
+        max_length=100,
+        pattern=r"^[a-z][a-z0-9_]*$",
+    )
+    ranking_metric: Literal["signed_log10_p_value"] = "signed_log10_p_value"
+    permutation_count: int = Field(default=250, ge=100, le=5000)
+    minimum_gene_set_size: int = Field(default=10, ge=2, le=5000)
+    maximum_gene_set_size: int = Field(default=500, ge=2, le=10_000)
+
+    @model_validator(mode="after")
+    def validate_size_range(self) -> "EnrichmentParameters":
+        if self.minimum_gene_set_size > self.maximum_gene_set_size:
+            raise ValueError("Minimum gene-set size cannot exceed maximum gene-set size.")
+        return self
+
+
 class DifferentialExpressionParameters(BaseModel):
     design: DesignSpecification
     contrast: ContrastDefinition
@@ -76,6 +99,7 @@ class DifferentialExpressionParameters(BaseModel):
     absolute_log2_fold_change: float = Field(default=1.0, ge=0, le=100)
     independent_filtering: bool = True
     shrinkage: bool = True
+    enrichment: EnrichmentParameters = Field(default_factory=EnrichmentParameters)
 
     @model_validator(mode="after")
     def validate_contrast_variable(self) -> "DifferentialExpressionParameters":
@@ -84,17 +108,37 @@ class DifferentialExpressionParameters(BaseModel):
         return self
 
 
+class SignatureScoringParameters(BaseModel):
+    signature_mapping_id: str = Field(min_length=1, max_length=100)
+    minimum_gene_set_size: int = Field(default=1, ge=1, le=5000)
+    maximum_gene_set_size: int = Field(default=5000, ge=1, le=50_000)
+    gsva_kcdf: Literal["auto", "Gaussian", "Poisson", "none"] = "Gaussian"
+    gsva_tau: float = Field(default=1.0, gt=0, le=10)
+    gsva_max_diff: bool = True
+    gsva_abs_ranking: bool = False
+    ssgsea_alpha: float = Field(default=0.25, gt=0, le=10)
+    ssgsea_normalize: bool = True
+
+    @model_validator(mode="after")
+    def validate_size_range(self) -> "SignatureScoringParameters":
+        if self.minimum_gene_set_size > self.maximum_gene_set_size:
+            raise ValueError("Minimum gene-set size cannot exceed maximum gene-set size.")
+        return self
+
+
 class AnalysisCreate(BaseModel):
     name: str = Field(default="Principal component analysis", min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=4000)
     analysis_type: Literal[
-        AnalysisType.DIMENSION_REDUCTION, AnalysisType.DIFFERENTIAL_EXPRESSION
+        AnalysisType.DIMENSION_REDUCTION,
+        AnalysisType.DIFFERENTIAL_EXPRESSION,
+        AnalysisType.SIGNATURE,
     ] = AnalysisType.DIMENSION_REDUCTION
-    method: DimensionMethod | DifferentialExpressionMethod = "pca"
+    method: DimensionMethod | DifferentialExpressionMethod | SignatureScoringMethod = "pca"
     assay: str = Field(default="log_expression", min_length=1, max_length=100)
-    parameters: DimensionReductionParameters | DifferentialExpressionParameters = Field(
-        default_factory=DimensionReductionParameters
-    )
+    parameters: (
+        DimensionReductionParameters | DifferentialExpressionParameters | SignatureScoringParameters
+    ) = Field(default_factory=DimensionReductionParameters)
     random_seed: int = Field(default=42, ge=0, le=2_147_483_647)
 
     @model_validator(mode="before")
@@ -110,6 +154,12 @@ class AnalysisCreate(BaseModel):
                 payload.get("parameters", {})
             )
             payload["name"] = payload.get("name", "Differential expression")
+        elif analysis_type == AnalysisType.SIGNATURE.value:
+            payload["method"] = payload.get("method", "mean_expression")
+            payload["parameters"] = SignatureScoringParameters.model_validate(
+                payload.get("parameters", {})
+            )
+            payload["name"] = payload.get("name", "Signature scoring")
         else:
             payload["parameters"] = DimensionReductionParameters.model_validate(
                 payload.get("parameters", {})
@@ -120,15 +170,29 @@ class AnalysisCreate(BaseModel):
     def validate_type_specific_method(self) -> "AnalysisCreate":
         dimension_methods = {"pca", "hierarchical_clustering", "umap", "tsne"}
         de_methods = {"auto", "deseq2", "limma", "edger_ql", "limma_voom"}
+        signature_methods = {
+            "mean_expression",
+            "mean_z_score",
+            "weighted_linear",
+            "rank_based",
+            "gsva",
+            "ssgsea",
+        }
         if self.analysis_type == AnalysisType.DIMENSION_REDUCTION:
             if self.method not in dimension_methods or not isinstance(
                 self.parameters, DimensionReductionParameters
             ):
                 raise ValueError("Dimension reduction requires a dimension-reduction method.")
-        elif self.method not in de_methods or not isinstance(
-            self.parameters, DifferentialExpressionParameters
+        elif self.analysis_type == AnalysisType.DIFFERENTIAL_EXPRESSION and (
+            self.method not in de_methods
+            or not isinstance(self.parameters, DifferentialExpressionParameters)
         ):
             raise ValueError("Differential expression requires a supported DE method.")
+        elif self.analysis_type == AnalysisType.SIGNATURE and (
+            self.method not in signature_methods
+            or not isinstance(self.parameters, SignatureScoringParameters)
+        ):
+            raise ValueError("Signature scoring requires a supported scoring method.")
         return self
 
 

@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0.0",
+  "analysis_id": "public-microarray-paired-limma",
+  "prepared_dataset_id": "transcriptforge-public-microarray-demo",
+  "analysis_type": "differential_expression",
+  "method": "limma",
+  "assay": "log_expression",
+  "random_seed": 20260716,
+  "design_formula": "~ donor + zone",
+  "contrast_label": "superficial versus deep within zone",
+  "parameters": {
+    "design": {
+      "primary_variable": "zone",
+      "covariates": [],
+      "block_column": "donor",
+      "interaction_terms": [],
+      "reference_levels": {"zone": "deep"}
+    },
+    "contrast": {
+      "variable": "zone",
+      "numerator": "superficial",
+      "denominator": "deep"
+    },
+    "low_count_threshold": 0,
+    "minimum_samples": 2,
+    "fdr_threshold": 0.05,
+    "absolute_log2_fold_change": 1,
+    "independent_filtering": false,
+    "shrinkage": false,
+    "enrichment": {
+      "enabled": false,
+      "collection_id": "transcriptforge_demo_effects",
+      "ranking_metric": "signed_log10_p_value",
+      "permutation_count": 250,
+      "minimum_gene_set_size": 10,
+      "maximum_gene_set_size": 500
+    }
+  },
+  "design_validation": {
+    "sample_count": 8,
+    "design_matrix_rank": 5,
+    "design_matrix_columns": ["Intercept", "donor_77", "donor_91", "donor_93", "zone_superficial"],
+    "warnings": ["Public observational study; biological interpretation requires independent validation."]
+  }
+}

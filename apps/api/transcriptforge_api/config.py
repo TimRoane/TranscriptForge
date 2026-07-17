@@ -25,9 +25,11 @@ class Settings(BaseSettings):
     storage_backend: str = "local"
     local_storage_root: Path = Path(".transcriptforge-data")
     run_work_root: Path = Path(".transcriptforge-runs")
+    reference_cache_root: Path = Path(".transcriptforge-reference-cache")
     pipeline_path: Path = Path("pipelines/main.nf")
     nextflow_executable: str = "nextflow"
     nextflow_profile: str = "test"
+    aws_work_uri: str | None = None
     s3_endpoint_url: str | None = None
     s3_access_key: str | None = None
     s3_secret_key: str | None = None

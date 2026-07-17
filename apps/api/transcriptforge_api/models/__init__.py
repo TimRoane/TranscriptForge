@@ -11,6 +11,8 @@ from transcriptforge_api.models.entities import (
     PreparedDataset,
     Project,
     Run,
+    SignatureDefinition,
+    SignatureMapping,
 )
 
 __all__ = [
@@ -24,4 +26,6 @@ __all__ = [
     "PreparedDataset",
     "Project",
     "Run",
+    "SignatureDefinition",
+    "SignatureMapping",
 ]

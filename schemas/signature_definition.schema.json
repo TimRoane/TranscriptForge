@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.dev/schemas/signature-definition/1.0.0",
+  "title": "TranscriptForge Signature Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "definition_id", "name", "description", "organism", "definition_format", "identifier_type", "source", "set_count", "requested_identifier_count", "unique_identifier_count", "duplicate_identifier_count", "weighted", "sets", "warnings"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "definition_id": {"type": "string", "minLength": 1},
+    "name": {"type": "string", "minLength": 1, "maxLength": 200},
+    "description": {"type": ["string", "null"]},
+    "organism": {"const": "Homo sapiens"},
+    "definition_format": {"enum": ["gene_list", "gmt"]},
+    "identifier_type": {"enum": ["ensembl_gene_id", "gene_symbol", "entrez_id"]},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["original_name", "storage_uri", "size_bytes", "sha256"],
+      "properties": {
+        "original_name": {"type": "string", "minLength": 1},
+        "storage_uri": {"type": "string", "minLength": 1},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "set_count": {"type": "integer", "minimum": 1},
+    "requested_identifier_count": {"type": "integer", "minimum": 1},
+    "unique_identifier_count": {"type": "integer", "minimum": 1},
+    "duplicate_identifier_count": {"type": "integer", "minimum": 0},
+    "weighted": {"type": "boolean"},
+    "sets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/set"}},
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "set": {
+      "type": "object", "additionalProperties": false,
+      "required": ["signature_id", "name", "description", "requested_identifier_count", "unique_identifier_count", "duplicate_identifier_count", "weighted", "entries"],
+      "properties": {
+        "signature_id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "description": {"type": ["string", "null"]},
+        "requested_identifier_count": {"type": "integer", "minimum": 1},
+        "unique_identifier_count": {"type": "integer", "minimum": 1},
+        "duplicate_identifier_count": {"type": "integer", "minimum": 0},
+        "weighted": {"type": "boolean"},
+        "entries": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["identifier"],
+            "properties": {"identifier": {"type": "string", "minLength": 1}, "weight": {"type": "number"}}
+          }
+        }
+      }
+    }
+  }
+}

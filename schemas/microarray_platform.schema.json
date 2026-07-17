@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.dev/schemas/microarray-platform/1.0.0",
+  "title": "TranscriptForge microarray platform adapter",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "platform_id", "adapter_version", "vendor", "array_design",
+    "organism", "chip_type_aliases", "cel_formats", "normalization", "annotation",
+    "aggregation", "sources"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "platform_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,127}$" },
+    "adapter_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "vendor": { "const": "Affymetrix" },
+    "array_design": { "type": "string", "minLength": 1 },
+    "organism": { "const": "Homo sapiens" },
+    "chip_type_aliases": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "cel_formats": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "enum": ["calvin", "xda"] }
+    },
+    "normalization": {
+      "type": "object", "additionalProperties": false,
+      "required": ["engine", "method", "target", "pd_info_package"],
+      "properties": {
+        "engine": { "const": "oligo" },
+        "method": { "const": "rma" },
+        "target": { "type": "string", "minLength": 1 },
+        "pd_info_package": { "type": "string", "minLength": 1 }
+      }
+    },
+    "annotation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["package", "probe_key", "gene_id_field", "gene_symbol_field", "confidence"],
+      "properties": {
+        "package": { "type": "string", "minLength": 1 },
+        "probe_key": { "type": "string", "minLength": 1 },
+        "gene_id_field": { "type": "string", "minLength": 1 },
+        "gene_symbol_field": { "type": "string", "minLength": 1 },
+        "confidence": { "const": "explicit_platform_adapter" }
+      }
+    },
+    "aggregation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["default_method", "supported_methods"],
+      "properties": {
+        "default_method": { "enum": ["highest_mad", "median", "mean"] },
+        "supported_methods": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "enum": ["highest_mad", "median", "mean"] }
+        }
+      }
+    },
+    "sources": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "format": "uri" }
+    }
+  }
+}

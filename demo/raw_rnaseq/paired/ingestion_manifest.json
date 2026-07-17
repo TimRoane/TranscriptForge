@@ -1,0 +1,222 @@
+{
+  "dataset_id": "fixture-paired",
+  "genome_build": "GRCh38.p14",
+  "lane_count": 8,
+  "library_layout": "paired_end",
+  "organism": "Homo sapiens",
+  "read_file_count": 16,
+  "reference": {
+    "annotation_release": "GENCODE 50",
+    "definition_sha256": "46f28a6c8342aa667b70510a2c1128f9e174f4cb4135a0f99f875f8a24acdad0",
+    "name": "TranscriptForge deterministic tiny GRCh38 Salmon fixture",
+    "reference_id": "transcriptforge_tiny_grch38_salmon_1_11_4",
+    "salmon_version": "1.11.4"
+  },
+  "sample_count": 4,
+  "sample_sheet": {
+    "dataset_file_id": "fixture-paired-sample_sheet.tsv",
+    "original_name": "sample_sheet.tsv",
+    "role": "sample_sheet",
+    "sha256": "21a7df2b8ec351c1085cd310b15d716285f7582c6a6e694c37e1f7ca4b2ffc78",
+    "size_bytes": 752,
+    "storage_uri": "fixture://paired/sample_sheet.tsv"
+  },
+  "samples": [
+    {
+      "lanes": [
+        {
+          "lane_id": "L001",
+          "read1": {
+            "dataset_file_id": "fixture-paired-control_1_L001_R1.fastq.gz",
+            "original_name": "control_1_L001_R1.fastq.gz",
+            "role": "fastq_r1",
+            "sha256": "0dbaf4594e3f1b957fc0ed53e787f74df7948c2563adaae79bda460f796f7765",
+            "size_bytes": 448,
+            "storage_uri": "fixture://paired/control_1_L001_R1.fastq.gz"
+          },
+          "read2": {
+            "dataset_file_id": "fixture-paired-control_1_L001_R2.fastq.gz",
+            "original_name": "control_1_L001_R2.fastq.gz",
+            "role": "fastq_r2",
+            "sha256": "bd38061f47082008f6f59d7ebea1f2a24f6bdf46748a035f465ed838d4b3035c",
+            "size_bytes": 446,
+            "storage_uri": "fixture://paired/control_1_L001_R2.fastq.gz"
+          }
+        },
+        {
+          "lane_id": "L002",
+          "read1": {
+            "dataset_file_id": "fixture-paired-control_1_L002_R1.fastq.gz",
+            "original_name": "control_1_L002_R1.fastq.gz",
+            "role": "fastq_r1",
+            "sha256": "a2c0e19d08335be9e23ba09aa8ca2f66d711398a94174482c81a1498bfcf1164",
+            "size_bytes": 459,
+            "storage_uri": "fixture://paired/control_1_L002_R1.fastq.gz"
+          },
+          "read2": {
+            "dataset_file_id": "fixture-paired-control_1_L002_R2.fastq.gz",
+            "original_name": "control_1_L002_R2.fastq.gz",
+            "role": "fastq_r2",
+            "sha256": "d0235cb030fcc33b55ca18c1df9468945f55da2753243748aceb6b8a8e371283",
+            "size_bytes": 456,
+            "storage_uri": "fixture://paired/control_1_L002_R2.fastq.gz"
+          }
+        }
+      ],
+      "metadata": {
+        "batch": "batch_A",
+        "condition": "control",
+        "replicate": "1"
+      },
+      "sample_id": "control_1"
+    },
+    {
+      "lanes": [
+        {
+          "lane_id": "L001",
+          "read1": {
+            "dataset_file_id": "fixture-paired-control_2_L001_R1.fastq.gz",
+            "original_name": "control_2_L001_R1.fastq.gz",
+            "role": "fastq_r1",
+            "sha256": "eb6e0e86936a95245585c1904c73ca056965a317a155c372fb79e851a93e7bd7",
+            "size_bytes": 447,
+            "storage_uri": "fixture://paired/control_2_L001_R1.fastq.gz"
+          },
+          "read2": {
+            "dataset_file_id": "fixture-paired-control_2_L001_R2.fastq.gz",
+            "original_name": "control_2_L001_R2.fastq.gz",
+            "role": "fastq_r2",
+            "sha256": "d4065e42859aa346d6ee01be558c5e9a75c86b6ee0448139c75bf561bbf8e9dc",
+            "size_bytes": 446,
+            "storage_uri": "fixture://paired/control_2_L001_R2.fastq.gz"
+          }
+        },
+        {
+          "lane_id": "L002",
+          "read1": {
+            "dataset_file_id": "fixture-paired-control_2_L002_R1.fastq.gz",
+            "original_name": "control_2_L002_R1.fastq.gz",
+            "role": "fastq_r1",
+            "sha256": "981f4a3976a01598fb08b8c782e5309e18d281f2ede41790c8fe7d66ea61f007",
+            "size_bytes": 457,
+            "storage_uri": "fixture://paired/control_2_L002_R1.fastq.gz"
+          },
+          "read2": {
+            "dataset_file_id": "fixture-paired-control_2_L002_R2.fastq.gz",
+            "original_name": "control_2_L002_R2.fastq.gz",
+            "role": "fastq_r2",
+            "sha256": "22c962750770925997b08d93a881e7f5acd94319d06c4ad6680b5c64e0fed86e",
+            "size_bytes": 457,
+            "storage_uri": "fixture://paired/control_2_L002_R2.fastq.gz"
+          }
+        }
+      ],
+      "metadata": {
+        "batch": "batch_A",
+        "condition": "control",
+        "replicate": "2"
+      },
+      "sample_id": "control_2"
+    },
+    {
+      "lanes": [
+        {
+          "lane_id": "L001",
+          "read1": {
+            "dataset_file_id": "fixture-paired-treated_1_L001_R1.fastq.gz",
+            "original_name": "treated_1_L001_R1.fastq.gz",
+            "role": "fastq_r1",
+            "sha256": "bc1d5eace1ec6a0d66454ee3bc91e4d9280db06151fe58b56901aba08f7e846e",
+            "size_bytes": 448,
+            "storage_uri": "fixture://paired/treated_1_L001_R1.fastq.gz"
+          },
+          "read2": {
+            "dataset_file_id": "fixture-paired-treated_1_L001_R2.fastq.gz",
+            "original_name": "treated_1_L001_R2.fastq.gz",
+            "role": "fastq_r2",
+            "sha256": "aaefefb79f7ecedea5b31d953ffc3887859ad3ad5757f81ffc60dd9182b301d5",
+            "size_bytes": 449,
+            "storage_uri": "fixture://paired/treated_1_L001_R2.fastq.gz"
+          }
+        },
+        {
+          "lane_id": "L002",
+          "read1": {
+            "dataset_file_id": "fixture-paired-treated_1_L002_R1.fastq.gz",
+            "original_name": "treated_1_L002_R1.fastq.gz",
+            "role": "fastq_r1",
+            "sha256": "6cedfdb8df225c9037fd9019e852e12308d3e603c5b043ae1aebb5a86a8a36c1",
+            "size_bytes": 457,
+            "storage_uri": "fixture://paired/treated_1_L002_R1.fastq.gz"
+          },
+          "read2": {
+            "dataset_file_id": "fixture-paired-treated_1_L002_R2.fastq.gz",
+            "original_name": "treated_1_L002_R2.fastq.gz",
+            "role": "fastq_r2",
+            "sha256": "c46a4cad958892ec3ac7229bbf3cc638f5135e5e6ca51f1c8d9b687b8407e6bf",
+            "size_bytes": 458,
+            "storage_uri": "fixture://paired/treated_1_L002_R2.fastq.gz"
+          }
+        }
+      ],
+      "metadata": {
+        "batch": "batch_A",
+        "condition": "treated",
+        "replicate": "1"
+      },
+      "sample_id": "treated_1"
+    },
+    {
+      "lanes": [
+        {
+          "lane_id": "L001",
+          "read1": {
+            "dataset_file_id": "fixture-paired-treated_2_L001_R1.fastq.gz",
+            "original_name": "treated_2_L001_R1.fastq.gz",
+            "role": "fastq_r1",
+            "sha256": "f1d4c6c9ace45c264138304775f3995cbe6aa9c53160f573f703d41197e7402f",
+            "size_bytes": 449,
+            "storage_uri": "fixture://paired/treated_2_L001_R1.fastq.gz"
+          },
+          "read2": {
+            "dataset_file_id": "fixture-paired-treated_2_L001_R2.fastq.gz",
+            "original_name": "treated_2_L001_R2.fastq.gz",
+            "role": "fastq_r2",
+            "sha256": "e2472677a860197f0daddafd3b5e4b3b0b4d0ef08c8dd8e394ad131422d3a816",
+            "size_bytes": 448,
+            "storage_uri": "fixture://paired/treated_2_L001_R2.fastq.gz"
+          }
+        },
+        {
+          "lane_id": "L002",
+          "read1": {
+            "dataset_file_id": "fixture-paired-treated_2_L002_R1.fastq.gz",
+            "original_name": "treated_2_L002_R1.fastq.gz",
+            "role": "fastq_r1",
+            "sha256": "22820e3a5409a6bbed942a152ef5a3a63a4c66fa302595b3777d56e313d85294",
+            "size_bytes": 458,
+            "storage_uri": "fixture://paired/treated_2_L002_R1.fastq.gz"
+          },
+          "read2": {
+            "dataset_file_id": "fixture-paired-treated_2_L002_R2.fastq.gz",
+            "original_name": "treated_2_L002_R2.fastq.gz",
+            "role": "fastq_r2",
+            "sha256": "b9eba3acf220abeb9ab839df6d11a91dc7e942790612e955bcb8d5f4628e1bf4",
+            "size_bytes": 457,
+            "storage_uri": "fixture://paired/treated_2_L002_R2.fastq.gz"
+          }
+        }
+      ],
+      "metadata": {
+        "batch": "batch_A",
+        "condition": "treated",
+        "replicate": "2"
+      },
+      "sample_id": "treated_2"
+    }
+  ],
+  "schema_version": "1.1.0",
+  "source_kind": "fastq",
+  "strandedness": "unstranded",
+  "warnings": []
+}

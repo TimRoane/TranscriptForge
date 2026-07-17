@@ -96,13 +96,19 @@ def validate_design(
             errors.append(f"Design variable '{term}' contains missing values.")
             continue
         variable = known[term]
+        # Blocking variables represent experimental units even when their labels happen
+        # to be numeric (for example donor IDs 71, 77, 91, and 93). Treating those
+        # labels as a continuous covariate would silently change a paired design.
+        kind: Literal["categorical", "numeric"] = (
+            "categorical" if term == design.block_column else variable.kind
+        )
         if variable.unique_count < 2:
             errors.append(f"Design variable '{term}' has only one observed value.")
             continue
         names, columns = _encode_term(
             term,
             values,
-            variable.kind,
+            kind,
             design.reference_levels.get(term),
             errors,
         )

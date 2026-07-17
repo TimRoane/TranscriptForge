@@ -21,6 +21,7 @@
     "design_formula": { "type": "string", "minLength": 3 },
     "contrast_label": { "type": "string", "minLength": 1 },
     "design_validation": { "type": "object" },
+    "signature_mapping": { "type": "object" },
     "expression_bundle": {
       "type": "object",
       "additionalProperties": false,
@@ -51,9 +52,57 @@
           "parameters": { "$ref": "#/$defs/differential_expression_parameters" }
         }
       }
+    },
+    {
+      "if": { "properties": { "analysis_type": { "const": "signature" } }, "required": ["analysis_type"] },
+      "then": {
+        "required": ["signature_mapping"],
+        "properties": {
+          "method": { "enum": ["mean_expression", "mean_z_score", "weighted_linear", "rank_based", "gsva", "ssgsea"] },
+          "assay": { "const": "log_expression" },
+          "parameters": { "$ref": "#/$defs/signature_parameters" },
+          "signature_mapping": { "$ref": "#/$defs/signature_mapping" }
+        }
+      }
     }
   ],
   "$defs": {
+    "signature_parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signature_mapping_id",
+        "minimum_gene_set_size",
+        "maximum_gene_set_size",
+        "gsva_kcdf",
+        "gsva_tau",
+        "gsva_max_diff",
+        "gsva_abs_ranking",
+        "ssgsea_alpha",
+        "ssgsea_normalize"
+      ],
+      "properties": {
+        "signature_mapping_id": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "minimum_gene_set_size": { "type": "integer", "minimum": 1, "maximum": 5000 },
+        "maximum_gene_set_size": { "type": "integer", "minimum": 1, "maximum": 50000 },
+        "gsva_kcdf": { "enum": ["auto", "Gaussian", "Poisson", "none"] },
+        "gsva_tau": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
+        "gsva_max_diff": { "type": "boolean" },
+        "gsva_abs_ranking": { "type": "boolean" },
+        "ssgsea_alpha": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
+        "ssgsea_normalize": { "type": "boolean" }
+      }
+    },
+    "signature_mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "report_sha256", "report"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "report_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "report": { "type": "object" }
+      }
+    },
     "dimension_parameters": {
       "type": "object",
       "properties": {
@@ -80,7 +129,21 @@
         "fdr_threshold": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
         "absolute_log2_fold_change": { "type": "number", "minimum": 0 },
         "independent_filtering": { "type": "boolean" },
-        "shrinkage": { "type": "boolean" }
+        "shrinkage": { "type": "boolean" },
+        "enrichment": { "$ref": "#/$defs/enrichment" }
+      }
+    },
+    "enrichment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "collection_id", "ranking_metric", "permutation_count", "minimum_gene_set_size", "maximum_gene_set_size"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "collection_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "maxLength": 100 },
+        "ranking_metric": { "const": "signed_log10_p_value" },
+        "permutation_count": { "type": "integer", "minimum": 100, "maximum": 5000 },
+        "minimum_gene_set_size": { "type": "integer", "minimum": 2, "maximum": 5000 },
+        "maximum_gene_set_size": { "type": "integer", "minimum": 2, "maximum": 10000 }
       }
     },
     "design": {

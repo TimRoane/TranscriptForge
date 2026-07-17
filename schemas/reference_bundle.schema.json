@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.dev/schemas/reference-bundle/1.0.0",
+  "title": "TranscriptForge Reference Bundle Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "reference_id", "name", "organism", "genome_build",
+    "annotation_provider", "annotation_release", "ensembl_release", "source_page",
+    "salmon", "assets", "terms_url"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "reference_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "name": { "type": "string", "minLength": 1 },
+    "organism": { "const": "Homo sapiens" },
+    "genome_build": { "const": "GRCh38.p14" },
+    "annotation_provider": { "const": "GENCODE" },
+    "annotation_release": { "type": "integer", "minimum": 1 },
+    "ensembl_release": { "type": "integer", "minimum": 1 },
+    "source_page": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "terms_url": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "salmon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "index_strategy", "kmer_length", "decoy_source"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "index_strategy": { "const": "selective_alignment_full_genome_decoy" },
+        "kmer_length": { "type": "integer", "minimum": 15, "maximum": 31 },
+        "decoy_source": { "const": "primary_assembly_genome" }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "filename", "url", "upstream_checksum"],
+        "properties": {
+          "role": { "enum": ["transcriptome_fasta", "primary_assembly_genome", "annotation_gtf"] },
+          "filename": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._-]+$" },
+          "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+          "upstream_checksum": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["algorithm", "value", "manifest_url"],
+            "properties": {
+              "algorithm": { "const": "md5" },
+              "value": { "type": "string", "pattern": "^[a-f0-9]{32}$" },
+              "manifest_url": { "type": "string", "format": "uri", "pattern": "^https://" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

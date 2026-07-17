@@ -1,0 +1,12 @@
+{
+  "collection_id": "transcriptforge_demo_effects",
+  "gmt_file": "transcriptforge_demo_effects.gmt",
+  "gmt_sha256": "5b727116570594783d809ed31c725e853397da9f314a6eab15d80bcb4a360b2a",
+  "identifier_namespace": "synthetic_ensembl_like_feature_id",
+  "license": "MIT",
+  "name": "TranscriptForge simulated-effect controls",
+  "schema_version": "1.0.0",
+  "set_count": 7,
+  "source": "TranscriptForge deterministic 72-sample demonstration ground truth",
+  "version": "1.0.0"
+}

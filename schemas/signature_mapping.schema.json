@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.local/schemas/signature_mapping.schema.json",
+  "title": "TranscriptForge Signature Mapping Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "signature_definition_id",
+    "prepared_dataset_id",
+    "signature_definition_sha256",
+    "expression_bundle_sha256",
+    "identifier_type",
+    "strip_ensembl_version",
+    "set_count",
+    "requested_identifier_count",
+    "unique_identifier_count",
+    "mapped_identifier_count",
+    "missing_identifier_count",
+    "ambiguous_identifier_count",
+    "duplicate_identifier_count",
+    "mapping_coverage",
+    "sets"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "signature_definition_id": { "$ref": "#/$defs/nonempty" },
+    "prepared_dataset_id": { "$ref": "#/$defs/nonempty" },
+    "signature_definition_sha256": { "$ref": "#/$defs/sha256" },
+    "expression_bundle_sha256": { "$ref": "#/$defs/sha256" },
+    "identifier_type": {
+      "enum": ["ensembl_gene_id", "gene_symbol", "entrez_id"]
+    },
+    "strip_ensembl_version": { "type": "boolean" },
+    "set_count": { "type": "integer", "minimum": 1 },
+    "requested_identifier_count": { "type": "integer", "minimum": 1 },
+    "unique_identifier_count": { "type": "integer", "minimum": 1 },
+    "mapped_identifier_count": { "type": "integer", "minimum": 0 },
+    "missing_identifier_count": { "type": "integer", "minimum": 0 },
+    "ambiguous_identifier_count": { "type": "integer", "minimum": 0 },
+    "duplicate_identifier_count": { "type": "integer", "minimum": 0 },
+    "mapping_coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+    "sets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/set" }
+    }
+  },
+  "$defs": {
+    "nonempty": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "identifierArray": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nonempty" }
+    },
+    "mappedEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identifier", "feature_id"],
+      "properties": {
+        "identifier": { "$ref": "#/$defs/nonempty" },
+        "feature_id": { "$ref": "#/$defs/nonempty" },
+        "weight": { "type": "number" }
+      }
+    },
+    "set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signature_id",
+        "name",
+        "requested_identifier_count",
+        "unique_identifier_count",
+        "mapped_identifier_count",
+        "missing_identifier_count",
+        "ambiguous_identifier_count",
+        "duplicate_identifier_count",
+        "mapping_coverage",
+        "mapped_entries",
+        "mapped_feature_ids",
+        "missing_identifiers",
+        "ambiguous_identifiers"
+      ],
+      "properties": {
+        "signature_id": { "$ref": "#/$defs/nonempty" },
+        "name": { "$ref": "#/$defs/nonempty" },
+        "requested_identifier_count": { "type": "integer", "minimum": 1 },
+        "unique_identifier_count": { "type": "integer", "minimum": 1 },
+        "mapped_identifier_count": { "type": "integer", "minimum": 0 },
+        "missing_identifier_count": { "type": "integer", "minimum": 0 },
+        "ambiguous_identifier_count": { "type": "integer", "minimum": 0 },
+        "duplicate_identifier_count": { "type": "integer", "minimum": 0 },
+        "mapping_coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+        "mapped_entries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/mappedEntry" }
+        },
+        "mapped_feature_ids": { "$ref": "#/$defs/identifierArray" },
+        "missing_identifiers": { "$ref": "#/$defs/identifierArray" },
+        "ambiguous_identifiers": { "$ref": "#/$defs/identifierArray" }
+      }
+    }
+  }
+}

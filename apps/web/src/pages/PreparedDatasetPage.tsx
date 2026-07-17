@@ -37,6 +37,7 @@ import {
   type DimensionReductionMethod,
 } from '../api/client'
 import { ErrorState, LoadingState } from '../components/ApiState'
+import { SignatureMappingPanel } from '../components/SignatureMappingPanel'
 
 export function PreparedDatasetPage() {
   const { preparedDatasetId = '' } = useParams()
@@ -49,7 +50,7 @@ export function PreparedDatasetPage() {
   const [neighbors, setNeighbors] = useState(15)
   const [minDistance, setMinDistance] = useState(0.2)
   const [perplexity, setPerplexity] = useState(15)
-  const [deAssay, setDeAssay] = useState('raw_counts')
+  const [deAssay, setDeAssay] = useState('')
   const [deMethod, setDeMethod] = useState<DifferentialExpressionMethod>('auto')
   const [primaryVariable, setPrimaryVariable] = useState('')
   const [numerator, setNumerator] = useState('')
@@ -58,6 +59,7 @@ export function PreparedDatasetPage() {
   const [blockColumn, setBlockColumn] = useState('')
   const [fdrThreshold, setFdrThreshold] = useState(0.05)
   const [foldChangeThreshold, setFoldChangeThreshold] = useState(1)
+  const [enrichmentEnabled, setEnrichmentEnabled] = useState(false)
   const prepared = useQuery({
     queryKey: ['prepared-dataset', preparedDatasetId],
     queryFn: ({ signal }) => fetchPreparedDataset(preparedDatasetId, signal),
@@ -149,18 +151,29 @@ export function PreparedDatasetPage() {
     contrast: { variable: primaryVariable, numerator, denominator },
     fdr_threshold: fdrThreshold,
     absolute_log2_fold_change: foldChangeThreshold,
+    enrichment: {
+      enabled: enrichmentEnabled,
+      collection_id: 'transcriptforge_demo_effects',
+      ranking_metric: 'signed_log10_p_value' as const,
+      permutation_count: 250,
+      minimum_gene_set_size: 10,
+      maximum_gene_set_size: 500,
+    },
   }
   const designValidation = useQuery({
     queryKey: [
       'de-design-validation', preparedDatasetId, deAssay, deMethod, primaryVariable,
       numerator, denominator, covariate, blockColumn, fdrThreshold, foldChangeThreshold,
+      enrichmentEnabled,
     ],
     queryFn: ({ signal }) => validateDifferentialExpressionDesign(
       preparedDatasetId,
       { assay: deAssay, method: deMethod, parameters: deParameters },
       signal,
     ),
-    enabled: Boolean(primaryVariable && numerator && denominator && numerator !== denominator),
+    enabled: Boolean(
+      deAssay && primaryVariable && numerator && denominator && numerator !== denominator,
+    ),
   })
   const launchAnalysis = useMutation({
     mutationFn: async () => {
@@ -208,8 +221,17 @@ export function PreparedDatasetPage() {
   if (prepared.isPending) return <LoadingState label="Loading prepared dataset…" />
   if (prepared.isError) return <ErrorState error={prepared.error} />
 
-  const maxLibrary = Math.max(...(qc.data?.samples.map((sample) => sample.library_size) ?? [1]))
-  const reviewFlags = qc.data?.flags.filter((flag) => flag.status === 'REVIEW') ?? []
+  const isMicroarray = dataset.data?.source_kind === 'affymetrix_cel'
+  const matrixQC = qc.data && 'samples' in qc.data ? qc.data : null
+  const microarrayQC = qc.data && 'probe_count' in qc.data ? qc.data : null
+  const maxLibrary = Math.max(...(matrixQC?.samples.map((sample) => sample.library_size) ?? [1]))
+  const reviewFlags = matrixQC?.flags.filter((flag) => flag.status === 'REVIEW') ?? []
+  const microarrayPlots = artifacts.data?.filter((artifact) => [
+    'microarray_raw_boxplot',
+    'microarray_normalized_boxplot',
+    'microarray_pca',
+    'microarray_sample_correlation',
+  ].includes(artifact.artifact_type)) ?? []
 
   return (
     <Stack spacing={3}>
@@ -251,40 +273,83 @@ export function PreparedDatasetPage() {
         ))}
       </Stack>
 
-      <Paper variant="outlined" sx={{ p: 3 }}>
-        <Typography variant="h5" fontWeight={700}>Sample QC</Typography>
-        <Typography color="text.secondary" mt={0.5}>
-          Library size and detected-feature summaries. Samples are flagged for review, never automatically removed.
-        </Typography>
-        {qc.isPending && <LoadingState label="Loading QC metrics…" />}
-        {qc.isError && <ErrorState error={qc.error} />}
-        {reviewFlags.length > 0 && (
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            {reviewFlags.length} sample{reviewFlags.length === 1 ? '' : 's'} flagged for review.
-          </Alert>
-        )}
-        <Stack spacing={1.5} mt={2}>
-          {qc.data?.samples.map((sample) => (
-            <Box key={sample.sample_id}>
-              <Stack direction="row" justifyContent="space-between" gap={2}>
-                <Typography variant="body2" fontWeight={650}>{sample.sample_id}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {sample.library_size.toLocaleString()} total · {sample.detected_features.toLocaleString()} detected
-                </Typography>
-              </Stack>
-              <Box sx={{ height: 10, bgcolor: 'grey.200', borderRadius: 5, mt: 0.5, overflow: 'hidden' }}>
+      {isMicroarray ? (
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Typography variant="h5" fontWeight={700}>Array QC</Typography>
+          <Typography color="text.secondary" mt={0.5}>
+            Raw and RMA-normalized distributions, sample correlation, and PCA. Review flags never
+            remove arrays automatically.
+          </Typography>
+          {qc.isPending && <LoadingState label="Loading array QC…" />}
+          {qc.isError && <ErrorState error={qc.error} />}
+          {microarrayQC && (
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} mt={2} flexWrap="wrap">
+              <Chip label={`${microarrayQC.sample_count.toLocaleString()} arrays`} />
+              <Chip label={`${microarrayQC.probe_count.toLocaleString()} probe sets`} />
+              <Chip label={`${microarrayQC.gene_count.toLocaleString()} genes`} />
+              <Chip
+                label={`${microarrayQC.reviewed_sample_count} flagged for review`}
+                color={microarrayQC.reviewed_sample_count > 0 ? 'warning' : 'success'}
+              />
+            </Stack>
+          )}
+          <Box
+            mt={2.5}
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, minmax(0, 1fr))' },
+              gap: 2,
+            }}
+          >
+            {microarrayPlots.map((artifact) => (
+              <Paper variant="outlined" sx={{ p: 1.5 }} key={artifact.id}>
+                <Typography variant="subtitle2" mb={1}>{artifact.title}</Typography>
                 <Box
-                  sx={{
-                    width: `${maxLibrary > 0 ? (sample.library_size / maxLibrary) * 100 : 0}%`,
-                    height: '100%',
-                    bgcolor: 'primary.main',
-                  }}
+                  component="img"
+                  src={artifactDownloadUrl(artifact.id)}
+                  alt={artifact.title}
+                  sx={{ display: 'block', width: '100%', height: 'auto' }}
                 />
+              </Paper>
+            ))}
+          </Box>
+        </Paper>
+      ) : (
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Typography variant="h5" fontWeight={700}>Sample QC</Typography>
+          <Typography color="text.secondary" mt={0.5}>
+            Library size and detected-feature summaries. Samples are flagged for review, never automatically removed.
+          </Typography>
+          {qc.isPending && <LoadingState label="Loading QC metrics…" />}
+          {qc.isError && <ErrorState error={qc.error} />}
+          {reviewFlags.length > 0 && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              {reviewFlags.length} sample{reviewFlags.length === 1 ? '' : 's'} flagged for review.
+            </Alert>
+          )}
+          <Stack spacing={1.5} mt={2}>
+            {matrixQC?.samples.map((sample) => (
+              <Box key={sample.sample_id}>
+                <Stack direction="row" justifyContent="space-between" gap={2}>
+                  <Typography variant="body2" fontWeight={650}>{sample.sample_id}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {sample.library_size.toLocaleString()} total · {sample.detected_features.toLocaleString()} detected
+                  </Typography>
+                </Stack>
+                <Box sx={{ height: 10, bgcolor: 'grey.200', borderRadius: 5, mt: 0.5, overflow: 'hidden' }}>
+                  <Box
+                    sx={{
+                      width: `${maxLibrary > 0 ? (sample.library_size / maxLibrary) * 100 : 0}%`,
+                      height: '100%',
+                      bgcolor: 'primary.main',
+                    }}
+                  />
+                </Box>
               </Box>
-            </Box>
-          ))}
-        </Stack>
-      </Paper>
+            ))}
+          </Stack>
+        </Paper>
+      )}
 
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Stack spacing={2.5}>
@@ -436,6 +501,28 @@ export function PreparedDatasetPage() {
             />
           </Stack>
 
+          <Paper variant="outlined" sx={{ p: 2.5, bgcolor: 'background.default' }}>
+            <FormControlLabel
+              control={(
+                <Switch
+                  checked={enrichmentEnabled}
+                  onChange={(event) => setEnrichmentEnabled(event.target.checked)}
+                />
+              )}
+              label="Run optional gene-set enrichment"
+            />
+            <Typography variant="body2" color="text.secondary">
+              Runs deterministic ranked-list enrichment and over-representation analysis after
+              differential expression. The collection version and SHA-256 are frozen in the result.
+            </Typography>
+            {enrichmentEnabled && (
+              <Alert severity="warning" sx={{ mt: 1.5 }}>
+                The bundled “TranscriptForge simulated-effect controls” collection is designed for
+                the deterministic demonstration study. It is not a curated biological pathway database.
+              </Alert>
+            )}
+          </Paper>
+
           {designValidation.data && (
             <Paper variant="outlined" sx={{ p: 2.5, bgcolor: 'background.default' }}>
               <Stack spacing={1.5}>
@@ -492,10 +579,30 @@ export function PreparedDatasetPage() {
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
             <Typography>{mapping.data.mapped_feature_count.toLocaleString()} mapped</Typography>
             <Typography>{mapping.data.unmapped_feature_count.toLocaleString()} unmapped</Typography>
-            <Typography>{mapping.data.duplicate_group_count.toLocaleString()} duplicate groups resolved by sum</Typography>
+            {isMicroarray ? (
+              <>
+                <Typography>
+                  {(mapping.data.probe_count ?? 0).toLocaleString()} probe sets retained
+                </Typography>
+                <Typography>
+                  Aggregation: {(mapping.data.aggregation_method ?? 'unknown').replace('_', ' ')}
+                </Typography>
+              </>
+            ) : (
+              <Typography>
+                {mapping.data.duplicate_group_count.toLocaleString()} duplicate groups resolved by sum
+              </Typography>
+            )}
           </Stack>
         )}
       </Paper>
+
+      {dataset.data && (
+        <SignatureMappingPanel
+          preparedDatasetId={preparedDatasetId}
+          projectId={dataset.data.project_id}
+        />
+      )}
 
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Stack spacing={2.5}>
@@ -592,6 +699,11 @@ export function PreparedDatasetPage() {
               'bundle_manifest',
               'qc_summary',
               'feature_mapping_summary',
+              'microarray_gene_expression',
+              'microarray_probe_expression',
+              'microarray_probe_mapping',
+              'microarray_qc_metrics',
+              'microarray_r_session',
               'nextflow_report',
               'nextflow_trace',
             ].includes(artifact.artifact_type))

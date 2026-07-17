@@ -1,4 +1,4 @@
-.PHONY: dev stop logs migrate test test-api test-web test-r test-all lint pipeline-test generate-large-demo seed-demo
+.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo terraform-check aws-batch-preflight aws-batch-acceptance
 
 dev:
 	docker compose up --build -d
@@ -24,7 +24,19 @@ test-r:
 	docker compose run --rm --no-deps worker \
 		Rscript /app/analysis/r/tests/run_differential_expression_acceptance.R
 
-test-all: test test-r
+test-signature-r:
+	docker compose run --rm --no-deps worker \
+		Rscript /app/analysis/r/tests/run_signature_scoring_acceptance.R
+
+test-raw-rnaseq:
+	demo/raw_rnaseq/run_acceptance.sh
+
+test-microarray:
+	docker build -t transcriptforge/microarray:bioc-3.23 containers/microarray
+	docker compose build api worker
+	demo/microarray/run_acceptance.sh
+
+test-all: test test-r test-signature-r
 
 lint:
 	python3 -m ruff check apps/api analysis/python demo/large_experiment
@@ -41,3 +53,14 @@ seed-demo:
 
 generate-large-demo:
 	python3 demo/large_experiment/generate.py
+
+terraform-check:
+	docker run --rm --user "$(shell id -u):$(shell id -g)" -v "$(CURDIR)/infra/aws/terraform:/workspace" -w /workspace hashicorp/terraform:1.13 fmt -check
+	docker run --rm --user "$(shell id -u):$(shell id -g)" -v "$(CURDIR)/infra/aws/terraform:/workspace" -w /workspace hashicorp/terraform:1.13 init -backend=false -input=false
+	docker run --rm --user "$(shell id -u):$(shell id -g)" -v "$(CURDIR)/infra/aws/terraform:/workspace" -w /workspace hashicorp/terraform:1.13 validate
+
+aws-batch-preflight:
+	python3 scripts/aws/validate_batch_profile.py --live
+
+aws-batch-acceptance:
+	scripts/aws/run_batch_acceptance.sh

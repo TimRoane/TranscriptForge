@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0.0",
+  "reference_id": "gencode_v50_grch38_salmon_1_11_4",
+  "name": "GENCODE 50 GRCh38.p14 full-genome-decoy Salmon reference",
+  "organism": "Homo sapiens",
+  "genome_build": "GRCh38.p14",
+  "annotation_provider": "GENCODE",
+  "annotation_release": 50,
+  "ensembl_release": 116,
+  "source_page": "https://www.gencodegenes.org/human/release_50.html",
+  "terms_url": "https://www.gencodegenes.org/pages/data_access.html",
+  "salmon": {
+    "version": "1.11.4",
+    "index_strategy": "selective_alignment_full_genome_decoy",
+    "kmer_length": 31,
+    "decoy_source": "primary_assembly_genome"
+  },
+  "assets": [
+    {
+      "role": "transcriptome_fasta",
+      "filename": "gencode.v50.transcripts.fa.gz",
+      "url": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.transcripts.fa.gz",
+      "upstream_checksum": {
+        "algorithm": "md5",
+        "value": "4d5bd41b247480e12c0b370490f52ddd",
+        "manifest_url": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/MD5SUMS"
+      }
+    },
+    {
+      "role": "primary_assembly_genome",
+      "filename": "GRCh38.primary_assembly.genome.fa.gz",
+      "url": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/GRCh38.primary_assembly.genome.fa.gz",
+      "upstream_checksum": {
+        "algorithm": "md5",
+        "value": "da1a11258be075cfa7af718162c894e7",
+        "manifest_url": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/MD5SUMS"
+      }
+    },
+    {
+      "role": "annotation_gtf",
+      "filename": "gencode.v50.primary_assembly.annotation.gtf.gz",
+      "url": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.primary_assembly.annotation.gtf.gz",
+      "upstream_checksum": {
+        "algorithm": "md5",
+        "value": "289b91e5e95e8b0450d223246f10a12e",
+        "manifest_url": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/MD5SUMS"
+      }
+    }
+  ]
+}

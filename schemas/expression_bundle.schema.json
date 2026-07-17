@@ -10,7 +10,7 @@
     "dataset_id": { "type": "string", "minLength": 1 },
     "prepared_dataset_id": { "type": "string", "minLength": 1 },
     "organism": { "const": "Homo sapiens" },
-    "genome_build": { "const": "GRCh38" },
+    "genome_build": { "type": "string", "pattern": "^GRCh38" },
     "annotation_release": { "type": "string" },
     "primary_feature_id": { "const": "ensembl_gene_id" },
     "sample_count": { "type": "integer", "minimum": 1 },
@@ -25,7 +25,7 @@
         "additionalProperties": false,
         "required": ["name", "path", "value_type", "scale", "feature_level", "recommended_for", "sha256"],
         "properties": {
-          "name": { "enum": ["raw_counts", "normalized_expression", "log_expression", "tpm", "transcript_abundance"] },
+          "name": { "enum": ["raw_counts", "normalized_expression", "log_expression", "probe_expression", "tpm", "transcript_abundance"] },
           "path": { "type": "string", "minLength": 1 },
           "value_type": { "enum": ["nonnegative_integer", "nonnegative_continuous", "continuous"] },
           "scale": { "enum": ["linear", "log2", "variance_stabilized"] },
@@ -36,6 +36,40 @@
       }
     },
     "qc": { "type": "object", "required": ["status", "metrics", "sample_flags"], "properties": { "status": { "enum": ["PASS", "REVIEW", "SEVERE_REVIEW"] }, "metrics": { "type": "string" }, "sample_flags": { "type": "string" } }, "additionalProperties": true },
+    "quantification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "counts_semantics", "tpm_assay", "transcript_abundance_assay"],
+      "properties": {
+        "method": { "const": "salmon_tximport" },
+        "counts_semantics": { "const": "rounded_estimated_counts" },
+        "tpm_assay": { "type": "string", "minLength": 1 },
+        "transcript_abundance_assay": { "type": "string", "minLength": 1 }
+      }
+    },
+    "microarray": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform_id", "platform_definition_sha256", "adapter_version",
+        "normalization_engine", "normalization_method", "rma_target",
+        "annotation_package", "annotation_confidence", "aggregation_method",
+        "probe_expression_assay", "probe_mapping"
+      ],
+      "properties": {
+        "platform_id": { "type": "string", "minLength": 1 },
+        "platform_definition_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "adapter_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "normalization_engine": { "const": "oligo" },
+        "normalization_method": { "const": "rma" },
+        "rma_target": { "type": "string", "minLength": 1 },
+        "annotation_package": { "type": "string", "minLength": 1 },
+        "annotation_confidence": { "const": "explicit_platform_adapter" },
+        "aggregation_method": { "enum": ["highest_mad", "median", "mean"] },
+        "probe_expression_assay": { "type": "string", "minLength": 1 },
+        "probe_mapping": { "type": "string", "minLength": 1 }
+      }
+    },
     "provenance": { "type": "object", "required": ["parameters", "input_checksums", "software_versions"], "properties": { "parameters": { "type": "string" }, "input_checksums": { "type": "string" }, "software_versions": { "type": "string" } }, "additionalProperties": true }
   }
 }

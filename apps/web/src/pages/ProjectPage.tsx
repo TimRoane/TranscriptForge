@@ -9,6 +9,7 @@ import { type CreateDatasetRequest, createDataset, fetchDatasets, fetchProject }
 import { ErrorState, LoadingState } from '../components/ApiState'
 import { DatasetCard } from '../components/DatasetCard'
 import { DatasetWizard } from '../components/DatasetWizard'
+import { SignatureDefinitionPanel } from '../components/SignatureDefinitionPanel'
 
 export function ProjectPage() {
   const { projectId = '' } = useParams()
@@ -39,6 +40,7 @@ export function ProjectPage() {
         </div>
         <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setWizardOpen(true)} sx={{ alignSelf: 'center' }}>Add dataset</Button>
       </Stack>
+      <SignatureDefinitionPanel projectId={projectId} />
       <Typography variant="h5" fontWeight={700}>Datasets</Typography>
       {datasets.isPending && <LoadingState label="Loading datasets…" />}
       {datasets.isError && <ErrorState error={datasets.error} />}

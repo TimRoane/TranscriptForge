@@ -125,7 +125,10 @@ model_metadata$treatment <- relevel(factor(model_metadata$treatment), ref = "veh
 model_columns <- colnames(model.matrix(~ subject_id + treatment, model_metadata))
 model_rank <- qr(model.matrix(~ subject_id + treatment, model_metadata))$rank
 
-request_document <- function(method, assay, formula = "~ subject_id + treatment", rank = model_rank) {
+request_document <- function(
+  method, assay, formula = "~ subject_id + treatment", rank = model_rank,
+  enrichment = FALSE
+) {
   list(
     schema_version = "1.0.0",
     analysis_id = paste0("acceptance-", method),
@@ -151,7 +154,15 @@ request_document <- function(method, assay, formula = "~ subject_id + treatment"
       fdr_threshold = 0.05,
       absolute_log2_fold_change = 1,
       independent_filtering = identical(method, "deseq2"),
-      shrinkage = FALSE
+      shrinkage = FALSE,
+      enrichment = list(
+        enabled = enrichment,
+        collection_id = "transcriptforge_acceptance_effects",
+        ranking_metric = "signed_log10_p_value",
+        permutation_count = 250L,
+        minimum_gene_set_size = 10L,
+        maximum_gene_set_size = 100L
+      )
     ),
     design_validation = list(
       sample_count = nrow(metadata),
@@ -222,6 +233,7 @@ check_success <- function(method, output_dir, expected_tested, expected_filtered
   )
   diagnostics <- fromJSON(file.path(output_dir, "method_diagnostics.json"))
   contrast <- fromJSON(file.path(output_dir, "contrast.json"))
+  report <- paste(readLines(file.path(output_dir, "report.qmd"), warn = FALSE), collapse = "\n")
   profiles <- read.delim(
     file.path(output_dir, "normalized_expression.tsv"),
     check.names = FALSE, stringsAsFactors = FALSE
@@ -240,6 +252,11 @@ check_success <- function(method, output_dir, expected_tested, expected_filtered
     paste(method, "contrast direction is not explicit.")
   )
   assert_true(identical(diagnostics$method, method), paste(method, "diagnostic label is wrong."))
+  assert_true(
+    grepl("FDR threshold: 0.05", report, fixed = TRUE) &&
+      grepl("session_info.txt", report, fixed = TRUE),
+    paste(method, "report omitted thresholds or session provenance.")
+  )
   if (method %in% c("edgeR QL", "limma-voom")) {
     assert_true(
       "average_log_cpm" %in% names(table),
@@ -290,12 +307,54 @@ cat("PASS DESeq2 low-count filtering excludes all ten fixture rows\n")
 limma <- run_runner("limma", request_document("limma", "log_expression"))
 check_success("limma", limma$output_dir, 100L, 0L, 14L)
 
-edger <- run_runner("edger-ql", request_document("edger_ql", "raw_counts"))
+edger <- run_runner(
+  "edger-ql", request_document("edger_ql", "raw_counts", enrichment = TRUE)
+)
 check_success("edgeR QL", edger$output_dir, 90L, 10L, 12L)
 assert_true(
   !any(read.delim(file.path(edger$output_dir, "differential_expression.tsv"))$feature_id %in% low_ids),
   "edgeR QL retained a fixture feature that should have failed low-count filtering."
 )
+enrichment_path <- file.path(edger$output_dir, "enrichment_summary.json")
+assert_true(file.exists(enrichment_path), "edgeR QL did not publish enrichment provenance.")
+enrichment <- fromJSON(enrichment_path, simplifyVector = FALSE)
+assert_true(
+  identical(
+    enrichment$collection$gmt_sha256,
+    "2b8a5516f0e986d20ae51b6ba33c7f1d5875a830e2fc8375e4430058d018fcc4"
+  ),
+  "Enrichment did not freeze the expected acceptance collection checksum."
+)
+assert_true(
+  grepl("^[a-f0-9]{64}$", enrichment$source_result$result_sha256),
+  "Enrichment did not freeze the differential-expression result checksum."
+)
+ranked <- setNames(enrichment$ranked_list, vapply(
+  enrichment$ranked_list, function(item) item$gene_set_id, character(1L)
+))
+ora <- setNames(enrichment$over_representation, vapply(
+  enrichment$over_representation, function(item) item$gene_set_id, character(1L)
+))
+assert_true(
+  ranked$TF_ACCEPTANCE_UP$direction == "up" &&
+    ranked$TF_ACCEPTANCE_UP$normalized_enrichment_score > 0,
+  "Ranked enrichment lost the known positive direction."
+)
+assert_true(
+  ranked$TF_ACCEPTANCE_DOWN$direction == "down" &&
+    ranked$TF_ACCEPTANCE_DOWN$normalized_enrichment_score < 0,
+  "Ranked enrichment lost the known negative direction."
+)
+assert_true(
+  ora$TF_ACCEPTANCE_UP$significant && ora$TF_ACCEPTANCE_DOWN$significant &&
+    !ora$TF_ACCEPTANCE_NULL$significant,
+  "Over-representation did not separate known effects from null controls."
+)
+assert_true(all(file.exists(file.path(
+  edger$output_dir,
+  c("ranked_enrichment.tsv", "over_representation.tsv", "enrichment_plot.svg")
+))), "Enrichment did not publish every declared artifact.")
+cat("PASS deterministic ranked-list and over-representation enrichment controls\n")
 
 voom <- run_runner("limma-voom", request_document("limma_voom", "raw_counts"))
 check_success("limma-voom", voom$output_dir, 90L, 10L, 12L)

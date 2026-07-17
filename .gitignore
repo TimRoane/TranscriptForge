@@ -231,7 +231,20 @@ work/
 
 # TranscriptForge local state and generated runs
 .transcriptforge-data/
+.transcriptforge-raw-acceptance/
+.raw-rnaseq-acceptance*/
+.transcriptforge-batch-acceptance/
+.transcriptforge-demo/
 runs/
+
+# Terraform local state and owner-specific values (commit .terraform.lock.hcl)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.tfstate.lock.info
+.awsbatch.env
 
 # OS files
 .DS_Store

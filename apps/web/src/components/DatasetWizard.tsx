@@ -51,6 +51,14 @@ export function DatasetWizard({ open, pending, error, onClose, onSubmit }: Datas
     setSourceKind(compatibleSources[next][0])
   }
 
+  const selectSourceKind = (next: DatasetSourceKind) => {
+    setSourceKind(next)
+    if (next === 'fastq') setAnnotationRelease('GENCODE 50')
+    if (next === 'affymetrix_cel') {
+      setAnnotationRelease('hugene10sttranscriptcluster.db 8.8.0')
+    }
+  }
+
   return (
     <Dialog open={open} onClose={pending ? undefined : close} fullWidth maxWidth="sm">
       <DialogTitle>Register a dataset</DialogTitle>
@@ -102,7 +110,7 @@ export function DatasetWizard({ open, pending, error, onClose, onSubmit }: Datas
                 labelId="source-label"
                 label="Source type"
                 value={sourceKind}
-                onChange={(event) => setSourceKind(event.target.value as DatasetSourceKind)}
+                onChange={(event) => selectSourceKind(event.target.value as DatasetSourceKind)}
               >
                 {compatibleSources[modality].map((source) => (
                   <MenuItem value={source} key={source}>{source.replaceAll('_', ' ')}</MenuItem>
@@ -117,7 +125,13 @@ export function DatasetWizard({ open, pending, error, onClose, onSubmit }: Datas
             <TextField label="Genome build" value="GRCh38" disabled />
             <TextField
               label="Annotation release"
-              placeholder="For example, GENCODE 49"
+              placeholder={
+                sourceKind === 'fastq'
+                  ? 'GENCODE 50 (required)'
+                  : sourceKind === 'affymetrix_cel'
+                    ? 'Pinned by the selected platform adapter'
+                    : 'For example, GENCODE 50'
+              }
               value={annotationRelease}
               onChange={(event) => setAnnotationRelease(event.target.value)}
             />

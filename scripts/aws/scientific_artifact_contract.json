@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "artifacts": [
+    {"path": "raw-rnaseq/quantification/gene_counts.tsv", "comparison": "sha256"},
+    {"path": "raw-rnaseq/quantification/gene_tpm.tsv", "comparison": "sha256"},
+    {"path": "raw-rnaseq/quantification/transcript_counts.tsv", "comparison": "sha256"},
+    {"path": "raw-rnaseq/quantification/transcript_tpm.tsv", "comparison": "sha256"},
+    {"path": "raw-rnaseq/quantification/transcript_effective_length.tsv", "comparison": "sha256"},
+    {"path": "raw-rnaseq/quantification/raw_rnaseq_qc_metrics.tsv", "comparison": "sha256"},
+    {"path": "raw-rnaseq/quantification/raw_rnaseq_qc_summary.json", "comparison": "canonical_json"}
+  ]
+}

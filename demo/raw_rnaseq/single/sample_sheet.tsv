@@ -1,0 +1,5 @@
+sample_id	lane_id	read1	read2	condition	replicate	batch
+control_1	L001	control_1_L001_R1.fastq.gz		control	1	batch_A
+control_2	L001	control_2_L001_R1.fastq.gz		control	2	batch_A
+treated_1	L001	treated_1_L001_R1.fastq.gz		treated	1	batch_A
+treated_2	L001	treated_2_L001_R1.fastq.gz		treated	2	batch_A

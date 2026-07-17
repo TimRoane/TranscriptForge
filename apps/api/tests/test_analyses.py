@@ -256,6 +256,24 @@ async def test_differential_expression_design_options_and_validated_save(
         {"values": {"condition": "treated"}, "sample_count": 2},
     ]
 
+    numeric_label_block = {
+        **request,
+        "parameters": {
+            **request["parameters"],
+            "design": {"primary_variable": "condition", "block_column": "age"},
+        },
+    }
+    numeric_label_preview = await client.post(
+        f"/api/prepared-datasets/{prepared_id}/differential-expression/validate-design",
+        json=numeric_label_block,
+    )
+    assert numeric_label_preview.json()["valid"] is True
+    assert numeric_label_preview.json()["design_matrix_columns"] == [
+        "Intercept",
+        "age[44]",
+        "condition[treated]",
+    ]
+
     created = await client.post(
         f"/api/prepared-datasets/{prepared_id}/analyses",
         json={
@@ -364,6 +382,7 @@ async def test_differential_expression_design_options_and_validated_save(
         await session.commit()
     assert frozen["design_formula"] == "~ batch + condition"
     assert frozen["design_validation"]["design_matrix_rank"] == 3
+    assert frozen["parameters"]["enrichment"]["enabled"] is False
     p_values = await client.get(f"/api/runs/{run.id}/p-value-distribution")
     heatmap = await client.get(f"/api/runs/{run.id}/expression-heatmap")
     assert p_values.json()["bins"][0]["count"] == 5
@@ -446,6 +465,23 @@ async def test_differential_expression_rejects_incompatible_and_rank_deficient_d
     assert preview.json()["valid"] is False
     assert any("incompatible" in message for message in preview.json()["errors"])
     assert any("rank deficient" in message for message in preview.json()["errors"])
+
+    invalid_enrichment = await client.post(
+        f"/api/prepared-datasets/{prepared_id}/differential-expression/validate-design",
+        json={
+            "assay": "raw_counts",
+            "method": "deseq2",
+            "parameters": {
+                **base_parameters,
+                "enrichment": {
+                    "enabled": True,
+                    "minimum_gene_set_size": 100,
+                    "maximum_gene_set_size": 10,
+                },
+            },
+        },
+    )
+    assert invalid_enrichment.status_code == 422
 
     created = await client.post(
         f"/api/prepared-datasets/{prepared_id}/analyses",

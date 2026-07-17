@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0.0",
+  "platform_id": "affymetrix_hugene_1_0_st_v1",
+  "adapter_version": "1.0.0",
+  "vendor": "Affymetrix",
+  "array_design": "Human Gene 1.0 ST Array",
+  "organism": "Homo sapiens",
+  "chip_type_aliases": [
+    "HuGene-1_0-st-v1",
+    "HuGene-1_0-st-v1.r4"
+  ],
+  "cel_formats": [
+    "calvin",
+    "xda"
+  ],
+  "normalization": {
+    "engine": "oligo",
+    "method": "rma",
+    "target": "probeset",
+    "pd_info_package": "pd.hugene.1.0.st.v1"
+  },
+  "annotation": {
+    "package": "hugene10sttranscriptcluster.db",
+    "probe_key": "PROBEID",
+    "gene_id_field": "ENSEMBL",
+    "gene_symbol_field": "SYMBOL",
+    "confidence": "explicit_platform_adapter"
+  },
+  "aggregation": {
+    "default_method": "highest_mad",
+    "supported_methods": [
+      "highest_mad",
+      "median",
+      "mean"
+    ]
+  },
+  "sources": [
+    "https://bioconductor.org/packages/release/bioc/html/oligo.html",
+    "https://bioconductor.org/packages/release/data/annotation/html/pd.hugene.1.0.st.v1.html",
+    "https://bioconductor.org/packages/release/data/annotation/html/hugene10sttranscriptcluster.db.html"
+  ]
+}

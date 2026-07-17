@@ -6,10 +6,10 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 
 ## Current position
 
-- Active roadmap phase: Phase 4 — differential expression
-- Active milestone: Phase 4 — optional enrichment and completion review
-- Current task: Design the optional ranked-list and over-representation enrichment vertical slice
-- Overall milestone status: In progress
+- Active roadmap phase: Phase 7 — signature analysis
+- Active milestone: Phase 7 — GSVA/ssGSEA and phenotype association
+- Current task: Add phenotype association and phenotype-aware score plots
+- Overall milestone status: Durable ingestion/mapping plus six scoring methods, including Bioconductor GSVA/ssGSEA, complete
 
 ## Completed
 
@@ -139,6 +139,75 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 - [x] Generalized result parsing and the shared result GUI for average-log2-CPM abundance while leaving edgeR standard error unavailable instead of inventing an estimate.
 - [x] Extended method diagnostics, normalized profiles, heatmaps, MA semantics, reports, and manifests across all four differential-expression engines.
 - [x] Extended API routing, frozen request validation, frontend method selection, and the deterministic R acceptance harness for both new methods.
+- [x] Added optional seeded ranked-list enrichment and hypergeometric over-representation analysis after any differential-expression engine.
+- [x] Added versioned synthetic demo and scientific acceptance GMT collections with namespace, source, license, set count, and verified SHA-256 provenance.
+- [x] Added a cross-language Enrichment Summary contract that freezes the selected collection, source differential-expression checksum, ranking metric, seed-dependent permutation count, size limits, and DE thresholds.
+- [x] Added immutable enrichment JSON/TSV/SVG artifacts, worker-side schema enforcement, API retrieval, Result Manifest/report integration, and dashboard comparison tables.
+- [x] Added explicit UI and report warnings that the bundled demo controls are not a curated biological pathway database and that enrichment is exploratory rather than independent validation.
+- [x] Extended the deterministic R harness with known positive, negative, and null gene sets and verified ranked direction, ORA separation, collection checksum, source checksum, and complete artifact publication.
+- [x] Completed every Phase 4 task and acceptance criterion, including assay-aware method selection, pre-fit rank rejection, internally consistent result views, optional enrichment, candidate signatures, and reports carrying design, contrast, thresholds, and session provenance.
+- [x] Added an owner-facing technical/content debt register with explicit manual decisions and exit criteria for storage cleanup, authentication, curated gene sets, reference policy, cancellation, validation corpora, legal language, AWS Batch, and upgrade governance.
+- [x] Added Draft 2020-12 Reference Bundle Definition and Raw RNA-seq Ingestion Manifest contracts.
+- [x] Pinned GENCODE 50 on GRCh38.p14 with Ensembl 116 provenance, official upstream asset URLs/MD5 values, Salmon 1.11.4, k=31, and a full-primary-genome decoy index strategy.
+- [x] Added synchronous sample-sheet ingestion for uniformly paired- or single-end FASTQ datasets with safe sample IDs, exact R1/R2 basename resolution, duplicate assignment rejection, arbitrary validated metadata columns, and bounded sheet size/sample counts.
+- [x] Frozen internal dataset-file identifiers, storage URIs, sizes, SHA-256 checksums, layout, strandedness, reference-definition SHA-256, and reference/tool versions in a persisted normalized ingestion manifest.
+- [x] Added source-aware upload-role guardrails, dataset-file inventory, pinned-reference catalog, ingestion creation/retrieval endpoints, and automatic stale-manifest detection after any newer FASTQ or sample-sheet upload.
+- [x] Added FASTQ R1/R2 multi-upload controls, sample-sheet upload, strandedness selection, ingestion validation, file counts, provenance, warnings, and normalized sample previews to the project dashboard.
+- [x] Added deterministic four-sample paired- and single-end FASTQ experiments with known control/treatment expression shifts and a checksum-pinned tiny full-decoy-style reference isolated from the production catalog.
+- [x] Corrected the nonexistent Salmon 1.12.0 pin to official release 1.11.4 and pinned architecture-specific release-archive SHA-256 values in the worker build.
+- [x] Added reference materialization that validates definition drift, upstream MD5 values, local SHA-256 values, Salmon version, gentrome/decoy/tx2gene hashes, and every derived index file before atomically caching by definition digest.
+- [x] Added current-manifest-only Nextflow modules for input revalidation, paired/single FastQC, fastp, Salmon quantification, tximport gene summaries, MultiQC, and raw Expression Bundle construction.
+- [x] Added raw dataset preparation orchestration, immutable run/artifact indexing, prepared-dataset creation, dashboard launch/status controls, and direct MultiQC/counts/TPM downloads.
+- [x] Published raw counts, log expression, and TPM in the canonical bundle with explicit rounded-estimated-count semantics and complete reference/tool provenance.
+- [x] Added `make test-raw-rnaseq`; paired and single workflows recover all designed counts exactly, the second layout reuses the shared reference index, and a repeated paired run caches all 17 reference/sample/summary tasks.
+- [x] Extended raw ingestion to one explicit row per sequencing lane, with stable lane IDs, consistent per-sample metadata, exact file assignment, and deterministic logical-sample merging for paired and single-end inputs.
+- [x] Upgraded the frozen ingestion manifest to 1.1.0 with lane counts and per-sample lane inventories while retaining implicit `lane_1` compatibility for one-row sample sheets.
+- [x] Extended checksum-derived reference mappings with gene name, gene type, and sequence-name annotations and versioned the materialization cache to prevent reuse of older derived mapping formats.
+- [x] Preserved transcript counts, TPM, effective lengths, every original Salmon `quant.sf` plus key provenance files, and a transcript-level abundance assay inside the immutable Expression Bundle.
+- [x] Added annotation-aware mitochondrial/ribosomal percentages, processed/mapped reads, mapping rate, detected genes, library size, mean sample correlation, and conservative PCA-distance review flags without automatic exclusion.
+- [x] Added transcript/QC download links to the dataset dashboard and expanded the deterministic paired fixture to eight lanes across four biological samples without changing its known gene-level effects.
+- [x] Added an `awsbatch` Nextflow profile that requires a digest-pinned ECR scientific image, uses S3 work storage, assigns a dedicated task role, bounds submissions/retries, and terminates unschedulable jobs.
+- [x] Replaced the initially considered shared EFS cache with an immutable S3 reference cache keyed by reference-definition SHA-256 and materializer version; completion manifests publish last and every restored byte is revalidated.
+- [x] Staged local reference fixture directories as explicit Nextflow inputs so the same workflow graph can execute on remote Batch workers.
+- [x] Added Terraform for a scale-to-zero EC2/Spot Batch environment, encrypted/versioned/private S3, immutable encrypted ECR, KMS-encrypted EBS and logs, bounded IAM roles, and an optional cost-alert email.
+- [x] Added the AWS threat model, deployment guide, digest-pinned scientific-image builder, environment renderer, offline/read-only preflight, and a cost-explicit local-versus-Batch scientific parity harness.
+- [x] Added offline tests for S3 reference-cache publication/restoration, AWS profile validation, and exact/canonical scientific-artifact comparison plus Terraform CI validation.
+- [x] Deferred owner-account AWS provisioning and cost-incurring Batch acceptance without blocking the local roadmap; the reviewed infrastructure remains available under `infra/aws`.
+- [x] Added Draft 2020-12 Affymetrix Platform Adapter and Microarray Ingestion Manifest contracts plus an explicit Human Gene 1.0 ST adapter registry entry.
+- [x] Added synchronous CEL ingestion with Calvin/XDA format detection, chip-alias validation, exact sample-metadata mapping, checksum freezing, aggregation selection, staleness detection, and explicit unsupported-platform errors.
+- [x] Added microarray platform catalog, ingestion creation/retrieval, and preparation routing through durable API, Celery, Nextflow, artifact indexing, and prepared-dataset records.
+- [x] Added a Bioconductor 3.23 scientific image with `oligo`, `pd.hugene.1.0.st.v1`, `hugene10sttranscriptcluster.db`, and `jsonlite`.
+- [x] Added RMA background correction, quantile normalization, probe-set summarization, probe-to-transcript-cluster-to-Ensembl mapping, and highest-MAD/median/mean gene aggregation.
+- [x] Preserved probe-set and gene-level log-expression assays and published raw/normalized distributions, PCA, correlation, array metrics/flags, parameters, package versions, and R session provenance.
+- [x] Extended the canonical Expression Bundle for microarray provenance and a limma-compatible `log_expression` assay while removing count-specific library-size QC from this modality.
+- [x] Added a checksum-pinned public NCBI GEO GSE39795/GPL6244 eight-CEL paired-donor fixture plus a repeatable `make test-microarray` RMA-to-bundle-to-limma acceptance path.
+- [x] Added typed raw-CEL dashboard controls for multi-CEL and metadata uploads, explicit platform selection, highest-MAD/median/mean aggregation, stale-manifest warnings, ingestion diagnostics, sample previews, and preparation launch.
+- [x] Added microarray-aware prepared-dataset rendering for array/probe/gene QC counts, immutable raw/normalized distribution, PCA and correlation plots, probe aggregation provenance, expression/mapping downloads, and R session information.
+- [x] Added a schema-valid paired `~ donor + zone` limma request over four matched donors and asserted full-rank design, superficial-minus-deep contrast weights, all gene results, eight-sample normalized profiles, plots, tables, report source, and session provenance.
+- [x] Completed every Phase 6 task and acceptance criterion: explicit platform validation, real RMA, probe/gene assays, documented aggregation, array QC, public downloads, unsupported-array errors, and limma over the resulting bundle.
+- [x] Kept reusable uploaded signature definitions separate from provenance-frozen candidate-gene drafts selected from differential-expression results.
+- [x] Added the Draft 2020-12 Signature Definition contract for checksum-frozen gene-list/GMT sources, identifier namespaces, optional weights, duplicate accounting, parsed sets, and source provenance.
+- [x] Added project-scoped immutable `signature_definitions` persistence and Alembic migration `20260716_0003` with source/manifest URIs and checksums plus bounded summary fields.
+- [x] Added safe multipart gene-list and GMT ingestion with UTF-8/NUL/size/set/entry/identifier validation, identical-duplicate collapse, conflicting-weight rejection, and deterministic parsed manifests.
+- [x] Added project list/retrieve endpoints and prepared-bundle mapping for Ensembl gene IDs, gene symbols, and Entrez IDs with explicit version stripping, ambiguity handling, per-set coverage, mapped feature IDs, missing genes, and duplicate counts.
+- [x] Added the Draft 2020-12 Signature Mapping Report contract with exact definition/bundle checksums, identifier-to-feature mappings, retained weights, coverage, missing identifiers, and ambiguities.
+- [x] Persisted idempotent definition-to-bundle mappings in migration `20260716_0004` with immutable JSON report, missing-identifier TSV, and ambiguous-identifier TSV objects plus checksums and bounded database summaries.
+- [x] Added mapping list and artifact-download endpoints and preserved cleanup behavior when database persistence fails after object publication.
+- [x] Added project-page definition upload/inventory controls and prepared-bundle mapping controls that show mapped, missing, ambiguous, duplicate, and coverage evidence before scoring.
+- [x] Guarded scoring behind an immutable mapping report and made every mapping artifact directly downloadable.
+- [x] Extended saved analyses and frozen Analysis Requests with signature mapping identity/checksum, compatible log-expression assay enforcement, and mean-expression, mean-z-score, weighted-linear, and rank-based method contracts.
+- [x] Added deterministic scientific implementations with explicit formulas: arithmetic mean expression; across-sample gene z-scores using sample standard deviation and visible constant-gene exclusion; unnormalized weighted linear sums; and within-sample percentile-rank means.
+- [x] Added the Draft 2020-12 Signature Scores contract with complete mapping/bundle provenance, final feature counts, every per-sample score and aligned metadata, score ranges, method formula, and warnings.
+- [x] Added the `RUN_SIGNATURE_SCORING` Nextflow process, worker contract validation, score/final-feature TSVs, static SVG, Quarto report, durable artifact indexing, and a score-result API endpoint.
+- [x] Enabled prepared-bundle scoring launch controls with method selection and weighted-method eligibility, plus a live result page showing coverage, frozen checksums, score distributions, complete sample tables, warnings, downloads, and reruns.
+- [x] Added first-class Bioconductor GSVA and ssGSEA methods with frozen gene-set size limits, GSVA kernel/tau/ranking options, and ssGSEA alpha/normalization options in API, JSON Schema, and GUI contracts.
+- [x] Added an independent R signature runner that checksum-verifies the mapped Expression Bundle, explicitly removes constant genes, rejects post-filter gene sets outside the frozen size range, ignores weights with a visible warning, and runs the GSVA parameter-object API serially.
+- [x] Added a dedicated `RUN_GSVA_SCORING` Nextflow route and Bioconductor 3.23 production container while retaining the Python route for the four core scoring methods.
+- [x] Extended the shared Signature Scores contract and result page with language, runtime, implementation, and package-version provenance for both Python and R results.
+- [x] Added deterministic R acceptance fixtures for positive/negative response sets, constant-gene exclusion, complete artifacts, package provenance, and byte-identical repeated GSVA/ssGSEA JSON results.
+- [x] Reworked the root README as a hiring-manager-facing product overview with real RNA-seq and public-microarray user-flow screenshots, architecture, verification evidence, local setup, repository map, and explicit constraints.
+- [x] Materialized a live eight-array GSE39795 project through the public API, published its 23,702-gene/257,430-probe-set RMA Expression Bundle, and ran a full-rank paired `~ donor + zone` limma analysis for the portfolio walkthrough.
+- [x] Corrected server design preview so numeric-looking declared block identifiers are encoded categorically, matching the independent R scientific boundary and preserving paired-design semantics.
 
 ## Verification
 
@@ -246,13 +315,67 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 - Live edgeR analysis `c31e8833-39a1-4aa8-a33b-ca87b5df90d4` run `3f9699ba-abf3-4951-a406-63dcb65003e8` and limma-voom analysis `339a7348-f43b-402e-be0a-555c69a0267c` run `973c4025-0bb5-414d-b007-3b89d6a7d5ee` each tested all 2,000 features, called 256 significant features, and indexed 25 artifacts.
 - edgeR QL recovered 150/150 treatment-up and 94/100 treatment-down genes; limma-voom recovered 150/150 and 93/100 respectively; both called 0/1,430 null/subject-noise genes.
 - Concurrent reruns `93082641-1646-4ac4-97c7-59d1a7a12014` (edgeR QL) and `2af50b87-1271-49eb-a23b-53125b379404` (limma-voom) produced identical SHA-256 hashes for all 18 non-Nextflow artifacts checked per engine.
+- Phase 4 enrichment regression: 46 Python tests and eight frontend integration tests passed; Ruff, strict mypy across 51 source files, ESLint, the Node.js 22 production build, R parsing, the four-engine scientific harness, JSON Schema validation, and `git diff --check` passed.
+- The enriched R acceptance case preserved positive and negative ranked-list direction and its ORA results called both known-effect sets while leaving the null control nonsignificant.
+- Live edgeR enrichment analysis `53509cd4-532c-4173-b505-a65e43101b6b`, final run `ff176636-dcc0-4970-b4ec-b3f799d1fe0a`, succeeded with 29 artifacts, verified collection SHA-256 `5b727116570594783d809ed31c725e853397da9f314a6eab15d80bcb4a360b2a`, and froze the exact differential-expression result checksum and random seed `20260716`.
+- The live ranked analysis called the synthetic treatment-up control at NES 2.150 and adjusted p 0.0164; ORA recovered all 150 treatment-up and 94 treatment-down control features while all unrelated/null controls remained nonsignificant.
+- Comparison run `6dbf2098-8481-4877-9ee2-e51308f8598d` produced byte-identical differential-expression results, Enrichment Summary, ranked-list TSV, ORA TSV, and enrichment SVG.
+- The final live Quarto source explicitly records design, contrast, FDR and fold-change thresholds, R/Bioconductor versions, and the full `session_info.txt` provenance artifact.
+- Phase 5 ingestion regression: 51 Python tests and nine frontend integration tests passed; Ruff, strict mypy across 52 source files, ESLint, the Node.js 22 production build, JSON Schema validation, Docker Compose validation, and `git diff --check` passed.
+- Live raw RNA-seq project `8656a2b2-769b-4064-bb9f-4432704a6cb6`, dataset `208c8167-3c8a-4af8-ba06-9a6c2362ad60`, ingested two paired-end sample mappings and four checksum-frozen placeholder input objects with reverse strandedness; genuine tiny FASTQ content is deliberately assigned to the next QC/quantification slice.
+- The live ingestion contract validated against Draft 2020-12 and froze reference-definition SHA-256 `b7f1c8cceb1981448536870508af4a25d9df755480569a228798d76a2e663090` plus all three official GENCODE upstream MD5 values.
+- Phase 5 local workflow regression: 53 Python tests passed; Ruff and strict mypy passed across 55 source files; paired- and single-end Nextflow workflows completed with FastQC 0.12.1, fastp 0.24.0, Salmon 1.11.4, tximport 1.34.0, and MultiQC 1.32.
+- Both four-sample raw fixtures recovered the designed gene counts exactly. Paired MultiQC found eight FastQC, four fastp, and four Salmon reports; both bundles expose raw counts, log expression, and TPM.
+- The single-end run reused the paired run's checksum-keyed Salmon index (`cache_hit: true`), and the final paired `-resume` trace marked all 17 workflow tasks `CACHED`.
+- The old live placeholder ingestion references the corrected nonexistent Salmon 1.12.0 definition and is intentionally stale; re-ingestion is required before it can launch the new workflow.
+- The corrected production definition SHA-256 is `0344a9bb3250b0a8e095edd6171cdc8cfd0663b1fedc088d4a7edf114416b1a3`; the live placeholder dataset was returned to `draft` so the dashboard does not imply it is executable.
+- Phase 5 lane/transcript/QC regression: 55 Python tests and nine frontend integration tests passed; Ruff, strict mypy, ESLint, the Node.js 22 production build, R parsing, Docker Compose validation, and `git diff --check` passed.
+- The eight-lane paired fixture merged to four logical samples and recovered the same exact designed gene/transcript totals as the single-lane layout; the paired `-resume` run cached all 17 tasks and the single run reused the shared materialization-1.1.0 reference cache.
+- Identifier-aware QC recovered the designed mitochondrial percentages (10.20%–48.98%) and ribosomal percentages (10.20%–48.98%), reported 100% fixture mapping, and emitted no sample-exclusion actions.
+- The refreshed development worker reports Salmon 1.11.4, FastQC 0.12.1, fastp 0.24.0, tximport 1.34.0, and MultiQC 1.32 and responds to Celery inspection.
+- Phase 5 cloud-execution foundation: 59 combined Python tests passed; Ruff and strict mypy passed across 55 source files; the AWS Batch profile rendered with a digest-pinned image, task role, and S3 reference prefix.
+- Terraform 1.13 initialized with locked AWS provider 6.55.0, formatted cleanly, and validated the Batch/S3/KMS/ECR/Logs/IAM/budget deployment without applying resources.
+- The rebuilt worker reports AWS CLI 2.27.49, and the complete paired/single raw RNA-seq acceptance passed after remote-safe reference-asset staging and ordinary-file index publication; the repeated paired run cached all 17 tasks.
+- Live AWS provisioning and local/Batch checksum evidence were intentionally not attempted because no owner account/VPC/budget/data-locality decisions or cost authorization were supplied.
+- Phase 6 regression: 67 combined Python tests passed; Ruff passed; strict mypy passed across 57 source files; R parsing, Docker Compose validation, and `git diff --check` passed.
+- The pinned Bioconductor image reports Bioconductor 3.23, `oligo` 1.76.0, `pd.hugene.1.0.st.v1` 3.14.1, and `hugene10sttranscriptcluster.db` 8.8.0.
+- Real public CEL acceptance completed RMA on eight deep/superficial arrays from four donors and published 257,430 probe sets plus 23,702 mapped Ensembl genes with array QC `PASS`.
+- The final canonical bundle validated against the Expression Bundle schema, advertises gene-level differential expression, contains both gene and probe assays plus four microarray QC plots, and omits count-specific library-size QC.
+- Paired public limma acceptance retained all eight arrays, independently rebuilt a full-rank 5/5 `~ donor + zone` design, tested all 23,702 genes, preserved complete normalized profiles, and published every expected result/provenance artifact with the explicit superficial-minus-deep direction.
+- Phase 6 GUI regression: 11 frontend integration tests passed; ESLint and the Node.js 22 TypeScript/Vite production build passed.
+- Phase 7 ingestion foundation: 70 combined Python tests passed; Ruff and strict mypy passed across 58 source files; migration `20260716_0003` applied and Alembic reported no model/schema drift.
+- Weighted-list acceptance preserved source and manifest checksums, collapsed one identical duplicate, mapped versioned Ensembl IDs at 2/3 coverage, and exposed the missing identifier. GMT acceptance retained per-set duplicate accounting and conflicting weights failed explicitly.
+- Phase 7 durable-mapping regression: 71 combined Python tests and 12 frontend integration tests passed; Ruff, strict mypy across 58 source files, ESLint, and the Node.js 22 production build passed.
+- Migration `20260716_0004` applied successfully to PostgreSQL, became Alembic head, and `alembic check` reported no model/schema drift.
+- Weighted mapping acceptance idempotently persisted one record, retained both mapped weights, froze definition and bundle checksums, and reproduced the JSON report plus exact missing/ambiguous TSV downloads.
+- Phase 7 core-scoring regression: 77 combined Python tests and 13 frontend integration tests passed; Ruff, strict mypy across 60 source files, ESLint, and the Node.js 22 production build passed.
+- Exact-value tests covered mean expression, weighted linear, rank-based, and mean z-score methods; repeated runs produced byte-identical result contracts/tables/plots/reports, and the z-score final-feature table explicitly excluded a constant gene.
+- A direct Nextflow signature-scoring acceptance published all seven expected result/report files from the canonical matrix fixture.
+- Live API-to-Redis-to-Celery-to-Nextflow weighted analysis `32ea8043-4f86-4416-b3be-d205ebd685ee`, successful run `e664df9b-6af3-4d8d-a0a1-b54fbfe2b511`, scored 72 samples at 2/3 mapping coverage, indexed 14 artifacts, and exposed the frozen score contract through the API and GUI.
+- Phase 7 GSVA/ssGSEA regression: 78 combined Python tests and 13 frontend integration tests passed; Ruff, strict mypy across 60 source files, ESLint, the Node.js 22 TypeScript/Vite build, Nextflow configuration, and `git diff --check` passed.
+- The rebuilt development worker passed its pinned-package assertions with R 4.5.0,
+  Bioconductor 3.22 repositories, GSVA 2.4.9, BiocParallel 1.40.0, DESeq2 1.46.0,
+  and jsonlite 1.9.1.
+- The containerized GSVA/ssGSEA acceptance experiment passed expected positive/negative direction,
+  constant-feature exclusion, complete artifacts, software provenance, and byte-identical repeated
+  JSON for both methods. The existing four-engine differential-expression and enrichment harness
+  also passed unchanged against the rebuilt worker.
+- The numeric-block regression passed and the live public microarray preview independently reported
+  a full-rank 5/5 design for four matched donors and the superficial-versus-deep contrast.
+- Live public microarray run `bdf17410-baaf-4a46-adb6-33789a03848c` tested all 23,702 genes through
+  limma and succeeded with complete result, visualization, report, and Nextflow artifacts.
+- The Docker-profile RMA process completed on all eight CEL files in the pinned Bioconductor image;
+  the generic bundle-builder image's missing `ps` utility is recorded as TD-015 rather than hidden.
+- Seven 1440-pixel-wide application screenshots were inspected and added under
+  `docs/images/readme/` for the GitHub walkthrough.
 
-The development stack remains running. The large-study project is at `http://localhost:5173/projects/0694625c-23e1-4847-9622-e508ad95b895`, its prepared bundle at `http://localhost:5173/prepared-datasets/ac5bbe72-ec4e-40ec-9258-f9eae3679209`, and live results are available for PCA (`74cfc4a8-bdea-49b5-ab94-69d8534c52d6`), clustering (`2af084ac-6e90-4beb-b07c-4eabd214f066`), UMAP (`e94db15b-ab8a-4fee-ab6f-9d8e3a2ef63c`), t-SNE (`1dac23c8-5621-46bd-bb71-ddc38640647e`), DESeq2 (`e033fb5c-0516-4a74-9bf8-8e0b77d1eeaa`), limma (`2a13c140-0f8a-4617-bb59-e17b386469f9`), edgeR QL (`c31e8833-39a1-4aa8-a33b-ca87b5df90d4`), and limma-voom (`339a7348-f43b-402e-be0a-555c69a0267c`).
+The development stack remains running. The large-study project is at `http://localhost:5173/projects/0694625c-23e1-4847-9622-e508ad95b895`, its prepared bundle at `http://localhost:5173/prepared-datasets/ac5bbe72-ec4e-40ec-9258-f9eae3679209`, and live results are available for PCA (`74cfc4a8-bdea-49b5-ab94-69d8534c52d6`), clustering (`2af084ac-6e90-4beb-b07c-4eabd214f066`), UMAP (`e94db15b-ab8a-4fee-ab6f-9d8e3a2ef63c`), t-SNE (`1dac23c8-5621-46bd-bb71-ddc38640647e`), DESeq2 (`e033fb5c-0516-4a74-9bf8-8e0b77d1eeaa`), limma (`2a13c140-0f8a-4617-bb59-e17b386469f9`), edgeR QL (`c31e8833-39a1-4aa8-a33b-ca87b5df90d4`), limma-voom (`339a7348-f43b-402e-be0a-555c69a0267c`), and edgeR QL with enrichment (`53509cd4-532c-4173-b505-a65e43101b6b`). The polished raw RNA-seq ingestion dashboard is at `http://localhost:5173/projects/e9574d9b-dc8f-480d-b844-64e5be0bdf31`. The public microarray project is at `http://localhost:5173/projects/32eb730d-7bda-43c1-a930-a37d91789e44`, its prepared bundle at `http://localhost:5173/prepared-datasets/75deff90-236b-4055-9c1b-e74c2ba9ec67`, and its paired limma result at `http://localhost:5173/analyses/0a800b33-6940-4b55-8928-c6c491ebe53d`.
 
 ## Next tasks
 
-1. Design and implement the optional ranked-list and over-representation enrichment slice with versioned gene-set provenance.
-2. Complete the Phase 4 acceptance review and move to Phase 5 raw RNA-seq ingestion.
+1. Add group comparisons, numeric correlations, optional block/covariate handling, and phenotype-aware plots over saved scores.
+2. Add cross-modality acceptance showing the same mapped signature over RNA-seq- and microarray-derived log-expression bundles, without claiming raw score-scale equivalence.
+3. Add a public-corpus benchmark and owner-approved interpretation thresholds before recommending a default scoring method.
 
 ## Decisions and constraints
 
@@ -267,11 +390,14 @@ The development stack remains running. The large-study project is at `http://loc
 
 ## Known blockers
 
-- None at this checkpoint.
+- No code blocker. AWS provisioning remains intentionally deferred under TD-009 and does not block
+  the local Phase 6 roadmap.
 
 ## Deferred cleanup
 
-- Database deletion currently removes file metadata but does not schedule physical object deletion. Durable cleanup/outbox behavior belongs with the later cancellation and cleanup work; uploaded run inputs remain immutable in the meantime.
+- Owner decisions and deferred technical/content work are maintained in `docs/debt-register.md`.
+- The highest-priority implementation debt is durable object deletion/retention; uploaded run inputs
+  remain immutable until the cleanup/outbox policy is implemented.
 
 ## Continue prompt
 

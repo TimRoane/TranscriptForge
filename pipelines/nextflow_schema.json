@@ -31,6 +31,38 @@
     "analysis_request": {
       "type": "string",
       "description": "Path to a frozen Analysis Request"
+    },
+    "ingestion_manifest": {
+      "type": "string",
+      "description": "Path to a frozen raw RNA-seq or Affymetrix ingestion manifest"
+    },
+    "cels": {
+      "type": "string",
+      "description": "Directory containing checksum-frozen Affymetrix CEL files"
+    },
+    "aws_region": {
+      "type": "string",
+      "description": "AWS Region containing the Batch queue and S3 work bucket"
+    },
+    "aws_batch_queue": {
+      "type": "string",
+      "description": "AWS Batch job queue name or ARN"
+    },
+    "aws_batch_job_role_arn": {
+      "type": "string",
+      "description": "Least-privilege IAM role assumed by Batch tasks"
+    },
+    "aws_batch_log_group": {
+      "type": "string",
+      "description": "CloudWatch Logs group for Batch task logs"
+    },
+    "aws_scientific_image": {
+      "type": "string",
+      "description": "ECR scientific image pinned by sha256 digest"
+    },
+    "aws_reference_cache_uri": {
+      "type": "string",
+      "description": "S3 prefix for immutable checksum-keyed reference materializations"
     }
   },
   "additionalProperties": true

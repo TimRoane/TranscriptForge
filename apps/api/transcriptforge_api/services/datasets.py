@@ -40,6 +40,15 @@ async def get_dataset(session: AsyncSession, dataset_id: str) -> Dataset | None:
     return await session.get(Dataset, dataset_id)
 
 
+async def list_dataset_files(session: AsyncSession, dataset_id: str) -> list[DatasetFile]:
+    result = await session.scalars(
+        select(DatasetFile)
+        .where(DatasetFile.dataset_id == dataset_id)
+        .order_by(DatasetFile.created_at.desc(), DatasetFile.id.desc())
+    )
+    return list(result)
+
+
 async def update_dataset(
     session: AsyncSession, dataset: Dataset, request: DatasetUpdate
 ) -> Dataset:

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -37,6 +37,36 @@ class DatasetFileRole(StrEnum):
     PLATFORM_MANIFEST = "platform_manifest"
     TX2GENE = "tx2gene"
     GENE_SET = "gene_set"
+    SAMPLE_SHEET = "sample_sheet"
+    RAW_INGESTION_MANIFEST = "raw_ingestion_manifest"
+    MICROARRAY_INGESTION_MANIFEST = "microarray_ingestion_manifest"
+
+
+UPLOAD_ROLE_COMPATIBILITY: dict[DatasetSourceKind, set[DatasetFileRole]] = {
+    DatasetSourceKind.FASTQ: {
+        DatasetFileRole.FASTQ_R1,
+        DatasetFileRole.FASTQ_R2,
+        DatasetFileRole.SAMPLE_SHEET,
+    },
+    DatasetSourceKind.COUNT_MATRIX: {
+        DatasetFileRole.COUNT_MATRIX,
+        DatasetFileRole.SAMPLE_METADATA,
+    },
+    DatasetSourceKind.SALMON_QUANT: {
+        DatasetFileRole.ABUNDANCE_FILE,
+        DatasetFileRole.SAMPLE_SHEET,
+        DatasetFileRole.TX2GENE,
+    },
+    DatasetSourceKind.AFFYMETRIX_CEL: {
+        DatasetFileRole.CEL_FILE,
+        DatasetFileRole.SAMPLE_METADATA,
+        DatasetFileRole.PLATFORM_MANIFEST,
+    },
+    DatasetSourceKind.NORMALIZED_MATRIX: {
+        DatasetFileRole.EXPRESSION_MATRIX,
+        DatasetFileRole.SAMPLE_METADATA,
+    },
+}
 
 
 class DatasetCreate(BaseModel):
@@ -111,3 +141,137 @@ class PreparedDatasetRead(BaseModel):
     feature_count: int
     qc_status: str
     created_at: datetime
+
+
+class RawRNASeqIngestionRequest(BaseModel):
+    reference_bundle_id: str = Field(
+        default="gencode_v50_grch38_salmon_1_11_4",
+        pattern=r"^[a-z][a-z0-9_]*$",
+        max_length=128,
+    )
+    strandedness: Literal["auto", "unstranded", "forward", "reverse"] = "auto"
+
+
+class RawRNASeqFileRead(BaseModel):
+    dataset_file_id: str
+    role: Literal["sample_sheet", "fastq_r1", "fastq_r2"]
+    original_name: str
+    storage_uri: str
+    size_bytes: int
+    sha256: str
+
+
+class RawRNASeqLaneRead(BaseModel):
+    lane_id: str
+    read1: RawRNASeqFileRead
+    read2: RawRNASeqFileRead | None
+
+
+class RawRNASeqSampleRead(BaseModel):
+    sample_id: str
+    lanes: list[RawRNASeqLaneRead]
+    metadata: dict[str, str]
+
+
+class RawRNASeqReferenceRead(BaseModel):
+    reference_id: str
+    definition_sha256: str
+    name: str
+    annotation_release: str
+    salmon_version: str
+
+
+class RawRNASeqIngestionRead(BaseModel):
+    schema_version: Literal["1.1.0"]
+    dataset_id: str
+    organism: Literal["Homo sapiens"]
+    genome_build: str
+    source_kind: Literal["fastq"]
+    reference: RawRNASeqReferenceRead
+    sample_sheet: RawRNASeqFileRead
+    library_layout: Literal["single_end", "paired_end"]
+    strandedness: Literal["auto", "unstranded", "forward", "reverse"]
+    sample_count: int
+    lane_count: int
+    read_file_count: int
+    samples: list[RawRNASeqSampleRead]
+    warnings: list[str]
+
+
+class ReferenceBundleCatalogRead(BaseModel):
+    reference_id: str
+    definition_sha256: str
+    name: str
+    organism: str
+    genome_build: str
+    annotation_provider: str
+    annotation_release: int
+    salmon_version: str
+    index_strategy: str
+    source_page: str
+    assets: list[dict[str, Any]]
+
+
+class MicroarrayIngestionRequest(BaseModel):
+    platform_id: str = Field(
+        default="affymetrix_hugene_1_0_st_v1",
+        pattern=r"^[a-z][a-z0-9_]*$",
+        max_length=128,
+    )
+    aggregation_method: Literal["highest_mad", "median", "mean"] = "highest_mad"
+
+
+class MicroarrayFileRead(BaseModel):
+    dataset_file_id: str
+    role: Literal["cel_file", "sample_metadata"]
+    original_name: str
+    storage_uri: str
+    size_bytes: int
+    sha256: str
+
+
+class MicroarrayPlatformSelectionRead(BaseModel):
+    platform_id: str
+    definition_sha256: str
+    adapter_version: str
+    vendor: Literal["Affymetrix"]
+    array_design: str
+    detected_chip_type: str
+    cel_format: Literal["calvin", "xda"]
+    normalization: dict[str, Any]
+    annotation: dict[str, Any]
+
+
+class MicroarraySampleRead(BaseModel):
+    sample_id: str
+    cel_file: MicroarrayFileRead
+    metadata: dict[str, str]
+
+
+class MicroarrayIngestionRead(BaseModel):
+    schema_version: Literal["1.0.0"]
+    dataset_id: str
+    organism: Literal["Homo sapiens"]
+    source_kind: Literal["affymetrix_cel"]
+    platform: MicroarrayPlatformSelectionRead
+    aggregation_method: Literal["highest_mad", "median", "mean"]
+    sample_metadata: MicroarrayFileRead
+    sample_count: int
+    cel_file_count: int
+    samples: list[MicroarraySampleRead]
+    warnings: list[str]
+
+
+class MicroarrayPlatformCatalogRead(BaseModel):
+    platform_id: str
+    definition_sha256: str
+    adapter_version: str
+    vendor: Literal["Affymetrix"]
+    array_design: str
+    organism: Literal["Homo sapiens"]
+    chip_type_aliases: list[str]
+    cel_formats: list[Literal["calvin", "xda"]]
+    normalization: dict[str, Any]
+    annotation: dict[str, Any]
+    aggregation: dict[str, Any]
+    sources: list[str]

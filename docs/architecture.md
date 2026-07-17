@@ -32,12 +32,63 @@ normalization, filtering, and test-statistic semantics. The API performs read-on
 over the immutable published table; it does not recompute statistics. Per-feature views join that
 table to the engine-published normalized-expression profiles and sample metadata.
 
+Optional enrichment remains inside the R scientific boundary. It consumes the immutable published
+differential-expression table, verifies the selected GMT collection against versioned metadata and
+SHA-256, and emits both seeded ranked-list and hypergeometric over-representation results. The
+enrichment contract freezes the collection namespace/version/checksum, source-result checksum,
+ranking and threshold parameters, and warnings. FastAPI only validates, indexes, and serves that
+contract; the web client renders it without recomputing enrichment statistics.
+
+Raw RNA-seq begins with synchronous ingestion validation rather than expensive workflow execution.
+The uploaded tab-separated sample sheet is the authority that binds sample and lane identifiers to
+immutable R1/R2 dataset files. A successful ingestion groups lanes only when metadata/layout agree
+and publishes a normalized manifest referencing the exact
+file checksums and one checksum-pinned reference definition. Only that manifest is admitted to the
+FastQC/fastp/Salmon/tximport workflow, preventing filename guesses or mutable “latest” references
+from entering scientific execution. Preparation rechecks every staged read, the reference-definition
+digest, upstream MD5 values, local SHA-256 values, and the exact Salmon executable version. The
+derived full-genome-decoy index is cached outside run directories by reference-definition digest;
+gene/transcript abundances, original Salmon outputs, identifier-aware QC, MultiQC, and reference
+provenance are immutable run artifacts.
+
+Raw Affymetrix CEL preparation follows the same frozen-input boundary. The API accepts only an
+explicitly registered platform adapter, scans each CEL header for a compatible platform identity,
+requires exact sample-metadata assignments, and persists file and adapter checksums before queueing.
+Nextflow stages those immutable inputs and delegates normalization to a platform-specific
+Bioconductor image. The R process independently checks the platform package, performs RMA, maps
+probe sets through transcript clusters to Ensembl genes, and emits probe-level and aggregated
+gene-level assays plus QC and full session provenance. Python then validates and archives the
+canonical Expression Bundle; the API only indexes and serves its immutable artifacts.
+
+The optional AWS profile changes execution configuration, not workflow code. A Nextflow head process
+uses short-lived AWS credentials to submit each process to AWS Batch; S3 is the remote work and
+publication boundary. Every Batch process uses the same ECR image pinned by digest. Reference
+materializations use an immutable S3 prefix derived from the exact reference-definition SHA-256 and
+materializer schema version. The manifest is uploaded last as a completion marker; consumers
+download every declared object and revalidate its SHA-256 before use. This avoids a persistent EFS/NFS
+control plane while retaining cross-run reference reuse. See the deployment threat model for the IAM,
+encryption, network, and residual-risk boundaries.
+
 Candidate gene signatures are orchestration records, not new statistical results. A draft belongs
 to one project and references the exact prepared dataset, differential-expression analysis, and
 successful source run. It stores selected feature identifiers, snapshots their published result
 rows, and records the immutable result artifact identifier and SHA-256 checksum. This preserves the
 selection decision even if later runs produce different estimates. Candidate drafts are kept
 separate from trained `ModelRecord` objects and never imply independent or clinical validation.
+
+Reusable signature definitions have a separate trust boundary from candidate drafts. Bounded
+gene-list/GMT uploads are parsed synchronously into a schema-valid immutable manifest; both source
+and manifest objects are checksum-frozen under the owning project. Mapping reads only published
+Expression Bundle feature metadata and reports exact mapped, missing, ambiguous, and duplicate
+identifiers. The API persists one immutable mapping per definition/bundle pair with the exact source
+checksums, report JSON, and downloadable missing/ambiguous tables. The UI requires this report to be
+visible before scoring; per-sample scoring remains assigned to the scientific workflow, not the API.
+Saved signature analyses reference that immutable mapping record. Each run freezes the mapping report,
+Expression Bundle checksum, and method parameters. Nextflow dispatches mean-expression, mean-z-score,
+weighted-linear, or rank-based scoring to the Python scientific package and GSVA/ssGSEA to the
+Bioconductor R runtime. Both routes publish the same schema-valid score tables, final-feature
+inventories, plots, reports, checksums, and explicit software provenance; the API only orchestrates
+and indexes those outputs.
 
 ## Service boundaries
 
@@ -47,7 +98,14 @@ separate from trained `ModelRecord` objects and never imply independent or clini
 - `analysis`: tested scientific libraries and thin command-line wrappers.
 - `schemas`: cross-language contracts for every durable bundle and request.
 - `containers`: scientific runtime image definitions.
+- `infra/aws`: opt-in AWS Batch/S3 infrastructure, validation, and deployment guidance.
 
 ## Trust boundaries
 
 Uploaded names are display metadata only. Server paths and object keys are generated internally. User data is never interpolated into a shell string. Nextflow is launched with a fixed executable and an argument list. Artifact serving must resolve paths inside the owning run namespace.
+
+The AWS data plane denies insecure S3 transport and public access, defaults objects to SSE-KMS, and
+limits job access to `inputs/`, `references/`, `work/`, and `results/`. The submitter can register
+Nextflow's dynamic job definitions and pass only the dedicated task role. Static access keys are not
+part of the profile. Full controls and residual owner decisions are recorded in
+[`aws-batch-threat-model.md`](aws-batch-threat-model.md).

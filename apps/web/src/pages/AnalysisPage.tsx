@@ -47,6 +47,7 @@ import {
   fetchDifferentialExpressionFeature,
   fetchDifferentialExpressionResults,
   fetchEmbeddingPlot,
+  fetchEnrichmentSummary,
   fetchExpressionHeatmap,
   fetchMAPlot,
   fetchPCAPlot,
@@ -55,6 +56,7 @@ import {
   fetchResultManifest,
   fetchRunArtifacts,
   fetchRunSignatures,
+  fetchSignatureScores,
   fetchVariancePlot,
   fetchVolcanoPlot,
   filteredDifferentialExpressionDownloadUrl,
@@ -66,9 +68,12 @@ import {
   type DifferentialExpressionResultQuery,
   type DifferentialExpressionSort,
   type EmbeddingPlot,
+  type EnrichmentResult,
+  type EnrichmentSummary,
   type ExpressionHeatmap,
   type PValueDistribution,
   type Run,
+  type SignatureScores,
 } from '../api/client'
 import { ErrorState, LoadingState } from '../components/ApiState'
 
@@ -146,6 +151,18 @@ export function AnalysisPage() {
     queryFn: ({ signal }) => fetchExpressionHeatmap(latest!.id, signal),
     enabled: succeeded && analysis.data?.analysis_type === 'differential_expression',
   })
+  const enrichment = useQuery({
+    queryKey: ['enrichment-summary', latest?.id],
+    queryFn: ({ signal }) => fetchEnrichmentSummary(latest!.id, signal),
+    enabled: succeeded
+      && analysis.data?.configuration_json.analysis_type === 'differential_expression'
+      && Boolean(analysis.data.configuration_json.parameters.enrichment?.enabled),
+  })
+  const signatureScores = useQuery({
+    queryKey: ['signature-scores', latest?.id],
+    queryFn: ({ signal }) => fetchSignatureScores(latest!.id, signal),
+    enabled: succeeded && analysis.data?.analysis_type === 'signature',
+  })
   const manifest = useQuery({
     queryKey: ['result-manifest', latest?.id],
     queryFn: ({ signal }) => fetchResultManifest(latest!.id, signal),
@@ -166,6 +183,93 @@ export function AnalysisPage() {
   if (runs.isError) return <ErrorState error={runs.error} />
 
   const configuration = analysis.data.configuration_json
+  if (configuration.analysis_type === 'signature') {
+    const methodLabels = {
+      mean_expression: 'Mean expression',
+      mean_z_score: 'Mean z-score',
+      weighted_linear: 'Weighted linear score',
+      rank_based: 'Rank-based score',
+      gsva: 'GSVA',
+      ssgsea: 'ssGSEA',
+    }
+    return (
+      <Stack spacing={3}>
+        <Link
+          component={RouterLink}
+          to={`/prepared-datasets/${analysis.data.prepared_dataset_id}`}
+          underline="hover"
+          sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, width: 'fit-content' }}
+        >
+          <ArrowBackRoundedIcon fontSize="small" /> Expression Bundle v{prepared.data?.version ?? '…'}
+        </Link>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={2}>
+          <Box>
+            <Typography variant="overline" color="secondary.main" fontWeight={750}>
+              Signature analysis · {methodLabels[configuration.method]}
+            </Typography>
+            <Typography variant="h3" fontWeight={750}>{analysis.data.name}</Typography>
+            <Typography color="text.secondary" mt={1}>
+              {configuration.assay} · mapping coverage{' '}
+              {(configuration.mapping_coverage * 100).toFixed(1)}%
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1} alignItems="center">
+            {latest && <RunStateChip run={latest} />}
+            <Button
+              variant={latest ? 'outlined' : 'contained'}
+              startIcon={<ReplayRoundedIcon />}
+              onClick={() => rerun.mutate()}
+              disabled={rerun.isPending || Boolean(latest && activeStates.has(latest.state))}
+            >
+              {latest ? 'Run again' : 'Run signature scoring'}
+            </Button>
+          </Stack>
+        </Stack>
+        {!latest && <Alert severity="info">This signature analysis has not been run yet.</Alert>}
+        {latest && activeStates.has(latest.state) && (
+          <Paper variant="outlined" sx={{ p: 4 }}>
+            <LoadingState label={`Signature scoring ${latest.state.toLowerCase()}…`} />
+            <Typography textAlign="center" color="text.secondary">
+              This page updates automatically while Nextflow scores the frozen mapping.
+            </Typography>
+          </Paper>
+        )}
+        {latest?.state === 'FAILED' && (
+          <Alert severity="error">
+            {latest.error_summary ?? 'The signature-scoring workflow failed.'}
+          </Alert>
+        )}
+        {signatureScores.isError && <ErrorState error={signatureScores.error} />}
+        {signatureScores.data && <SignatureScoreResults summary={signatureScores.data} />}
+        {artifacts.data && (
+          <Paper variant="outlined" sx={{ p: 3 }}>
+            <Typography variant="h5" fontWeight={700}>Results and provenance</Typography>
+            <Stack direction="row" spacing={2} mt={2} flexWrap="wrap">
+              {artifacts.data.filter((artifact) => [
+                'signature_scores', 'signature_scores_table', 'signature_scored_features',
+                'signature_scores_svg', 'analysis_report', 'analysis_report_source',
+                'nextflow_report', 'nextflow_trace',
+              ].includes(artifact.artifact_type)).map((artifact) => (
+                <Link
+                  key={artifact.id}
+                  href={artifactDownloadUrl(artifact.id)}
+                  underline="hover"
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+                >
+                  <DownloadRoundedIcon fontSize="small" /> {artifact.title}
+                </Link>
+              ))}
+            </Stack>
+          </Paper>
+        )}
+        <Alert severity="info">
+          Research use only. Signature scores are cohort- and assay-dependent and are not
+          clinically validated. Mapping coverage and final scored features must accompany any
+          interpretation.
+        </Alert>
+      </Stack>
+    )
+  }
   if (configuration.analysis_type === 'differential_expression') {
     return (
       <Stack spacing={3}>
@@ -261,6 +365,8 @@ export function AnalysisPage() {
         )}
         {pValueDistribution.data && <PValueDistributionChart distribution={pValueDistribution.data} />}
         {expressionHeatmap.data && <DifferentialExpressionHeatmap heatmap={expressionHeatmap.data} />}
+        {enrichment.data && <EnrichmentPanel summary={enrichment.data} />}
+        {enrichment.isError && <ErrorState error={enrichment.error} />}
         {manifest.data && (
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             {manifest.data.summary_metrics.map((metric) => (
@@ -283,6 +389,8 @@ export function AnalysisPage() {
                 'design_matrix',
                 'contrast_definition', 'method_diagnostics', 'volcano_plot_svg', 'ma_plot_svg',
                 'p_value_distribution_svg', 'expression_heatmap_svg',
+                'enrichment_summary', 'ranked_enrichment', 'over_representation',
+                'enrichment_plot_svg',
                 'r_session_info', 'analysis_report', 'analysis_report_source', 'nextflow_report',
                 'nextflow_trace',
               ].includes(artifact.artifact_type)).map((artifact) => (
@@ -423,6 +531,114 @@ export function AnalysisPage() {
 function RunStateChip({ run }: { run: Run }) {
   const color = run.state === 'SUCCEEDED' ? 'success' : run.state === 'FAILED' ? 'error' : 'warning'
   return <Chip label={run.state} color={color} />
+}
+
+function SignatureScoreResults({ summary }: { summary: SignatureScores }) {
+  const mapping = summary.signature_mapping
+  return (
+    <Stack spacing={3}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+        {[
+          ['Samples', summary.sample_count],
+          ['Signature sets', summary.set_count],
+          ['Mapping coverage', `${(mapping.mapping_coverage * 100).toFixed(1)}%`],
+          ['Mapped / requested', `${mapping.mapped_identifier_count}/${mapping.requested_identifier_count}`],
+        ].map(([label, value]) => (
+          <Paper key={label} variant="outlined" sx={{ p: 2, flex: 1 }}>
+            <Typography variant="overline" color="text.secondary">{label}</Typography>
+            <Typography variant="h6" fontWeight={700}>{value}</Typography>
+          </Paper>
+        ))}
+      </Stack>
+      <Paper variant="outlined" sx={{ p: 2.5 }}>
+        <Typography variant="overline" color="text.secondary">Frozen score definition</Typography>
+        <Typography>{summary.formula}</Typography>
+        <Typography variant="body2" color="text.secondary" mt={1} sx={{ overflowWrap: 'anywhere' }}>
+          Mapping report SHA-256: <code>{mapping.report_sha256}</code><br />
+          Expression Bundle SHA-256: <code>{mapping.expression_bundle_sha256}</code><br />
+          Runtime: {summary.software.language} {summary.software.language_version}<br />
+          Implementation: {summary.software.implementation}<br />
+          Packages: {Object.entries(summary.software.packages)
+            .map(([name, version]) => `${name} ${version}`).join(' · ')}
+        </Typography>
+      </Paper>
+      {summary.warnings.map((warning) => (
+        <Alert severity="warning" key={warning}>{warning}</Alert>
+      ))}
+      {summary.sets.map((signatureSet) => {
+        const range = signatureSet.score_maximum - signatureSet.score_minimum
+        return (
+          <Paper key={signatureSet.signature_id} variant="outlined" sx={{ p: 3 }}>
+            <Stack spacing={2}>
+              <div>
+                <Typography variant="h5" fontWeight={700}>{signatureSet.name}</Typography>
+                <Typography color="text.secondary">
+                  {signatureSet.scored_feature_count} final features ·{' '}
+                  {(signatureSet.mapping_coverage * 100).toFixed(1)}% mapped · score range{' '}
+                  {formatNumber(signatureSet.score_minimum)} to{' '}
+                  {formatNumber(signatureSet.score_maximum)}
+                </Typography>
+              </div>
+              <Box
+                aria-label={`${signatureSet.name} score distribution`}
+                sx={{
+                  position: 'relative', height: 56, bgcolor: 'grey.100', borderRadius: 1,
+                  borderBottom: 1, borderColor: 'grey.400', mx: 1,
+                }}
+              >
+                {signatureSet.scores.map((item, index) => (
+                  <Box
+                    key={item.sample_id}
+                    title={`${item.sample_id}: ${formatNumber(item.score)}`}
+                    sx={{
+                      position: 'absolute',
+                      left: `${range === 0 ? 50 : ((item.score - signatureSet.score_minimum) / range) * 100}%`,
+                      top: `${8 + (index % 4) * 10}px`,
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      bgcolor: 'primary.main',
+                      transform: 'translateX(-50%)',
+                    }}
+                  />
+                ))}
+              </Box>
+              <TableContainer sx={{ maxHeight: 420 }}>
+                <Table size="small" stickyHeader aria-label={`${signatureSet.name} per-sample scores`}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Sample</TableCell>
+                      <TableCell align="right">Score</TableCell>
+                      <TableCell>Metadata</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {signatureSet.scores.slice(0, 100).map((item) => (
+                      <TableRow key={item.sample_id}>
+                        <TableCell component="th" scope="row">{item.sample_id}</TableCell>
+                        <TableCell align="right">{formatNumber(item.score)}</TableCell>
+                        <TableCell>
+                          {Object.entries(item.metadata)
+                            .filter(([key]) => key !== 'sample_id')
+                            .map(([key, value]) => `${key}=${value}`)
+                            .join(' · ') || '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              {signatureSet.scores.length > 100 && (
+                <Typography variant="caption" color="text.secondary">
+                  Showing the first 100 samples; download the complete score table below.
+                </Typography>
+              )}
+            </Stack>
+          </Paper>
+        )
+      })}
+    </Stack>
+  )
 }
 
 function DifferentialExpressionScatter({
@@ -850,6 +1066,109 @@ function DifferentialExpressionResultsExplorer({
         </DialogActions>
       </Dialog>
     </Paper>
+  )
+}
+
+function EnrichmentPanel({ summary }: { summary: EnrichmentSummary }) {
+  return (
+    <Paper variant="outlined" sx={{ p: 3 }}>
+      <Typography variant="h5" fontWeight={700}>Gene-set enrichment</Typography>
+      <Typography color="text.secondary" mt={0.5}>
+        Ranked-list enrichment and over-representation analysis against a frozen collection.
+      </Typography>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} mt={2} flexWrap="wrap">
+        <Chip label={`${summary.collection.name} · v${summary.collection.version}`} />
+        <Chip label={`${summary.collection.set_count} sets`} variant="outlined" />
+        <Chip label={`${summary.parameters.permutation_count} permutations`} variant="outlined" />
+        <Chip label={`Seed ${summary.parameters.random_seed}`} variant="outlined" />
+      </Stack>
+      <Typography variant="body2" color="text.secondary" mt={1.5} sx={{ overflowWrap: 'anywhere' }}>
+        Collection SHA-256: <code>{summary.collection.gmt_sha256}</code><br />
+        Source result SHA-256: <code>{summary.source_result.result_sha256}</code><br />
+        Namespace: {summary.collection.identifier_namespace} · Source: {summary.collection.source}
+        {' '}· License: {summary.collection.license}
+      </Typography>
+      {summary.warnings.map((warning) => (
+        <Alert severity="warning" sx={{ mt: 2 }} key={warning}>{warning}</Alert>
+      ))}
+      <Stack direction={{ xs: 'column', xl: 'row' }} spacing={3} mt={3} alignItems="flex-start">
+        <EnrichmentResultsTable
+          title="Ranked-list enrichment"
+          results={summary.ranked_list}
+          effectLabel="NES"
+          effect={(item) => item.normalized_enrichment_score}
+        />
+        <EnrichmentResultsTable
+          title="Over-representation analysis"
+          results={summary.over_representation}
+          effectLabel="Odds ratio"
+          effect={(item) => item.odds_ratio}
+        />
+      </Stack>
+      <Alert severity="info" sx={{ mt: 3 }}>
+        Enrichment is exploratory and collection-dependent. It does not independently validate
+        individual genes, pathways, or clinical utility.
+      </Alert>
+    </Paper>
+  )
+}
+
+function EnrichmentResultsTable({
+  title,
+  results,
+  effectLabel,
+  effect,
+}: {
+  title: string
+  results: EnrichmentResult[]
+  effectLabel: string
+  effect: (item: EnrichmentResult) => number | null
+}) {
+  return (
+    <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
+      <Typography variant="h6" fontWeight={700}>{title}</Typography>
+      <TableContainer sx={{ mt: 1 }}>
+        <Table size="small" aria-label={title}>
+          <TableHead>
+            <TableRow>
+              <TableCell>Gene set</TableCell>
+              <TableCell>Direction</TableCell>
+              <TableCell align="right">Overlap</TableCell>
+              <TableCell align="right">{effectLabel}</TableCell>
+              <TableCell align="right">Adjusted p</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {results.slice(0, 8).map((item) => (
+              <TableRow key={item.gene_set_id}>
+                <TableCell>
+                  <Typography variant="body2" fontWeight={650}>{item.gene_set_id}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {item.gene_set_name}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={item.direction}
+                    size="small"
+                    color={item.direction === 'up' ? 'success' : item.direction === 'down' ? 'error' : 'default'}
+                    variant="outlined"
+                  />
+                </TableCell>
+                <TableCell align="right">{item.overlap_size}/{item.set_size}</TableCell>
+                <TableCell align="right">{formatNumber(effect(item))}</TableCell>
+                <TableCell align="right">{formatPValue(item.adjusted_p_value)}</TableCell>
+              </TableRow>
+            ))}
+            {results.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} align="center">No eligible gene sets.</TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
   )
 }
 

@@ -65,3 +65,81 @@ class GeneSignatureRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     research_use_warning: str = RESEARCH_USE_WARNING
+
+
+class SignatureDefinitionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    project_id: str
+    name: str
+    description: str | None
+    definition_format: Literal["gene_list", "gmt"]
+    identifier_type: Literal["ensembl_gene_id", "gene_symbol", "entrez_id"]
+    original_name: str
+    source_sha256: str
+    source_size_bytes: int
+    manifest_sha256: str
+    set_count: int
+    requested_identifier_count: int
+    unique_identifier_count: int
+    duplicate_identifier_count: int
+    weighted: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class SignatureMappingSetRead(BaseModel):
+    signature_id: str
+    name: str
+    requested_identifier_count: int
+    unique_identifier_count: int
+    mapped_identifier_count: int
+    missing_identifier_count: int
+    ambiguous_identifier_count: int
+    duplicate_identifier_count: int
+    mapping_coverage: float
+    mapped_entries: list[dict[str, str | float]]
+    mapped_feature_ids: list[str]
+    missing_identifiers: list[str]
+    ambiguous_identifiers: list[str]
+
+
+class SignatureMappingRead(BaseModel):
+    schema_version: Literal["1.0.0"]
+    signature_definition_id: str
+    prepared_dataset_id: str
+    signature_definition_sha256: str
+    expression_bundle_sha256: str
+    identifier_type: Literal["ensembl_gene_id", "gene_symbol", "entrez_id"]
+    strip_ensembl_version: bool
+    set_count: int
+    requested_identifier_count: int
+    unique_identifier_count: int
+    mapped_identifier_count: int
+    missing_identifier_count: int
+    ambiguous_identifier_count: int
+    duplicate_identifier_count: int
+    mapping_coverage: float
+    sets: list[SignatureMappingSetRead]
+
+
+class SignatureMappingRecordRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    signature_definition_id: str
+    prepared_dataset_id: str
+    report_sha256: str
+    missing_sha256: str
+    ambiguous_sha256: str
+    requested_identifier_count: int
+    unique_identifier_count: int
+    mapped_identifier_count: int
+    missing_identifier_count: int
+    ambiguous_identifier_count: int
+    duplicate_identifier_count: int
+    mapping_coverage: float
+    report_json: SignatureMappingRead
+    created_at: datetime
+    updated_at: datetime

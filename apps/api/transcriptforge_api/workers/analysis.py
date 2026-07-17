@@ -21,6 +21,7 @@ from transcriptforge_api.workers.validation import (
     ArtifactSpec,
     _confined_run_root,
     _error_tail,
+    _nextflow_work_dir,
     _session_id,
     _store_artifacts,
     _worker_session,
@@ -112,6 +113,29 @@ def run_analysis_workflow(
             "result_manifest.schema.json",
             "Result manifest",
         )
+        enrichment_requested = bool(
+            frozen.get("parameters", {}).get("enrichment", {}).get("enabled", False)
+        )
+        enrichment_summary = result_manifest.parent / "enrichment_summary.json"
+        if enrichment_requested and not enrichment_summary.is_file():
+            raise RuntimeError(
+                "Analysis requested enrichment but did not publish enrichment_summary.json."
+            )
+        if enrichment_summary.is_file():
+            _validate_json_contract(
+                json.loads(enrichment_summary.read_text(encoding="utf-8")),
+                "enrichment_summary.schema.json",
+                "Enrichment summary",
+            )
+        signature_scores = result_manifest.parent / "signature_scores.json"
+        if frozen.get("analysis_type") == "signature":
+            if not signature_scores.is_file():
+                raise RuntimeError("Signature analysis did not publish signature_scores.json.")
+            _validate_json_contract(
+                json.loads(signature_scores.read_text(encoding="utf-8")),
+                "signature_scores.schema.json",
+                "Signature scores",
+            )
         artifacts = _store_artifacts(storage, run_id, _artifact_specs(run_root))
         asyncio.run(_mark_succeeded(settings, snapshot, artifacts, session_id))
         return {"run_id": run_id, "state": RunState.SUCCEEDED.value}
@@ -157,6 +181,7 @@ def _nextflow_command(
     provenance_dir: Path,
     run_name: str,
 ) -> list[str]:
+    effective_work_dir = _nextflow_work_dir(settings, snapshot.profile, snapshot.id, work_dir)
     return [
         settings.nextflow_executable,
         "run",
@@ -168,7 +193,7 @@ def _nextflow_command(
         "-params-file",
         str(params_path),
         "-work-dir",
-        str(work_dir),
+        effective_work_dir,
         "-name",
         run_name,
         "-with-trace",
@@ -185,6 +210,34 @@ def _nextflow_command(
 def _artifact_specs(run_root: Path) -> list[ArtifactSpec]:
     analysis = run_root / "output" / "analysis" / "results"
     candidates = [
+        ArtifactSpec(
+            "signature_scores",
+            "Per-sample signature scores",
+            analysis / "signature_scores.json",
+            "application/json",
+            1,
+        ),
+        ArtifactSpec(
+            "signature_scores_table",
+            "Per-sample signature scores table",
+            analysis / "signature_scores.tsv",
+            "text/tab-separated-values",
+            2,
+        ),
+        ArtifactSpec(
+            "signature_scored_features",
+            "Final scored signature features",
+            analysis / "scored_features.tsv",
+            "text/tab-separated-values",
+            3,
+        ),
+        ArtifactSpec(
+            "signature_scores_svg",
+            "Per-sample signature scores (SVG)",
+            analysis / "signature_scores.svg",
+            "image/svg+xml",
+            4,
+        ),
         ArtifactSpec(
             "result_manifest",
             "Result manifest",
@@ -214,12 +267,18 @@ def _artifact_specs(run_root: Path) -> list[ArtifactSpec]:
             3,
         ),
         ArtifactSpec(
-            "design_matrix", "Design matrix", analysis / "design_matrix.tsv",
-            "text/tab-separated-values", 4,
+            "design_matrix",
+            "Design matrix",
+            analysis / "design_matrix.tsv",
+            "text/tab-separated-values",
+            4,
         ),
         ArtifactSpec(
-            "contrast_definition", "Contrast definition", analysis / "contrast.json",
-            "application/json", 5,
+            "contrast_definition",
+            "Contrast definition",
+            analysis / "contrast.json",
+            "application/json",
+            5,
         ),
         ArtifactSpec(
             "method_diagnostics",
@@ -229,11 +288,18 @@ def _artifact_specs(run_root: Path) -> list[ArtifactSpec]:
             6,
         ),
         ArtifactSpec(
-            "volcano_plot", "Volcano plot", analysis / "volcano_plot.json",
-            "application/json", 7,
+            "volcano_plot",
+            "Volcano plot",
+            analysis / "volcano_plot.json",
+            "application/json",
+            7,
         ),
         ArtifactSpec(
-            "ma_plot", "MA plot", analysis / "ma_plot.json", "application/json", 8,
+            "ma_plot",
+            "MA plot",
+            analysis / "ma_plot.json",
+            "application/json",
+            8,
         ),
         ArtifactSpec(
             "p_value_distribution",
@@ -250,11 +316,18 @@ def _artifact_specs(run_root: Path) -> list[ArtifactSpec]:
             10,
         ),
         ArtifactSpec(
-            "volcano_plot_svg", "Volcano plot (SVG)", analysis / "volcano_plot.svg",
-            "image/svg+xml", 11,
+            "volcano_plot_svg",
+            "Volcano plot (SVG)",
+            analysis / "volcano_plot.svg",
+            "image/svg+xml",
+            11,
         ),
         ArtifactSpec(
-            "ma_plot_svg", "MA plot (SVG)", analysis / "ma_plot.svg", "image/svg+xml", 12,
+            "ma_plot_svg",
+            "MA plot (SVG)",
+            analysis / "ma_plot.svg",
+            "image/svg+xml",
+            12,
         ),
         ArtifactSpec(
             "p_value_distribution_svg",
@@ -271,8 +344,39 @@ def _artifact_specs(run_root: Path) -> list[ArtifactSpec]:
             14,
         ),
         ArtifactSpec(
-            "r_session_info", "R session information", analysis / "session_info.txt",
-            "text/plain", 15,
+            "r_session_info",
+            "R session information",
+            analysis / "session_info.txt",
+            "text/plain",
+            15,
+        ),
+        ArtifactSpec(
+            "enrichment_summary",
+            "Gene-set enrichment summary",
+            analysis / "enrichment_summary.json",
+            "application/json",
+            16,
+        ),
+        ArtifactSpec(
+            "ranked_enrichment",
+            "Ranked-list enrichment results",
+            analysis / "ranked_enrichment.tsv",
+            "text/tab-separated-values",
+            17,
+        ),
+        ArtifactSpec(
+            "over_representation",
+            "Over-representation analysis results",
+            analysis / "over_representation.tsv",
+            "text/tab-separated-values",
+            18,
+        ),
+        ArtifactSpec(
+            "enrichment_plot_svg",
+            "Gene-set enrichment overview",
+            analysis / "enrichment_plot.svg",
+            "image/svg+xml",
+            19,
         ),
         ArtifactSpec(
             "pca_plot", "PCA coordinates plot", analysis / "pca_plot.json", "application/json", 1

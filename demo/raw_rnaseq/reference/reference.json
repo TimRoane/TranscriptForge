@@ -1,0 +1,50 @@
+{
+  "annotation_provider": "GENCODE",
+  "annotation_release": 50,
+  "assets": [
+    {
+      "filename": "tiny.transcripts.fa.gz",
+      "role": "transcriptome_fasta",
+      "upstream_checksum": {
+        "algorithm": "md5",
+        "manifest_url": "https://transcriptforge.dev/fixtures/MD5SUMS",
+        "value": "a13b56899426cc561a17febf8ffd80e7"
+      },
+      "url": "https://transcriptforge.dev/fixtures/tiny.transcripts.fa.gz"
+    },
+    {
+      "filename": "tiny.genome.fa.gz",
+      "role": "primary_assembly_genome",
+      "upstream_checksum": {
+        "algorithm": "md5",
+        "manifest_url": "https://transcriptforge.dev/fixtures/MD5SUMS",
+        "value": "77a41c687d38031271235509375aae2c"
+      },
+      "url": "https://transcriptforge.dev/fixtures/tiny.genome.fa.gz"
+    },
+    {
+      "filename": "tiny.annotation.gtf.gz",
+      "role": "annotation_gtf",
+      "upstream_checksum": {
+        "algorithm": "md5",
+        "manifest_url": "https://transcriptforge.dev/fixtures/MD5SUMS",
+        "value": "b15cebb3b5b71382e930917ff3e70be1"
+      },
+      "url": "https://transcriptforge.dev/fixtures/tiny.annotation.gtf.gz"
+    }
+  ],
+  "ensembl_release": 116,
+  "genome_build": "GRCh38.p14",
+  "name": "TranscriptForge deterministic tiny GRCh38 Salmon fixture",
+  "organism": "Homo sapiens",
+  "reference_id": "transcriptforge_tiny_grch38_salmon_1_11_4",
+  "salmon": {
+    "decoy_source": "primary_assembly_genome",
+    "index_strategy": "selective_alignment_full_genome_decoy",
+    "kmer_length": 15,
+    "version": "1.11.4"
+  },
+  "schema_version": "1.0.0",
+  "source_page": "https://transcriptforge.dev/fixtures/tiny-reference",
+  "terms_url": "https://transcriptforge.dev/fixtures/license"
+}
