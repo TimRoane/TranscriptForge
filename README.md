@@ -59,10 +59,12 @@ routes, enrichment, and signature scoring—before the detailed sample QC and pr
 Researchers can launch PCA, hierarchical clustering, UMAP, or t-SNE from an exact bundle version.
 Runs retain configuration, seed, coordinates, static SVGs, Quarto reports, and Nextflow provenance.
 
-![Interactive PCA colored by processing batch](docs/images/readme/rnaseq-pca.png)
+[![Four-pane RNA-seq exploration overview: PCA, clustering, UMAP, and t-SNE](docs/images/readme/rnaseq-exploration-grid.png)](docs/images/readme/rnaseq-exploration-grid.png)
 
-*Axes and metadata coloring are interactive. The visible four-group structure reflects the seeded
-genotype/treatment design, while color makes batch distribution inspectable.*
+*Clockwise from top left: PCA, hierarchical clustering with its sample-correlation heatmap, t-SNE,
+and UMAP. Axes and metadata coloring are interactive; selecting the image opens the full-resolution
+grid. The visible four-group structure reflects the seeded genotype/treatment design, while color
+makes batch distribution inspectable.*
 
 #### 4. Validate the design, then run differential expression
 
@@ -71,11 +73,13 @@ The R runner independently rebuilds that model and refuses to fit if it disagree
 preview. Raw counts support DESeq2, edgeR quasi-likelihood, and limma-voom; log expression supports
 limma.
 
-![Paired DESeq2 result with model diagnostics and volcano plot](docs/images/readme/rnaseq-deseq2.png)
+[![Four-pane differential-expression engine comparison: DESeq2, edgeR QL, limma-voom, and limma](docs/images/readme/rnaseq-differential-grid.png)](docs/images/readme/rnaseq-differential-grid.png)
 
-*This full-rank `~ subject_id + treatment` model compares 36 stimulated samples with their 36 paired
-vehicle controls. Result pages also provide MA and p-value plots, expression heatmaps, searchable
-tables, per-gene profiles, filtered downloads, reports, and run provenance.*
+*Clockwise from top left: DESeq2, edgeR quasi-likelihood, limma, and limma-voom. Every pane shows the
+same full-rank `~ subject_id + treatment` model comparing 36 stimulated samples with their 36 paired
+vehicle controls. Selecting the image opens the full-resolution grid. Result pages also provide MA
+and p-value plots, expression heatmaps, searchable tables, per-gene profiles, filtered downloads,
+reports, and run provenance.*
 
 ### Microarray: public CEL files to paired limma
 
