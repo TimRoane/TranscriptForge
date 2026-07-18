@@ -17,7 +17,7 @@ judgment from the repository owner before they can be closed safely.
 - Current state: Project deletion now cascades through its complete relational ownership graph,
   including datasets, prepared bundles, analyses, runs, artifact indexes, models, and signatures.
   It does not yet enqueue deletion of every corresponding stored object, so immutable uploaded
-  inputs and run artifacts can remain in storage.
+  inputs, run artifacts, and imported external-validation source artifacts can remain in storage.
 - Exit criteria: Define retention policy; add an outbox/cleanup worker; make cleanup idempotent;
   audit storage versus database ownership; test partial-failure recovery.
 

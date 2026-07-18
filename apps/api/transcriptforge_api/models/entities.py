@@ -35,6 +35,11 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     signature_definitions: Mapped[list["SignatureDefinition"]] = relationship(
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )
+    classifier_external_validations: Mapped[list["ClassifierExternalValidation"]] = (
+        relationship(
+            back_populates="project", cascade="all, delete-orphan", passive_deletes=True
+        )
+    )
 
 
 class Dataset(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -217,6 +222,32 @@ class ModelRecord(UUIDPrimaryKeyMixin, Base):
     )
 
     run: Mapped[Run] = relationship(back_populates="model_records")
+
+
+class ClassifierExternalValidation(UUIDPrimaryKeyMixin, Base):
+    """Immutable one-shot evaluation of a locked classifier on an external cohort."""
+
+    __tablename__ = "classifier_external_validations"
+
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text)
+    development_accession: Mapped[str] = mapped_column(String(40), index=True)
+    external_accession: Mapped[str] = mapped_column(String(40), index=True)
+    protocol_id: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(50), index=True)
+    development_summary_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    prediction_summary_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    protocol_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    result_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    artifacts_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, server_default=func.now()
+    )
+
+    project: Mapped[Project] = relationship(back_populates="classifier_external_validations")
 
 
 class GeneSignature(UUIDPrimaryKeyMixin, TimestampMixin, Base):

@@ -275,6 +275,13 @@ The protocol fixed endpoint mapping, independent RMA preparation, the truth-labe
 ROC-AUC success gate, secondary metrics, and prohibited post-hoc changes. Its one-shot external
 ROC-AUC was 0.619 (95% bootstrap 0.503–0.726), below the required 0.65 point estimate. TranscriptForge
 retains this negative primary result rather than tuning the model, threshold, or cohort after review.
+The completed study also has a read-only GUI dashboard with the internal-to-external comparison,
+prespecified gate decisions, calibration and threshold evidence, and checksum-frozen downloads. Once
+the Phase 9 artifacts are materialized and the local stack is running, seed it idempotently with:
+
+```bash
+make seed-classifier-validation
+```
 
 The raw RNA-seq and public microarray acceptances are intentionally heavier than unit tests. See
 [`demo/raw_rnaseq/`](demo/raw_rnaseq/), [`demo/microarray/`](demo/microarray/), and

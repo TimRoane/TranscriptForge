@@ -1,4 +1,4 @@
-.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-deconvolution-r test-signature-cross-modality test-signature-public-benchmark test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo terraform-check aws-batch-preflight aws-batch-acceptance
+.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-deconvolution-r test-signature-cross-modality test-signature-public-benchmark test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo seed-classifier-validation terraform-check aws-batch-preflight aws-batch-acceptance
 
 PUBLIC_SIGNATURE_BUNDLE ?=
 PUBLIC_SIGNATURE_BENCHMARK_OUT ?= .public-signature-benchmark
@@ -74,10 +74,13 @@ pipeline-test:
 	nextflow run pipelines/main.nf -entry PREPARE_DATASET -profile test -resume --validation_config demo/configs/count_matrix_validation.json --matrix demo/data/counts.tsv --metadata demo/metadata/sample_metadata.tsv --outdir .nextflow-test-results
 
 seed-demo:
-	python3 demo/large_experiment/seed.py
+	.venv/bin/python demo/large_experiment/seed.py
+
+seed-classifier-validation:
+	.venv/bin/python demo/classifier_external_validation/seed_gui.py
 
 generate-large-demo:
-	python3 demo/large_experiment/generate.py
+	.venv/bin/python demo/large_experiment/generate.py
 
 terraform-check:
 	docker run --rm --user "$(shell id -u):$(shell id -g)" -v "$(CURDIR)/infra/aws/terraform:/workspace" -w /workspace hashicorp/terraform:1.13 fmt -check

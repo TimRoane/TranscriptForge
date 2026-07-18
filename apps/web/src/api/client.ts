@@ -1316,6 +1316,91 @@ export interface CreateDatasetRequest {
   annotation_release?: string
 }
 
+export interface ClassifierExternalValidationArtifact {
+  name: string
+  title: string
+  filename: string
+  mime_type: string
+  size_bytes: number
+  sha256: string
+}
+
+export interface ClassifierExternalValidation {
+  id: string
+  project_id: string
+  name: string
+  description: string | null
+  development_accession: string
+  external_accession: string
+  protocol_id: string
+  status: 'SUCCESS_CRITERIA_MET' | 'SUCCESS_CRITERIA_NOT_MET'
+  development_summary: {
+    sample_count: number
+    input_feature_count: number
+    selected_feature_count: number
+    roc_auc: number
+    roc_auc_lower: number
+    roc_auc_upper: number
+    pr_auc: number
+    permutation_p_value: number | null
+  }
+  prediction_summary: {
+    decision_threshold: number
+    predicted_positive_count: number
+    predicted_negative_count: number
+    positive_class: string
+    negative_class: string
+  } | null
+  protocol: {
+    status: string
+    frozen_at: string
+    intended_use: string
+    development_cohort: Record<string, unknown>
+    external_cohort: Record<string, unknown>
+    endpoint: { name: string; positive_class: string; negative_class: string }
+    evaluation: {
+      primary_metric: string
+      bootstrap_iterations: number
+      success_criteria: {
+        minimum_point_estimate: number
+        minimum_lower_confidence_bound: number
+      }
+    }
+    prohibited_actions: string[]
+  }
+  result: {
+    sample_count: number
+    class_counts: { negative: number; positive: number }
+    metrics: {
+      roc_auc: number
+      pr_auc: number
+      prevalence: number
+      balanced_accuracy: number
+      sensitivity: number
+      specificity: number
+      brier_score: number
+      calibration_intercept: number
+      calibration_slope: number
+    }
+    confidence_intervals: {
+      method: string
+      iterations: number
+      metrics: Record<string, { lower: number; upper: number }>
+    }
+    success: {
+      minimum_point_estimate: number
+      minimum_lower_confidence_bound: number
+      point_estimate_passed: boolean
+      lower_bound_passed: boolean
+      passed: boolean
+    }
+    warnings: string[]
+    provenance: Record<string, string>
+  }
+  artifacts: ClassifierExternalValidationArtifact[]
+  created_at: string
+}
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api'
 
 export class ApiError extends Error {
@@ -1354,6 +1439,27 @@ export function fetchProjects(signal?: AbortSignal): Promise<Project[]> {
 
 export function fetchProject(projectId: string, signal?: AbortSignal): Promise<Project> {
   return request(`/projects/${projectId}`, { signal })
+}
+
+export function fetchProjectClassifierExternalValidations(
+  projectId: string,
+  signal?: AbortSignal,
+): Promise<ClassifierExternalValidation[]> {
+  return request(`/projects/${projectId}/classifier-external-validations`, { signal })
+}
+
+export function fetchClassifierExternalValidation(
+  validationId: string,
+  signal?: AbortSignal,
+): Promise<ClassifierExternalValidation> {
+  return request(`/classifier-external-validations/${validationId}`, { signal })
+}
+
+export function classifierExternalValidationArtifactUrl(
+  validationId: string,
+  artifactName: string,
+): string {
+  return `${apiBaseUrl}/classifier-external-validations/${encodeURIComponent(validationId)}/artifacts/${encodeURIComponent(artifactName)}`
 }
 
 export function createProject(payload: { name: string; description?: string }): Promise<Project> {

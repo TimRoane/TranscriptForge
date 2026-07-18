@@ -28,6 +28,17 @@ and success criteria were not modified, and prediction was not rerun. The locked
 74/115 samples positive while 27 were observed positive; the resulting low specificity and
 calibration intercept -0.334 make threshold/probability transport a documented failure mode.
 
+With the local stack running, import the completed study into the application with:
+
+```bash
+make seed-classifier-validation
+```
+
+The idempotent seeder creates (or reuses) the `Breast pCR Classifier Validation` project and imports
+the frozen protocol, locked model, development results, external predictions, and final evaluation.
+The API verifies their schemas, checksums, analysis identifiers, cohort counts, and reported
+development metrics before the GUI exposes the read-only results dashboard and artifact downloads.
+
 Raw inputs are reproducibly materialized with `download_cohorts.sh`; `prepare_bundles.sh` then uses
 the repository `.venv` plus the pinned Bioconductor container to build both independent Expression
 Bundles. The script refuses to overwrite an existing frozen cohort directory. Both GEO tar archives

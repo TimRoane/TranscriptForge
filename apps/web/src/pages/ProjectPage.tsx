@@ -11,6 +11,7 @@ import { ErrorState, LoadingState } from '../components/ApiState'
 import { DeleteProjectDialog } from '../components/DeleteProjectDialog'
 import { DatasetCard } from '../components/DatasetCard'
 import { DatasetWizard } from '../components/DatasetWizard'
+import { ExternalValidationPanel } from '../components/ExternalValidationPanel'
 import { SignatureDefinitionPanel } from '../components/SignatureDefinitionPanel'
 
 export function ProjectPage() {
@@ -54,6 +55,7 @@ export function ProjectPage() {
           <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setWizardOpen(true)}>Add dataset</Button>
         </Stack>
       </Stack>
+      <ExternalValidationPanel projectId={projectId} />
       <SignatureDefinitionPanel projectId={projectId} />
       <Typography variant="h5" fontWeight={700}>Datasets</Typography>
       {datasets.isPending && <LoadingState label="Loading datasets…" />}

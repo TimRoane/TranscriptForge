@@ -17,6 +17,7 @@ import { Link as RouterLink, Route, Routes } from 'react-router-dom'
 
 import { fetchHealth } from './api/client'
 import { DashboardPage } from './pages/DashboardPage'
+import { ExternalValidationPage } from './pages/ExternalValidationPage'
 import { AnalysisPage } from './pages/AnalysisPage'
 import { HomePage } from './pages/HomePage'
 import { ProjectPage } from './pages/ProjectPage'
@@ -65,6 +66,7 @@ export function App() {
           <Route path="/projects/:projectId" element={<ProjectPage />} />
           <Route path="/prepared-datasets/:preparedDatasetId" element={<PreparedDatasetPage />} />
           <Route path="/analyses/:analysisId" element={<AnalysisPage />} />
+          <Route path="/classifier-external-validations/:validationId" element={<ExternalValidationPage />} />
           <Route path="*" element={<Typography>Page not found.</Typography>} />
         </Routes>
       </Container>

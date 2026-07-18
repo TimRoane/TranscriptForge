@@ -14,6 +14,65 @@ const project = {
   created_at: '2026-07-16T00:00:00Z',
   updated_at: '2026-07-16T00:00:00Z',
 }
+const externalValidation = {
+  id: 'validation-1',
+  project_id: 'project-1',
+  name: 'GSE140494 to GSE32646 pCR validation',
+  description: 'Prespecified external validation',
+  development_accession: 'GSE140494',
+  external_accession: 'GSE32646',
+  protocol_id: 'breast-pcr-gse140494-to-gse32646-v1',
+  status: 'SUCCESS_CRITERIA_NOT_MET',
+  development_summary: {
+    sample_count: 91, input_feature_count: 23963, selected_feature_count: 500,
+    roc_auc: 0.6234271099744245, roc_auc_lower: 0.5116223363774735,
+    roc_auc_upper: 0.7780881459058941, pr_auc: 0.3360480525435074,
+    permutation_p_value: 0.0297029702970297,
+  },
+  prediction_summary: {
+    decision_threshold: 0.2528821468, predicted_positive_count: 74,
+    predicted_negative_count: 41, positive_class: 'pCR', negative_class: 'nCR',
+  },
+  protocol: {
+    status: 'prospectively_frozen', frozen_at: '2026-07-17T22:00:00Z',
+    intended_use: 'Research-only prediction of pathological complete response.',
+    development_cohort: {}, external_cohort: {},
+    endpoint: {
+      name: 'Pathological complete response', positive_class: 'pCR', negative_class: 'nCR',
+    },
+    evaluation: {
+      primary_metric: 'roc_auc', bootstrap_iterations: 2000,
+      success_criteria: { minimum_point_estimate: 0.65, minimum_lower_confidence_bound: 0.5 },
+    },
+    prohibited_actions: ['Do not tune on GSE32646'],
+  },
+  result: {
+    sample_count: 115, class_counts: { negative: 88, positive: 27 },
+    metrics: {
+      roc_auc: 0.6191077441, pr_auc: 0.3120156105, prevalence: 0.2347826087,
+      balanced_accuracy: 0.5877525253, sensitivity: 0.7777777778,
+      specificity: 0.3977272727, brier_score: 0.1776467652,
+      calibration_intercept: -0.3344043293, calibration_slope: 0.9267055601,
+    },
+    confidence_intervals: {
+      method: 'stratified_experimental_unit_percentile_bootstrap', iterations: 2000,
+      metrics: {
+        roc_auc: { lower: 0.5029250842, upper: 0.7256207912 },
+      },
+    },
+    success: {
+      minimum_point_estimate: 0.65, minimum_lower_confidence_bound: 0.5,
+      point_estimate_passed: false, lower_bound_passed: true, passed: false,
+    },
+    warnings: ['Research only'], provenance: { protocol_sha256: 'a'.repeat(64) },
+  },
+  artifacts: [{
+    name: 'result', title: 'External validation result',
+    filename: 'result.json', mime_type: 'application/json', size_bytes: 100,
+    sha256: 'b'.repeat(64),
+  }],
+  created_at: '2026-07-18T00:00:00Z',
+}
 const dataset = {
   id: 'dataset-1',
   project_id: 'project-1',
@@ -170,6 +229,37 @@ describe('App', () => {
 
     await waitFor(() => expect(screen.getByText('Datasets')).toBeInTheDocument())
     expect(screen.getByText('No datasets registered yet.')).toBeInTheDocument()
+  })
+
+  it('opens a frozen external classifier validation dashboard from its project', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return jsonResponse(health)
+      if (url.endsWith('/projects/project-1')) return jsonResponse(project)
+      if (url.endsWith('/projects/project-1/datasets')) return jsonResponse([])
+      if (url.endsWith('/projects/project-1/signature-definitions')) return jsonResponse([])
+      if (url.endsWith('/projects/project-1/classifier-external-validations')) {
+        return jsonResponse([externalValidation])
+      }
+      if (url.endsWith('/classifier-external-validations/validation-1')) {
+        return jsonResponse(externalValidation)
+      }
+      return jsonResponse({ detail: 'Not found' }, 404)
+    })
+
+    renderApp('/projects/project-1')
+
+    expect(await screen.findByText('GSE140494 to GSE32646 pCR validation')).toBeInTheDocument()
+    expect(screen.getByText(/External ROC-AUC 0.619/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Open results dashboard' }))
+
+    expect(await screen.findByRole('heading', {
+      name: 'GSE140494 to GSE32646 pCR validation',
+    })).toBeInTheDocument()
+    expect(screen.getAllByText('Success criteria not met').length).toBeGreaterThan(0)
+    expect(screen.getByRole('table', { name: 'Prespecified success criteria' })).toBeInTheDocument()
+    expect(screen.getByText(/74 samples were predicted pCR/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /run/i })).not.toBeInTheDocument()
   })
 
   it('requires the exact project name before deleting a project', async () => {
