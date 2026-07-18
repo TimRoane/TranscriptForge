@@ -171,6 +171,7 @@ async def test_deconvolution_registry_capabilities_and_saved_design(
     assert capabilities["epic"]["compatible_assays"] == ["tpm"]
     assert capabilities["epic"]["configuration_available"] is True
     assert capabilities["epic"]["execution_available"] is False
+    assert capabilities["quantiseq"]["execution_available"] is True
     assert capabilities["mcp_counter"]["compatible_assays"] == ["log_expression"]
     assert capabilities["cibersortx_external"]["configuration_available"] is False
 
@@ -188,6 +189,8 @@ async def test_deconvolution_registry_capabilities_and_saved_design(
     assert configuration["parameters"] == {
         "reference_profile": "TRef",
         "minimum_gene_overlap": 0.7,
+        "tumor_mode": False,
+        "scale_mrna": True,
     }
     assert configuration["method_registry_sha256"] == registry["registry_sha256"]
     assert configuration["method_spec"]["result_type"] == "cell_fraction"
@@ -198,6 +201,21 @@ async def test_deconvolution_registry_capabilities_and_saved_design(
     assert launch.status_code == 409
     assert "scientific runner is not available" in launch.json()["detail"]
     assert dispatched_analysis_ids == []
+
+    runnable = await client.post(
+        f"/api/prepared-datasets/{prepared_id}/analyses",
+        json={
+            "analysis_type": "deconvolution",
+            "method": "quantiseq",
+            "assay": "tpm",
+            "parameters": {"reference_profile": "TIL10", "minimum_gene_overlap": 0.5},
+        },
+    )
+    assert runnable.status_code == 201, runnable.text
+    assert runnable.json()["configuration_json"]["execution_available"] is True
+    quantiseq_launch = await client.post(f"/api/analyses/{runnable.json()['id']}/run")
+    assert quantiseq_launch.status_code == 202, quantiseq_launch.text
+    assert dispatched_analysis_ids == [quantiseq_launch.json()["id"]]
 
     wrong_assay = await client.post(
         f"/api/prepared-datasets/{prepared_id}/analyses",

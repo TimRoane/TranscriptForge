@@ -49,6 +49,7 @@ import {
   fetchDendrogramPlot,
   fetchDifferentialExpressionFeature,
   fetchDifferentialExpressionResults,
+  fetchDeconvolutionResults,
   fetchEmbeddingPlot,
   fetchEnrichmentSummary,
   fetchExpressionHeatmap,
@@ -64,12 +65,14 @@ import {
   fetchVolcanoPlot,
   filteredDifferentialExpressionDownloadUrl,
   runAnalysis,
+  type Artifact,
   type CorrelationHeatmap,
   type DendrogramPlot,
   type DifferentialExpressionFeatureDetail,
   type DifferentialExpressionPlot,
   type DifferentialExpressionResultQuery,
   type DifferentialExpressionSort,
+  type DeconvolutionResults,
   type EmbeddingPlot,
   type EnrichmentResult,
   type EnrichmentSummary,
@@ -172,6 +175,11 @@ export function AnalysisPage() {
     queryFn: ({ signal }) => fetchSignatureScores(latest!.id, signal),
     enabled: succeeded && analysis.data?.analysis_type === 'signature',
   })
+  const deconvolutionResults = useQuery({
+    queryKey: ['deconvolution-results', latest?.id],
+    queryFn: ({ signal }) => fetchDeconvolutionResults(latest!.id, signal),
+    enabled: succeeded && analysis.data?.analysis_type === 'deconvolution',
+  })
   const manifest = useQuery({
     queryKey: ['result-manifest', latest?.id],
     queryFn: ({ signal }) => fetchResultManifest(latest!.id, signal),
@@ -202,6 +210,8 @@ export function AnalysisPage() {
 
   const configuration = analysis.data.configuration_json
   if (configuration.analysis_type === 'deconvolution') {
+    const active = Boolean(latest && activeStates.has(latest.state))
+    const canRun = configuration.execution_available && !active && !rerun.isPending
     return (
       <Stack spacing={3}>
         <Link
@@ -223,9 +233,28 @@ export function AnalysisPage() {
               {configuration.parameters.reference_profile}
             </Typography>
           </Box>
-          <Button variant="contained" startIcon={<PlayArrowRoundedIcon />} disabled>
-            Scientific runner pending
-          </Button>
+          {active && latest ? (
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<StopCircleRoundedIcon />}
+              onClick={() => cancel.mutate(latest.id)}
+              disabled={cancel.isPending || latest.state === 'CANCELLING'}
+            >
+              {latest.state === 'CANCELLING' ? 'Stopping…' : 'Stop analysis'}
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              startIcon={latest ? <ReplayRoundedIcon /> : <PlayArrowRoundedIcon />}
+              onClick={() => rerun.mutate()}
+              disabled={!canRun}
+            >
+              {configuration.execution_available
+                ? (rerun.isPending ? 'Queueing…' : latest ? 'Run again' : 'Run quanTIseq')
+                : 'Runner unavailable'}
+            </Button>
+          )}
         </Stack>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           {[
@@ -268,11 +297,34 @@ export function AnalysisPage() {
             </Link>
           </Stack>
         </Paper>
-        <Alert severity="info">
-          This saved design has passed method/assay/scale validation. Execution is intentionally
-          disabled until the pinned runner, reference checksum, overlap report, and scientific
-          acceptance fixture are implemented.
-        </Alert>
+        {configuration.execution_available ? (
+          <Alert severity="success">
+            This design can run in the pinned quanTIseq container. Every run verifies the TIL10
+            reference checksum and the effective gene overlap before estimating fractions.
+          </Alert>
+        ) : (
+          <Alert severity="info">
+            This design is saved but cannot run in the default installation. See the method source
+            and licensing status above.
+          </Alert>
+        )}
+        {latest && (
+          <Alert severity={latest.state === 'FAILED' ? 'error' : latest.state === 'SUCCEEDED' ? 'success' : 'info'}>
+            Latest run: {latest.state.replaceAll('_', ' ').toLowerCase()}.
+            {latest.error_summary ? ` ${latest.error_summary}` : ''}
+          </Alert>
+        )}
+        {(rerun.isError || cancel.isError) && (
+          <Alert severity="error">{(rerun.error ?? cancel.error)?.message}</Alert>
+        )}
+        {deconvolutionResults.isPending && succeeded && <LoadingState label="Loading cell fractions…" />}
+        {deconvolutionResults.isError && <ErrorState error={deconvolutionResults.error} />}
+        {deconvolutionResults.data && (
+          <DeconvolutionResultPanel
+            result={deconvolutionResults.data}
+            artifacts={artifacts.data ?? []}
+          />
+        )}
         <Alert severity="warning">
           Research use only. Cell fractions and enrichment scores have different mathematical
           meanings and must never be relabeled or normalized into one another.
@@ -637,6 +689,124 @@ export function AnalysisPage() {
         </Paper>
       )}
       <Alert severity="info">Research use only. Interpret exploratory structure with sample QC and study design context.</Alert>
+    </Stack>
+  )
+}
+
+function DeconvolutionResultPanel({
+  result,
+  artifacts,
+}: {
+  result: DeconvolutionResults
+  artifacts: Artifact[]
+}) {
+  const values = new Map(
+    result.estimates.map((item) => [`${item.sample_id}\u0000${item.cell_type_id}`, item.value]),
+  )
+  const fractionArtifacts = artifacts.filter((artifact) => [
+    'deconvolution_results',
+    'deconvolution_estimates',
+    'deconvolution_reference_overlap',
+    'deconvolution_fractions_svg',
+    'analysis_report',
+    'analysis_report_source',
+    'r_session_info',
+    'nextflow_report',
+    'nextflow_trace',
+  ].includes(artifact.artifact_type))
+  return (
+    <Stack spacing={3}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+        {[
+          ['Samples', result.sample_ids.length],
+          ['Populations', result.cell_types.length],
+          ['Reference overlap', `${(result.input_validation.overlap_fraction * 100).toFixed(1)}%`],
+          ['Reference', result.reference.version],
+        ].map(([label, value]) => (
+          <Paper key={label} variant="outlined" sx={{ p: 2, flex: 1 }}>
+            <Typography variant="overline" color="text.secondary">{label}</Typography>
+            <Typography variant="h6" fontWeight={700}>{value}</Typography>
+          </Paper>
+        ))}
+      </Stack>
+      <Paper variant="outlined" sx={{ p: 3 }}>
+        <Typography variant="h5" fontWeight={700}>Estimated cell fractions</Typography>
+        <Typography color="text.secondary" mt={0.5} mb={2.5}>
+          Each bar sums to one and includes the method’s Other / uncharacterized compartment.
+        </Typography>
+        <Stack spacing={2}>
+          {result.sample_ids.map((sampleId) => (
+            <Box key={sampleId}>
+              <Typography variant="body2" fontWeight={700} mb={0.5}>{sampleId}</Typography>
+              <Stack
+                direction="row"
+                sx={{ height: 26, borderRadius: 1, overflow: 'hidden', bgcolor: 'action.hover' }}
+                aria-label={`${sampleId} cell fractions`}
+              >
+                {result.cell_types.map((cellType, index) => {
+                  const value = values.get(`${sampleId}\u0000${cellType.id}`) ?? 0
+                  return (
+                    <Box
+                      key={cellType.id}
+                      title={`${cellType.label}: ${(value * 100).toFixed(1)}%`}
+                      sx={{ width: `${value * 100}%`, bgcolor: colors[index % colors.length], minWidth: value > 0 ? 1 : 0 }}
+                    />
+                  )
+                })}
+              </Stack>
+            </Box>
+          ))}
+          <Stack direction="row" gap={1.5} flexWrap="wrap">
+            {result.cell_types.map((cellType, index) => (
+              <Stack key={cellType.id} direction="row" spacing={0.5} alignItems="center">
+                <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: colors[index % colors.length] }} />
+                <Typography variant="caption">{cellType.label}</Typography>
+              </Stack>
+            ))}
+          </Stack>
+        </Stack>
+      </Paper>
+      <Paper variant="outlined" sx={{ p: 3 }}>
+        <Typography variant="h5" fontWeight={700}>Fraction table</Typography>
+        <TableContainer sx={{ mt: 2 }}>
+          <Table size="small" aria-label="quanTIseq cell-fraction estimates">
+            <TableHead>
+              <TableRow>
+                <TableCell>Sample</TableCell>
+                {result.cell_types.map((cellType) => (
+                  <TableCell key={cellType.id} align="right">{cellType.label}</TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {result.sample_ids.map((sampleId) => (
+                <TableRow key={sampleId}>
+                  <TableCell component="th" scope="row">{sampleId}</TableCell>
+                  {result.cell_types.map((cellType) => (
+                    <TableCell key={cellType.id} align="right">
+                      {((values.get(`${sampleId}\u0000${cellType.id}`) ?? 0) * 100).toFixed(1)}%
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+      <Paper variant="outlined" sx={{ p: 3 }}>
+        <Typography variant="h5" fontWeight={700}>Results and provenance</Typography>
+        <Typography variant="body2" color="text.secondary" mt={0.75} sx={{ overflowWrap: 'anywhere' }}>
+          quantiseqr {result.software.packages.quantiseqr} · reference SHA-256 {result.reference.sha256}
+        </Typography>
+        <Stack direction="row" spacing={2} mt={2} flexWrap="wrap">
+          {fractionArtifacts.map((artifact) => (
+            <Link key={artifact.id} href={artifactDownloadUrl(artifact.id)} underline="hover" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+              <DownloadRoundedIcon fontSize="small" /> {artifact.title}
+            </Link>
+          ))}
+        </Stack>
+      </Paper>
+      {result.warnings.map((warning) => <Alert key={warning} severity="warning">{warning}</Alert>)}
     </Stack>
   )
 }

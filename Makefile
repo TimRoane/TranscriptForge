@@ -1,4 +1,4 @@
-.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-signature-cross-modality test-signature-public-benchmark test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo terraform-check aws-batch-preflight aws-batch-acceptance
+.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-deconvolution-r test-signature-cross-modality test-signature-public-benchmark test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo terraform-check aws-batch-preflight aws-batch-acceptance
 
 PUBLIC_SIGNATURE_BUNDLE ?=
 PUBLIC_SIGNATURE_BENCHMARK_OUT ?= .public-signature-benchmark
@@ -31,6 +31,10 @@ test-signature-r:
 	docker compose run --rm --no-deps worker \
 		Rscript /app/analysis/r/tests/run_signature_scoring_acceptance.R
 
+test-deconvolution-r:
+	docker compose run --rm --no-deps worker \
+		Rscript /app/analysis/r/tests/run_deconvolution_acceptance.R
+
 test-signature-cross-modality:
 	python3 -m pytest analysis/python/tests/test_cross_modality_signature.py
 
@@ -55,7 +59,7 @@ test-microarray:
 	docker compose build api worker
 	demo/microarray/run_acceptance.sh
 
-test-all: test test-r test-signature-r
+test-all: test test-r test-signature-r test-deconvolution-r
 
 lint:
 	python3 -m ruff check apps/api analysis/python demo/large_experiment

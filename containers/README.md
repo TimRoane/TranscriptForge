@@ -52,3 +52,21 @@ checks filtering, contrast direction, known-effect recovery, null calls, feature
 for DESeq2, edgeR quasi-likelihood, limma-voom, and limma. The signature harness checks GSVA/ssGSEA
 direction, constant-feature handling, software provenance, and deterministic reruns. CI builds the
 same worker target and runs both harnesses independently of the Python and frontend suites.
+
+## Cell-type deconvolution
+
+`deconvolution/Dockerfile` pins Bioconductor 3.22 and installs the checksum-verified
+`quantiseqr` 1.18.0 source archive. TranscriptForge verifies the packaged TIL10 signature,
+mRNA-scaling, noisy-gene, and tumor-exclusion files against
+`references/deconvolution/quantiseq_til10.json` before every run.
+
+Build the portable runtime and run the deterministic recovery fixture with:
+
+```bash
+docker build -t transcriptforge/deconvolution:bioc-3.22 containers/deconvolution
+make test-deconvolution-r
+```
+
+EPIC is not included in any image: its upstream academic license requires separate acceptance
+and restricts redistribution and network access. The machine-readable gate is recorded in
+`references/deconvolution/epic_license_gate.json`.

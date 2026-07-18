@@ -50,7 +50,7 @@ const deconvolutionCapabilities = {
   methods: [{
     method: {
       id: 'epic', display_name: 'EPIC', execution_mode: 'native',
-      implementation_status: 'runner_pending', result_type: 'cell_fraction',
+      implementation_status: 'license_blocked', result_type: 'cell_fraction',
       quantity_label: 'Estimated cell fraction', unit: 'fraction',
       composition_constraint: 'bounded_sum', within_sample_cell_type_comparison: true,
       between_sample_comparison: true,
@@ -67,7 +67,28 @@ const deconvolutionCapabilities = {
       source_url: 'https://epic.unil.ch/',
     },
     compatible_assays: ['tpm'], configuration_available: true,
-    execution_available: false, blocked_reasons: ['Scientific runner is not implemented yet.'],
+    execution_available: false, blocked_reasons: ['Upstream license acceptance is required.'],
+  }, {
+    method: {
+      id: 'quantiseq', display_name: 'quanTIseq', execution_mode: 'native',
+      implementation_status: 'available', result_type: 'cell_fraction',
+      quantity_label: 'Estimated immune-cell fraction', unit: 'fraction',
+      composition_constraint: 'sum_to_one_with_other', within_sample_cell_type_comparison: true,
+      between_sample_comparison: true,
+      input: {
+        organism: 'Homo sapiens', feature_level: 'gene', identifier_namespace: 'gene_symbol',
+        assay_options: [{
+          name: 'tpm', scales: ['linear'], value_types: ['nonnegative_continuous'],
+        }],
+        minimum_reference_overlap: 0.5, negative_values_permitted: false,
+      },
+      references: [{ id: 'TIL10', label: 'quanTIseq TIL10 immune reference' }],
+      default_reference: 'TIL10',
+      interpretation: 'Outputs are immune-cell fractions plus an uncharacterized Other fraction.',
+      source_url: 'https://icbi.i-med.ac.at/quantiseq/',
+    },
+    compatible_assays: ['tpm'], configuration_available: true,
+    execution_available: true, blocked_reasons: [],
   }],
 }
 
@@ -574,9 +595,9 @@ describe('App', () => {
     expect(screen.getByRole('combobox', { name: 'Kernel' })).toHaveTextContent('Gaussian')
     expect(screen.getByText(/pinned R environment/)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Configure cell-type deconvolution' })).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Deconvolution method' })).toHaveTextContent('EPIC')
+    expect(await screen.findByRole('combobox', { name: 'Deconvolution method' })).toHaveTextContent('quanTIseq')
     expect(screen.getByText('Cell fractions')).toBeInTheDocument()
-    expect(screen.getByText('Runner pending')).toBeInTheDocument()
+    expect(screen.getByText('Runner available')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save deconvolution design' })).toBeEnabled()
   })
 
@@ -733,8 +754,105 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { name: 'EPIC cell composition' })).toBeInTheDocument()
     expect(screen.getByText('Cell fractions')).toBeInTheDocument()
     expect(screen.getByText('bounded sum')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Scientific runner pending' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Runner unavailable' })).toBeDisabled()
     expect(screen.getByText(/must never be relabeled or normalized into one another/i)).toBeInTheDocument()
+  })
+
+  it('renders completed quanTIseq fractions with overlap evidence and downloads', async () => {
+    const method = deconvolutionCapabilities.methods[1].method
+    const analysis = {
+      id: 'quantiseq-analysis-1', project_id: 'project-1', prepared_dataset_id: 'prepared-1',
+      analysis_type: 'deconvolution', name: 'quanTIseq cell composition', description: null,
+      configuration_json: {
+        analysis_type: 'deconvolution', method: 'quantiseq', assay: 'tpm',
+        parameters: {
+          reference_profile: 'TIL10', minimum_gene_overlap: 0.5,
+          tumor_mode: false, scale_mrna: true,
+        },
+        random_seed: 0, method_registry_version: '2026.07.1',
+        method_registry_sha256: 'f'.repeat(64), method_spec: method,
+        input_assay_descriptor: {
+          name: 'tpm', scale: 'linear', value_type: 'nonnegative_continuous',
+          feature_level: 'gene', sha256: 'c'.repeat(64),
+        },
+        result_type: 'cell_fraction', execution_available: true,
+      },
+      created_at: '2026-07-18T00:00:00Z',
+    }
+    const run = {
+      ...completedRun, id: 'quantiseq-run-1', run_type: 'analysis',
+      prepared_dataset_id: 'prepared-1', analysis_id: 'quantiseq-analysis-1',
+    }
+    const cellTypes = [
+      { id: 'B.cells', label: 'B cells' },
+      { id: 'Other', label: 'Other / uncharacterized' },
+    ]
+    const result = {
+      schema_version: '1.0.0', analysis_id: analysis.id, prepared_dataset_id: 'prepared-1',
+      method: 'quantiseq', result_type: 'cell_fraction', quantity_label: 'Estimated immune-cell fraction',
+      unit: 'fraction', composition_constraint: 'sum_to_one_with_other',
+      input_validation: {
+        input_feature_count: 20000, mapped_feature_count: 19500, blank_symbol_count: 500,
+        duplicate_symbol_count: 10, reference_gene_count: 155, overlap_gene_count: 153,
+        overlap_fraction: 153 / 155, minimum_overlap_fraction: 0.5, passed: true,
+      },
+      reference: { id: 'TIL10', version: 'quantiseqr-1.18.0', sha256: 'd'.repeat(64), cell_type_count: 2 },
+      cell_types: cellTypes, sample_ids: ['control_1', 'treated_1'],
+      estimates: [
+        { sample_id: 'control_1', cell_type_id: 'B.cells', value: 0.7 },
+        { sample_id: 'control_1', cell_type_id: 'Other', value: 0.3 },
+        { sample_id: 'treated_1', cell_type_id: 'B.cells', value: 0.2 },
+        { sample_id: 'treated_1', cell_type_id: 'Other', value: 0.8 },
+      ],
+      composition_summaries: [
+        { sample_id: 'control_1', reported_sum: 1, residual_fraction: 0, within_tolerance: true },
+        { sample_id: 'treated_1', reported_sum: 1, residual_fraction: 0, within_tolerance: true },
+      ],
+      warnings: ['Research use only.'],
+      software: { language: 'R', language_version: '4.5.0', packages: { quantiseqr: '1.18.0' } },
+      provenance: {
+        expression_bundle_sha256: 'a'.repeat(64), analysis_request_sha256: 'b'.repeat(64),
+        reference_sha256: 'd'.repeat(64),
+      },
+    }
+    const artifact = {
+      id: 'fraction-table', run_id: run.id, artifact_type: 'deconvolution_estimates',
+      title: 'Long-format cell-fraction estimates', relative_path: 'deconvolution_estimates.tsv',
+      mime_type: 'text/tab-separated-values', size_bytes: 123, sha256: 'e'.repeat(64),
+      display_order: 2, metadata_json: {},
+    }
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return jsonResponse(health)
+      if (url.endsWith(`/analyses/${analysis.id}/runs`)) return jsonResponse([run])
+      if (url.endsWith(`/analyses/${analysis.id}`)) return jsonResponse(analysis)
+      if (url.endsWith(`/runs/${run.id}/deconvolution-results`)) return jsonResponse(result)
+      if (url.endsWith(`/runs/${run.id}/result-manifest`)) {
+        return jsonResponse({ schema_version: '1.0.0', analysis_type: 'deconvolution', title: 'quanTIseq', summary_metrics: [], sections: [], downloads: [], warnings: [] })
+      }
+      if (url.endsWith(`/runs/${run.id}/artifacts`)) return jsonResponse([artifact])
+      if (url.endsWith('/prepared-datasets/prepared-1')) {
+        return jsonResponse({
+          id: 'prepared-1', dataset_id: 'dataset-1', version: 1,
+          preparation_run_id: 'preparation-run-1', value_types_available: ['tpm'],
+          sample_count: 2, feature_count: 20000, qc_status: 'PASS',
+          created_at: '2026-07-18T00:00:00Z',
+        })
+      }
+      return jsonResponse({ detail: 'Not found' }, 404)
+    })
+
+    renderApp(`/analyses/${analysis.id}`)
+
+    expect(await screen.findByRole('heading', { name: 'Estimated cell fractions' })).toBeInTheDocument()
+    expect(screen.getByText('98.7%')).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'quanTIseq cell-fraction estimates' })).toBeInTheDocument()
+    expect(screen.getByText('70.0%')).toBeInTheDocument()
+    expect(screen.getByText(/quantiseqr 1.18.0/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Long-format cell-fraction estimates/ })).toHaveAttribute(
+      'href', expect.stringContaining('/artifacts/fraction-table/download'),
+    )
+    expect(screen.getByRole('button', { name: 'Run again' })).toBeEnabled()
   })
 
   it('renders microarray-specific QC without count-library assumptions', async () => {

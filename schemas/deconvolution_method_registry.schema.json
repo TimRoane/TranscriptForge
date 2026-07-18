@@ -67,7 +67,7 @@
         "id": {"enum": ["epic", "quantiseq", "mcp_counter", "xcell", "cibersortx_external"]},
         "display_name": {"$ref": "#/$defs/nonempty"},
         "execution_mode": {"enum": ["native", "external_import"]},
-        "implementation_status": {"enum": ["runner_pending", "planned", "external_import_pending", "available"]},
+        "implementation_status": {"enum": ["runner_pending", "planned", "external_import_pending", "license_blocked", "available"]},
         "result_type": {"enum": ["cell_fraction", "enrichment_score"]},
         "quantity_label": {"$ref": "#/$defs/nonempty"},
         "unit": {"enum": ["fraction", "arbitrary_score"]},

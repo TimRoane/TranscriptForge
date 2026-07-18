@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "method": "epic",
+  "upstream_version": "1.1.7",
+  "upstream_git_tag": "v1.1.7",
+  "upstream_git_commit": "5ff1f8815d607752b3726c475ab7b889b0036637",
+  "source_url": "https://github.com/GfellerLab/EPIC",
+  "license_url": "https://github.com/GfellerLab/EPIC/blob/master/LICENSE",
+  "redistribution_permitted": false,
+  "license_acceptance_required": true,
+  "installation_mode": "user_supplied",
+  "reason": "EPIC permits academic non-commercial use under a separate agreement and does not permit ordinary redistribution or unrestricted network access. TranscriptForge therefore does not bundle or execute EPIC by default."
+}

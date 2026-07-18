@@ -154,6 +154,8 @@ class SignatureScoringParameters(BaseModel):
 class DeconvolutionParameters(BaseModel):
     reference_profile: str | None = Field(default=None, min_length=1, max_length=100)
     minimum_gene_overlap: float = Field(default=0.5, ge=0, le=1)
+    tumor_mode: bool = False
+    scale_mrna: bool = True
 
 
 class DeconvolutionAssayOptionRead(BaseModel):
@@ -181,7 +183,7 @@ class DeconvolutionMethodRead(BaseModel):
     display_name: str
     execution_mode: Literal["native", "external_import"]
     implementation_status: Literal[
-        "runner_pending", "planned", "external_import_pending", "available"
+        "runner_pending", "planned", "external_import_pending", "license_blocked", "available"
     ]
     result_type: Literal["cell_fraction", "enrichment_score"]
     quantity_label: str

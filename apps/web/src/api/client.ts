@@ -397,7 +397,7 @@ export interface DeconvolutionMethodSpec {
   id: DeconvolutionMethod | 'cibersortx_external'
   display_name: string
   execution_mode: 'native' | 'external_import'
-  implementation_status: 'runner_pending' | 'planned' | 'external_import_pending' | 'available'
+  implementation_status: 'runner_pending' | 'planned' | 'external_import_pending' | 'license_blocked' | 'available'
   result_type: DeconvolutionResultType
   quantity_label: string
   unit: 'fraction' | 'arbitrary_score'
@@ -446,6 +446,8 @@ export interface DeconvolutionConfiguration {
   parameters: {
     reference_profile: string
     minimum_gene_overlap: number
+    tumor_mode: boolean
+    scale_mrna: boolean
   }
   random_seed: number
   method_registry_version: string
@@ -460,6 +462,45 @@ export interface DeconvolutionConfiguration {
   }
   result_type: DeconvolutionResultType
   execution_available: boolean
+}
+
+export interface DeconvolutionResults {
+  schema_version: '1.0.0'
+  analysis_id: string
+  prepared_dataset_id: string
+  method: 'quantiseq'
+  result_type: 'cell_fraction'
+  quantity_label: string
+  unit: 'fraction'
+  composition_constraint: 'sum_to_one_with_other'
+  input_validation: {
+    input_feature_count: number
+    mapped_feature_count: number
+    blank_symbol_count: number
+    duplicate_symbol_count: number
+    reference_gene_count: number
+    overlap_gene_count: number
+    overlap_fraction: number
+    minimum_overlap_fraction: number
+    passed: boolean
+  }
+  reference: { id: string; version: string; sha256: string; cell_type_count: number }
+  cell_types: Array<{ id: string; label: string; category?: string }>
+  sample_ids: string[]
+  estimates: Array<{ sample_id: string; cell_type_id: string; value: number }>
+  composition_summaries: Array<{
+    sample_id: string
+    reported_sum: number
+    residual_fraction: number
+    within_tolerance: boolean
+  }>
+  warnings: string[]
+  software: { language: string; language_version: string; packages: Record<string, string> }
+  provenance: {
+    expression_bundle_sha256: string
+    analysis_request_sha256: string
+    reference_sha256: string
+  }
 }
 
 export interface Analysis {
@@ -1202,6 +1243,13 @@ export function fetchDeconvolutionCapabilities(
   return request(`/prepared-datasets/${preparedDatasetId}/deconvolution/methods`, { signal })
 }
 
+export function fetchDeconvolutionResults(
+  runId: string,
+  signal?: AbortSignal,
+): Promise<DeconvolutionResults> {
+  return request(`/runs/${runId}/deconvolution-results`, { signal })
+}
+
 export function createDeconvolutionAnalysis(
   preparedDatasetId: string,
   payload: {
@@ -1210,6 +1258,8 @@ export function createDeconvolutionAnalysis(
     assay: string
     referenceProfile: string
     minimumGeneOverlap: number
+    tumorMode?: boolean
+    scaleMrna?: boolean
   },
 ): Promise<Analysis> {
   return request(`/prepared-datasets/${preparedDatasetId}/analyses`, {
@@ -1223,6 +1273,8 @@ export function createDeconvolutionAnalysis(
       parameters: {
         reference_profile: payload.referenceProfile,
         minimum_gene_overlap: payload.minimumGeneOverlap,
+        tumor_mode: payload.tumorMode ?? false,
+        scale_mrna: payload.scaleMrna ?? true,
       },
       random_seed: 0,
     }),

@@ -7,9 +7,9 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 ## Current position
 
 - Active roadmap phase: Phase 8 — cell-type deconvolution
-- Active milestone: Phase 8 — first executable fraction methods
-- Current task: Pin the EPIC and quanTIseq runtime/reference inputs, then implement overlap-audited scientific runners behind Nextflow
-- Overall milestone status: Phase 7 complete; Phase 8 registry, bundle capability validation, immutable design contracts, and result-type semantics are implemented, with scientific execution intentionally pending
+- Active milestone: Phase 8 — expand executable and external-import methods
+- Current task: Add MCP-counter/xCell enrichment runners and the provenance-required CIBERSORTx import adapter; EPIC remains license-gated
+- Overall milestone status: Phase 7 complete; the first Phase 8 vertical slice (quanTIseq/TIL10 fractions) is executable end to end, while remaining methods and cross-method comparison are pending
 
 ## Completed
 
@@ -224,6 +224,14 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 - [x] Extended saved analyses with deconvolution parameters and froze the registry version/checksum, complete method record, resolved reference, exact assay descriptor/checksum, output type, and overlap threshold.
 - [x] Added versioned Analysis Request and Deconvolution Results contracts requiring reference/overlap provenance, typed estimates, and fraction-only composition summaries; schema tests reject fraction/enrichment semantic mismatches.
 - [x] Added a prepared-bundle deconvolution setup panel and saved-design page that keep method semantics visible and intentionally disable execution until a pinned runner, reference checksum, and acceptance fixture pass.
+- [x] Pinned the Bioconductor 3.22 `quantiseqr` 1.18.0 source archive by SHA-256 and froze the TIL10 signature, mRNA-scaling, noisy-gene, and tumor-exclusion file checksums in a schema-validated reference manifest.
+- [x] Recorded EPIC 1.1.7 and its exact upstream tag/commit in a machine-readable license gate; default images do not redistribute or expose EPIC because its academic agreement requires separate acceptance and restricts redistribution/network use.
+- [x] Added an audited quanTIseq R runner that verifies the frozen request, Expression Bundle, TPM assay, reference manifest, installed package/reference files, human organism, linear nonnegative values, and exact sample order before fitting.
+- [x] Added explicit feature-to-gene-symbol mapping, blank-symbol exclusion, sum-based duplicate-symbol collapse, optional tumor-gene exclusion, effective TIL10 overlap enforcement, and downloadable gene-level overlap evidence.
+- [x] Published structured fraction JSON, long-format TSV, composition audits, static SVG, Quarto report, R session information, checksums, package/algorithm provenance, and a schema-valid Result Manifest.
+- [x] Routed quanTIseq through a dedicated Nextflow process and checksum-pinned scientific container, validated its result contract in the durable worker, and indexed every fraction/reference/report artifact.
+- [x] Enabled quanTIseq run/rerun/cancel controls and a result page with per-sample stacked fractions, complete percentage tables, overlap metrics, warnings, downloads, and frozen provenance; runnable methods are selected by default in setup.
+- [x] Added a deterministic four-mixture acceptance fixture recovering B-cell, NK-cell, CD8 T-cell, and neutrophil dominance while checking 99%+ overlap, duplicate/blank audits, sum-to-one compositions, complete artifacts, and byte-identical repeated JSON.
 - [x] Reworked the root README as a hiring-manager-facing product overview with real RNA-seq and public-microarray user-flow screenshots, architecture, verification evidence, local setup, repository map, and explicit constraints.
 - [x] Materialized a live eight-array GSE39795 project through the public API, published its 23,702-gene/257,430-probe-set RMA Expression Bundle, and ran a full-rank paired `~ donor + zone` limma analysis for the portfolio walkthrough.
 - [x] Corrected server design preview so numeric-looking declared block identifiers are encoded categorically, matching the independent R scientific boundary and preserving paired-design semantics.
@@ -468,14 +476,20 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
   method/result semantics, bundle-specific capability routing, resolved references, overlap floors,
   incompatible assay rejection, and the explicit pre-runner launch block. The existing production
   chunk-size warning remains tracked under TD-006.
+- Phase 8 quanTIseq vertical-slice regression: 98 combined Python tests, Ruff, strict mypy across
+  62 source files, ESLint, 17 frontend integration tests, the Node.js 22 production build, Docker
+  Compose validation, a Nextflow DSL2 smoke run, and `git diff --check` passed. The containerized
+  quanTIseq fixture passed known-mixture recovery, mapping/overlap audits, sum-to-one checks, complete
+  artifact publication, and byte-identical repeated JSON.
 
 The development stack remains running. The large-study project is at `http://localhost:5173/projects/0694625c-23e1-4847-9622-e508ad95b895`, its prepared bundle at `http://localhost:5173/prepared-datasets/ac5bbe72-ec4e-40ec-9258-f9eae3679209`, and live results are available for PCA (`74cfc4a8-bdea-49b5-ab94-69d8534c52d6`), clustering (`2af084ac-6e90-4beb-b07c-4eabd214f066`), UMAP (`e94db15b-ab8a-4fee-ab6f-9d8e3a2ef63c`), t-SNE (`1dac23c8-5621-46bd-bb71-ddc38640647e`), DESeq2 (`e033fb5c-0516-4a74-9bf8-8e0b77d1eeaa`), limma (`2a13c140-0f8a-4617-bb59-e17b386469f9`), edgeR QL (`c31e8833-39a1-4aa8-a33b-ca87b5df90d4`), limma-voom (`339a7348-f43b-402e-be0a-555c69a0267c`), and edgeR QL with enrichment (`53509cd4-532c-4173-b505-a65e43101b6b`). The polished raw RNA-seq ingestion dashboard is at `http://localhost:5173/projects/e9574d9b-dc8f-480d-b844-64e5be0bdf31`. The public microarray project is at `http://localhost:5173/projects/32eb730d-7bda-43c1-a930-a37d91789e44`, its prepared bundle at `http://localhost:5173/prepared-datasets/75deff90-236b-4055-9c1b-e74c2ba9ec67`, and its paired limma result at `http://localhost:5173/analyses/0a800b33-6940-4b55-8928-c6c491ebe53d`.
 
 ## Next tasks
 
-1. Review EPIC and quanTIseq reference redistribution terms, pin their packages/runtime, and add checksum-frozen reference manifests.
-2. Implement EPIC and quanTIseq scientific runners with exact gene-symbol mapping, overlap reports, constant/duplicate/negative-value handling, and deterministic result publication.
-3. Route both runners through Nextflow and the durable worker, then add fraction-aware result plots and known-mixture acceptance before enabling the saved Run action.
+1. Implement MCP-counter and xCell as non-compositional enrichment-score runners without percentage or sum-to-one presentation.
+2. Add cross-method result sections/comparison constrained by compatible result type, unit, reference, and input assay semantics.
+3. Implement the CIBERSORTx external-result import adapter with frozen source checksum, mode, signature, runtime provenance, and explicit relative-fraction declarations.
+4. Select an independent public validation cohort and empirically approve method-specific overlap floors; enable EPIC only after legal review and an explicit user-supplied installation/acceptance workflow.
 
 ## Decisions and constraints
 

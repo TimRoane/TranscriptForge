@@ -123,7 +123,11 @@ def _method_capability(
             requested = ", ".join(option.name for option in method.input.assay_options)
             reasons.append(f"No compatible assay is available; this method requires {requested}.")
         if method.implementation_status != "available":
-            reasons.append("Scientific runner is not implemented yet.")
+            reasons.append(
+                "Upstream license acceptance and a user-supplied EPIC installation are required."
+                if method.implementation_status == "license_blocked"
+                else "Scientific runner is not implemented yet."
+            )
     return DeconvolutionMethodCapabilityRead(
         method=method,
         compatible_assays=compatible_assays,

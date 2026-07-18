@@ -1,6 +1,6 @@
 # TranscriptForge debt register
 
-Last reviewed: 2026-07-17
+Last reviewed: 2026-07-18
 
 This is the owner-facing register for work that should not disappear inside implementation notes.
 Items marked **Manual decision** need scientific, product, legal, infrastructure, or operational
@@ -111,7 +111,7 @@ judgment from the repository owner before they can be closed safely.
   a commercial-license contact path; and separately assess trademark, patent, and confidentiality
   strategy if protection beyond source-code copyright is required.
 
-### TD-015 — Docker-profile bundle-builder runtime
+### TD-016 — Docker-profile bundle-builder runtime
 
 - Type: Technical and workflow operations
 - Status: Open
@@ -237,21 +237,36 @@ judgment from the repository owner before they can be closed safely.
 
 - Type: Scientific content, licensing, and product
 - Status: Open
-- Manual decision: Approve the redistributable reference/profile source and pinned package version
-  for EPIC and quanTIseq, then select independent mixture and real-tissue validation cohorts. Confirm
-  whether the provisional 50% reference-gene overlap floor should be method-specific after empirical
-  calibration.
+- Manual decision: Decide whether EPIC's separate academic agreement and deployment restrictions are
+  acceptable, define an explicit user-supplied installation/acceptance workflow if so, then select
+  independent mixture and real-tissue validation cohorts. Confirm whether the provisional 50%
+  reference-gene overlap floor should be method-specific after empirical calibration.
 - Current state: A checksum-versioned registry distinguishes EPIC/quanTIseq cell fractions from
   MCP-counter/xCell enrichment scores and keeps CIBERSORTx external-import-only. Saved designs freeze
   the method record, exact assay descriptor, reference choice, and overlap threshold. Input checks
   enforce human gene-level data, explicit gene symbols, and method-specific assay scale/value types.
   A result schema requires overlap evidence and reference/request/bundle checksums, and it prevents
-  enrichment scores from carrying fraction units or composition summaries. No method runner or
-  reference matrix is installed yet, so execution remains visibly blocked.
-- Exit criteria: Review reference redistribution terms; pin packages, containers, reference files,
-  and checksums; publish overlap/constant-gene/negative-value handling; validate synthetic mixtures
-  with known proportions and at least one independent public cohort; approve method-specific overlap
-  thresholds and expected fraction-sum tolerances before enabling execution.
+  enrichment scores from carrying fraction units or composition summaries. quanTIseq 1.18.0/TIL10 is
+  now checksum-pinned and executable with exact symbol mapping, blank/duplicate audits, negative-value
+  rejection, effective-overlap evidence, sum-to-one checks, and deterministic synthetic-mixture
+  acceptance. EPIC 1.1.7 is explicitly `license_blocked`: its upstream agreement restricts ordinary
+  redistribution and network access, so TranscriptForge does not bundle or execute it by default.
+- Exit criteria: Obtain legal approval or retain the EPIC block; validate quanTIseq against at least
+  one independent public cohort; empirically approve method-specific overlap thresholds and expected
+  fraction-sum tolerances; implement and validate MCP-counter/xCell and the external CIBERSORTx import.
+
+### TD-017 — Scientific worker Docker cache boundaries
+
+- Type: Technical and developer experience
+- Status: Open
+- Manual decision: None.
+- Current state: The worker stage inherits an application base that copies Python/R source before
+  installing large Bioconductor packages. A runner-only source edit can therefore invalidate the
+  complete GSVA/HDF5 scientific layer and trigger a long unrelated rebuild. Reference manifests are
+  now copied after scientific installation, but source/runtime layering is still coupled.
+- Exit criteria: Split dependency lock/runtime installation from application-source copying, retain
+  checksum/version assertions, demonstrate that an R-runner-only edit reuses Bioconductor layers,
+  and keep Compose plus dedicated scientific images behaviorally equivalent.
 
 ## Closed items
 

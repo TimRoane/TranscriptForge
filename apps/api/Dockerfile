@@ -29,6 +29,9 @@ ARG BIOMANAGER_VERSION=1.30.27
 ARG BIOMANAGER_SHA256=acbfdcf09602c8279085556ca54531c2ada0ac3c1775d54ce2c3b9a3dc03fbb5
 ARG GSVA_VERSION=2.4.9
 ENV GSVA_VERSION=${GSVA_VERSION}
+ARG QUANTISEQR_VERSION=1.18.0
+ARG QUANTISEQR_SHA256=ac0cf7804b70d759237eb4c8fbc9e1b37b81384653fd6f97f109f57ade1ddd68
+ENV QUANTISEQR_VERSION=${QUANTISEQR_VERSION}
 ARG SALMON_SHA256_AMD64=59dba764d579630a4ebbfaf7bb9575f1a72bbe215e76af3187d82b4665794833
 ARG SALMON_SHA256_ARM64=930cf75009a2f0a705a6acc6f4613d2add03f00961893333cd750570b6431198
 ENV NXF_VER=${NXF_VER}
@@ -51,6 +54,14 @@ RUN curl --fail --silent --show-error --location \
     && rm /tmp/BiocManager.tar.gz
 RUN R -q -e 'BiocManager::install("BiocSingular", ask = FALSE, update = FALSE); stopifnot(requireNamespace("BiocSingular", quietly = TRUE))'
 RUN R -q -e 'BiocManager::install("GSVA", ask = FALSE, update = FALSE); stopifnot(as.character(BiocManager::version()) == "3.22"); stopifnot(as.character(packageVersion("GSVA")) == Sys.getenv("GSVA_VERSION")); packageVersion("BiocParallel")'
+RUN R -q -e 'BiocManager::install(c("Biobase", "preprocessCore", "SummarizedExperiment", "limSolve", "ggplot2", "tidyr", "rlang"), ask = FALSE, update = FALSE)' \
+    && curl --fail --silent --show-error --location \
+      "https://bioconductor.org/packages/3.22/bioc/src/contrib/quantiseqr_${QUANTISEQR_VERSION}.tar.gz" \
+      --output /tmp/quantiseqr.tar.gz \
+    && echo "${QUANTISEQR_SHA256}  /tmp/quantiseqr.tar.gz" | sha256sum --check \
+    && R CMD INSTALL /tmp/quantiseqr.tar.gz \
+    && R -q -e 'stopifnot(as.character(packageVersion("quantiseqr")) == Sys.getenv("QUANTISEQR_VERSION"))' \
+    && rm /tmp/quantiseqr.tar.gz
 RUN pip install --no-cache-dir multiqc==1.32 \
     && architecture="$(dpkg --print-architecture)" \
     && if [ "${architecture}" = "arm64" ]; then aws_arch="aarch64"; else aws_arch="x86_64"; fi \
@@ -82,6 +93,10 @@ RUN pip install --no-cache-dir multiqc==1.32 \
     && quarto --version \
     && rm -rf /tmp/aws /tmp/awscliv2.zip /tmp/quarto.tar.gz /tmp/salmon.tar.gz \
     && rm -rf /var/lib/apt/lists/*
+
+# Reference policy/manifests change more often than the scientific runtime. Keep
+# this copy after package installation so reference metadata edits retain Docker cache.
+COPY references ./references
 
 ENV LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8

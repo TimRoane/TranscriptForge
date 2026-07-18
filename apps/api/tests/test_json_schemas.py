@@ -22,6 +22,7 @@ def load_json(path: Path) -> dict[str, Any]:
     [
         "dataset_manifest.schema.json",
         "deconvolution_method_registry.schema.json",
+        "deconvolution_reference.schema.json",
         "deconvolution_results.schema.json",
         "enrichment_summary.schema.json",
         "expression_bundle.schema.json",
@@ -61,6 +62,14 @@ def test_deconvolution_registry_is_valid_and_semantically_distinct() -> None:
     assert methods["xcell"]["composition_constraint"] == "not_compositional"
 
 
+def test_quantiseq_reference_manifest_is_valid() -> None:
+    schema = load_json(SCHEMAS / "deconvolution_reference.schema.json")
+    reference = load_json(ROOT / "references/deconvolution/quantiseq_til10.json")
+    Draft202012Validator(schema).validate(reference)
+    assert reference["package"]["version"] == "1.18.0"
+    assert reference["signature_gene_count"] == 170
+
+
 def test_deconvolution_analysis_request_and_result_type_contracts() -> None:
     request_schema = load_json(SCHEMAS / "analysis_request.schema.json")
     method = load_json(ROOT / "apps/api/transcriptforge_api/resources/deconvolution_methods.json")[
@@ -73,7 +82,12 @@ def test_deconvolution_analysis_request_and_result_type_contracts() -> None:
         "analysis_type": "deconvolution",
         "method": "epic",
         "assay": "tpm",
-        "parameters": {"reference_profile": "TRef", "minimum_gene_overlap": 0.5},
+        "parameters": {
+            "reference_profile": "TRef",
+            "minimum_gene_overlap": 0.5,
+            "tumor_mode": False,
+            "scale_mrna": True,
+        },
         "random_seed": 0,
         "method_registry_version": "2026.07.0",
         "method_registry_sha256": "a" * 64,

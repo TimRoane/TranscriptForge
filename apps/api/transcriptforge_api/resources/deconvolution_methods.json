@@ -1,12 +1,12 @@
 {
   "schema_version": "1.0.0",
-  "registry_version": "2026.07.0",
+  "registry_version": "2026.07.1",
   "methods": [
     {
       "id": "epic",
       "display_name": "EPIC",
       "execution_mode": "native",
-      "implementation_status": "runner_pending",
+      "implementation_status": "license_blocked",
       "result_type": "cell_fraction",
       "quantity_label": "Estimated cell fraction",
       "unit": "fraction",
@@ -39,7 +39,7 @@
       "id": "quantiseq",
       "display_name": "quanTIseq",
       "execution_mode": "native",
-      "implementation_status": "runner_pending",
+      "implementation_status": "available",
       "result_type": "cell_fraction",
       "quantity_label": "Estimated immune-cell fraction",
       "unit": "fraction",

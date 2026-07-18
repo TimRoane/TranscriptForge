@@ -162,6 +162,13 @@ async def get_result_manifest(run_id: str, session: Session, storage: Storage) -
     return await _json_artifact(session, storage, run_id, "result_manifest")
 
 
+@router.get("/runs/{run_id}/deconvolution-results")
+async def get_deconvolution_results(
+    run_id: str, session: Session, storage: Storage
+) -> dict[str, Any]:
+    return await _json_artifact(session, storage, run_id, "deconvolution_results")
+
+
 @router.get("/runs/{run_id}/pca-plot")
 async def get_pca_plot(run_id: str, session: Session, storage: Storage) -> dict[str, Any]:
     return await _json_artifact(session, storage, run_id, "pca_plot")

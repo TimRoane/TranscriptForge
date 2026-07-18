@@ -6,6 +6,7 @@ include { RUN_DIMENSION_REDUCTION } from './modules/local/run_pca/main'
 include { RUN_DIFFERENTIAL_EXPRESSION } from './modules/local/run_differential_expression/main'
 include { RUN_SIGNATURE_SCORING } from './modules/local/run_signature_scoring/main'
 include { RUN_GSVA_SCORING } from './modules/local/run_gsva_scoring/main'
+include { RUN_DECONVOLUTION } from './modules/local/run_deconvolution/main'
 include { VERIFY_RAW_INPUTS } from './modules/local/verify_raw_inputs/main'
 include { MATERIALIZE_SALMON_REFERENCE } from './modules/local/materialize_salmon_reference/main'
 include { FASTQC_READS } from './modules/local/fastqc/main'
@@ -146,6 +147,15 @@ workflow RUN_ANALYSIS {
         } else {
             RUN_SIGNATURE_SCORING(request_ch, bundle_ch, analysis_package_ch)
         }
+    } else if (analysisRequest.analysis_type == 'deconvolution') {
+        if (analysisRequest.method != 'quantiseq') {
+            error "Unsupported deconvolution method: ${analysisRequest.method}"
+        }
+        reference_manifest_ch = Channel.fromPath(
+            "${projectDir}/../references/deconvolution/quantiseq_til10.json",
+            checkIfExists: true
+        )
+        RUN_DECONVOLUTION(request_ch, bundle_ch, analysis_r_ch, reference_manifest_ch)
     } else {
         error "Unsupported analysis type: ${analysisRequest.analysis_type}"
     }

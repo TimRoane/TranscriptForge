@@ -27,6 +27,7 @@ export function DeconvolutionSetupPanel({ preparedDatasetId }: { preparedDataset
   const [assay, setAssay] = useState('')
   const [referenceProfile, setReferenceProfile] = useState('')
   const [minimumGeneOverlap, setMinimumGeneOverlap] = useState(0.5)
+  const [tumorMode, setTumorMode] = useState(false)
   const capabilities = useQuery({
     queryKey: ['deconvolution-methods', preparedDatasetId],
     queryFn: ({ signal }) => fetchDeconvolutionCapabilities(preparedDatasetId, signal),
@@ -36,6 +37,12 @@ export function DeconvolutionSetupPanel({ preparedDatasetId }: { preparedDataset
     () => capabilities.data?.methods.find((item) => item.method.id === methodId),
     [capabilities.data?.methods, methodId],
   )
+  useEffect(() => {
+    if (!capabilities.data) return
+    const current = capabilities.data.methods.find((item) => item.method.id === methodId)
+    const runnable = capabilities.data.methods.find((item) => item.execution_available)
+    if (!current?.execution_available && runnable) setMethodId(runnable.method.id as DeconvolutionMethod)
+  }, [capabilities.data, methodId])
   useEffect(() => {
     if (!selected) return
     if (!selected.compatible_assays.includes(assay)) {
@@ -59,6 +66,8 @@ export function DeconvolutionSetupPanel({ preparedDatasetId }: { preparedDataset
         assay,
         referenceProfile,
         minimumGeneOverlap,
+        tumorMode,
+        scaleMrna: true,
       })
     },
     onSuccess: (analysis) => navigate(`/analyses/${analysis.id}`),
@@ -116,7 +125,9 @@ export function DeconvolutionSetupPanel({ preparedDatasetId }: { preparedDataset
                 select
                 label="Reference"
                 size="small"
-                value={referenceProfile}
+                value={selected?.method.references.some((item) => item.id === referenceProfile)
+                  ? referenceProfile
+                  : ''}
                 onChange={(event) => setReferenceProfile(event.target.value)}
                 sx={{ minWidth: 230 }}
               >
@@ -137,6 +148,19 @@ export function DeconvolutionSetupPanel({ preparedDatasetId }: { preparedDataset
                 }}
                 sx={{ width: 190 }}
               />
+              {methodId === 'quantiseq' && (
+                <TextField
+                  select
+                  label="Study context"
+                  size="small"
+                  value={tumorMode ? 'tumor' : 'non_tumor'}
+                  onChange={(event) => setTumorMode(event.target.value === 'tumor')}
+                  sx={{ minWidth: 190 }}
+                >
+                  <MenuItem value="non_tumor">Blood / non-tumor</MenuItem>
+                  <MenuItem value="tumor">Tumor tissue</MenuItem>
+                </TextField>
+              )}
             </Stack>
             {selected && (
               <Paper variant="outlined" sx={{ p: 2.5, bgcolor: 'background.default' }}>
@@ -150,7 +174,11 @@ export function DeconvolutionSetupPanel({ preparedDatasetId }: { preparedDataset
                     />
                     <Chip label={`Registry ${capabilities.data.registry_version}`} variant="outlined" />
                     <Chip
-                      label={selected.execution_available ? 'Runner available' : 'Runner pending'}
+                      label={selected.execution_available
+                        ? 'Runner available'
+                        : selected.method.implementation_status === 'license_blocked'
+                          ? 'License-gated'
+                          : 'Runner pending'}
                       color={selected.execution_available ? 'success' : 'default'}
                     />
                   </Stack>
@@ -168,8 +196,9 @@ export function DeconvolutionSetupPanel({ preparedDatasetId }: { preparedDataset
             )}
             {selected && !selected.execution_available && (
               <Alert severity="info">
-                The validation and saved-design contract are ready. Execution remains disabled until
-                the pinned scientific container, reference checksum, and acceptance fixture pass.
+                {selected.method.implementation_status === 'license_blocked'
+                  ? 'This method is not bundled because its upstream license requires separate acceptance and restricts redistribution.'
+                  : 'The validation and saved-design contract are ready, but the scientific runner is not implemented yet.'}
               </Alert>
             )}
             <Button

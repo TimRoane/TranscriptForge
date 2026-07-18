@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0.0",
+  "id": "TIL10",
+  "method": "quantiseq",
+  "version": "quantiseqr-1.18.0",
+  "organism": "Homo sapiens",
+  "identifier_namespace": "gene_symbol",
+  "package": {
+    "name": "quantiseqr",
+    "version": "1.18.0",
+    "bioconductor_release": "3.22",
+    "source_url": "https://bioconductor.org/packages/3.22/bioc/src/contrib/quantiseqr_1.18.0.tar.gz",
+    "source_sha256": "ac0cf7804b70d759237eb4c8fbc9e1b37b81384653fd6f97f109f57ade1ddd68",
+    "license": "GPL-3"
+  },
+  "files": [
+    {
+      "package_path": "extdata/TIL10_signature.txt",
+      "sha256": "76aababc370c143705ee895f094a45eb168b87b10f30783bdcedbe4c4c0fecf9"
+    },
+    {
+      "package_path": "extdata/TIL10_mRNA_scaling.txt",
+      "sha256": "c7fa748a99c8f3e377924a7b35bed3000243966ee42beab7efac444940eecbd2"
+    },
+    {
+      "package_path": "extdata/TIL10_rmgenes.txt",
+      "sha256": "b05906748450b71d1a7b912ba3e351e2614052d99c2ba0670ff66510bac886f4"
+    },
+    {
+      "package_path": "extdata/TIL10_TCGA_aberrant_immune_genes.txt",
+      "sha256": "5182b9441fd03119da12a83ad932b9053cf73c62edc4028d55360ca3ad347fc3"
+    }
+  ],
+  "signature_gene_count": 170,
+  "cell_types": [
+    {"id": "B.cells", "label": "B cells"},
+    {"id": "Macrophages.M1", "label": "M1 macrophages"},
+    {"id": "Macrophages.M2", "label": "M2 macrophages"},
+    {"id": "Monocytes", "label": "Monocytes"},
+    {"id": "Neutrophils", "label": "Neutrophils"},
+    {"id": "NK.cells", "label": "NK cells"},
+    {"id": "T.cells.CD4", "label": "CD4 T cells"},
+    {"id": "T.cells.CD8", "label": "CD8 T cells"},
+    {"id": "Tregs", "label": "Regulatory T cells"},
+    {"id": "Dendritic.cells", "label": "Dendritic cells"},
+    {"id": "Other", "label": "Other / uncharacterized"}
+  ]
+}

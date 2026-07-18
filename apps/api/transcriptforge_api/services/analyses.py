@@ -253,9 +253,9 @@ async def create_analysis_run(
         method = next((item for item in registry.methods if item.id == method_id), None)
         if method is None or method.implementation_status != "available":
             raise AnalysisInputError(
-                "This deconvolution design is saved, but its scientific runner is not available "
-                "yet. Phase 8 execution will be enabled after the pinned method container and "
-                "reference acceptance pass."
+                "This deconvolution design is saved, but its scientific runner is not available. "
+                "The selected method may require a future implementation or separate upstream "
+                "license acceptance and installation."
             )
     active = await session.scalar(
         select(Run.id).where(

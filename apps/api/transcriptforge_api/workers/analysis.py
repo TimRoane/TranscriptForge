@@ -142,6 +142,17 @@ def run_analysis_workflow(
                 "signature_scores.schema.json",
                 "Signature scores",
             )
+        deconvolution_results = result_manifest.parent / "deconvolution_results.json"
+        if frozen.get("analysis_type") == "deconvolution":
+            if not deconvolution_results.is_file():
+                raise RuntimeError(
+                    "Deconvolution analysis did not publish deconvolution_results.json."
+                )
+            _validate_json_contract(
+                json.loads(deconvolution_results.read_text(encoding="utf-8")),
+                "deconvolution_results.schema.json",
+                "Deconvolution results",
+            )
         artifacts = _store_artifacts(storage, run_id, _artifact_specs(run_root))
         asyncio.run(_mark_succeeded(settings, snapshot, artifacts, session_id))
         return {"run_id": run_id, "state": RunState.SUCCEEDED.value}
@@ -219,6 +230,34 @@ def _nextflow_command(
 def _artifact_specs(run_root: Path) -> list[ArtifactSpec]:
     analysis = run_root / "output" / "analysis" / "results"
     candidates = [
+        ArtifactSpec(
+            "deconvolution_results",
+            "Structured cell-deconvolution results",
+            analysis / "deconvolution_results.json",
+            "application/json",
+            1,
+        ),
+        ArtifactSpec(
+            "deconvolution_estimates",
+            "Long-format cell-fraction estimates",
+            analysis / "deconvolution_estimates.tsv",
+            "text/tab-separated-values",
+            2,
+        ),
+        ArtifactSpec(
+            "deconvolution_reference_overlap",
+            "Reference gene-overlap audit",
+            analysis / "reference_overlap.tsv",
+            "text/tab-separated-values",
+            3,
+        ),
+        ArtifactSpec(
+            "deconvolution_fractions_svg",
+            "Estimated cell fractions (SVG)",
+            analysis / "cell_fractions.svg",
+            "image/svg+xml",
+            4,
+        ),
         ArtifactSpec(
             "signature_scores",
             "Per-sample signature scores",

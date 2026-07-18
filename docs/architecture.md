@@ -116,8 +116,11 @@ identifier namespace, assay name/scale/value type, minimum reference overlap, an
 The API evaluates those declarations against the assay and feature-metadata records inside the
 immutable Expression Bundle; a prepared-dataset capability response never infers suitability from an
 assay name alone. Saved designs freeze the complete method entry, registry checksum, exact assay
-descriptor, reference choice, and overlap threshold. Contract-ready methods remain unlaunchable
-until their pinned runtime, checksum-frozen reference, overlap report, and acceptance fixture pass.
+descriptor, reference choice, and overlap threshold. quanTIseq is the first executable slice: its
+Bioconductor source and packaged TIL10 assets are checksum-pinned, every run audits effective overlap
+after gene-symbol mapping/exclusions, and the worker validates structured fraction results before
+indexing artifacts. Other contract-ready methods remain unlaunchable until their pinned runtime,
+checksum-frozen reference, overlap report, license terms, and acceptance fixture pass.
 
 The result contract preserves this distinction downstream: EPIC and quanTIseq emit cell fractions
 with per-sample composition summaries, while MCP-counter and xCell emit non-compositional enrichment
