@@ -26,6 +26,7 @@ def load_json(path: Path) -> dict[str, Any]:
         "microarray_ingestion.schema.json",
         "microarray_platform.schema.json",
         "analysis_request.schema.json",
+        "cross_modality_signature_acceptance.schema.json",
         "raw_rnaseq_ingestion.schema.json",
         "reference_bundle.schema.json",
         "result_manifest.schema.json",

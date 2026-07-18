@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom'
 
 import {
   createSignatureScoringAnalysis,
+  fetchDesignOptions,
   fetchSignatureDefinitions,
   fetchSignatureMappings,
   mapSignatureDefinition,
@@ -47,6 +48,10 @@ export function SignatureMappingPanel({
   const [gsvaAbsRanking, setGsvaAbsRanking] = useState(false)
   const [ssgseaAlpha, setSsgseaAlpha] = useState(0.25)
   const [ssgseaNormalize, setSsgseaNormalize] = useState(true)
+  const [associationEnabled, setAssociationEnabled] = useState(false)
+  const [phenotypeColumn, setPhenotypeColumn] = useState('')
+  const [associationCovariates, setAssociationCovariates] = useState<string[]>([])
+  const [associationBlock, setAssociationBlock] = useState('')
   const definitions = useQuery({
     queryKey: ['signature-definitions', projectId],
     queryFn: ({ signal }) => fetchSignatureDefinitions(projectId, signal),
@@ -55,6 +60,11 @@ export function SignatureMappingPanel({
   const mappings = useQuery({
     queryKey: ['signature-mappings', preparedDatasetId],
     queryFn: ({ signal }) => fetchSignatureMappings(preparedDatasetId, signal),
+    enabled: Boolean(preparedDatasetId),
+  })
+  const designOptions = useQuery({
+    queryKey: ['de-design-options', preparedDatasetId],
+    queryFn: ({ signal }) => fetchDesignOptions(preparedDatasetId, signal),
     enabled: Boolean(preparedDatasetId),
   })
   const mapDefinition = useMutation({
@@ -80,6 +90,13 @@ export function SignatureMappingPanel({
           gsva_abs_ranking: gsvaAbsRanking,
           ssgsea_alpha: ssgseaAlpha,
           ssgsea_normalize: ssgseaNormalize,
+          phenotype_association: {
+            enabled: associationEnabled,
+            phenotype_column: associationEnabled ? phenotypeColumn : null,
+            phenotype_kind: 'auto',
+            covariates: associationEnabled ? associationCovariates : [],
+            block_column: associationEnabled && associationBlock ? associationBlock : null,
+          },
         },
       })
       await runAnalysis(analysis.id)
@@ -104,6 +121,10 @@ export function SignatureMappingPanel({
       !Number.isFinite(ssgseaAlpha) || ssgseaAlpha <= 0 || ssgseaAlpha > 10
     ))
   )
+  const associationInvalid = associationEnabled && !phenotypeColumn
+  const selectableVariables = designOptions.data?.variables.filter(
+    (variable) => variable.missing_count === 0 && variable.unique_count >= 2,
+  ) ?? []
 
   return (
     <Paper variant="outlined" sx={{ p: 3 }}>
@@ -218,7 +239,7 @@ export function SignatureMappingPanel({
                 <Button
                   variant="contained"
                   startIcon={<PlayArrowRoundedIcon />}
-                  disabled={scoreSignature.isPending || rParametersInvalid}
+                  disabled={scoreSignature.isPending || rParametersInvalid || associationInvalid}
                   onClick={() => scoreSignature.mutate({
                     mappingId: mapping.id,
                     name: definitionNames.get(mapping.signature_definition_id)
@@ -229,6 +250,101 @@ export function SignatureMappingPanel({
                   {scoreSignature.isPending ? 'Launching…' : 'Score signature'}
                 </Button>
               </Stack>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.paper' }}>
+                <Stack spacing={1.5}>
+                  <FormControlLabel
+                    control={(
+                      <Checkbox
+                        checked={associationEnabled}
+                        onChange={(event) => setAssociationEnabled(event.target.checked)}
+                      />
+                    )}
+                    label="Associate scores with a sample phenotype"
+                  />
+                  {associationEnabled && (
+                    <>
+                      <Typography variant="body2" color="text.secondary">
+                        Fit one adjusted model per signature set. Subject/block IDs are treated as
+                        categorical fixed effects; numeric and categorical phenotypes are detected
+                        automatically.
+                      </Typography>
+                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
+                        <TextField
+                          select
+                          required
+                          label="Phenotype"
+                          size="small"
+                          value={phenotypeColumn}
+                          onChange={(event) => {
+                            setPhenotypeColumn(event.target.value)
+                            setAssociationCovariates((current) => current.filter(
+                              (value) => value !== event.target.value,
+                            ))
+                            if (associationBlock === event.target.value) setAssociationBlock('')
+                          }}
+                          sx={{ minWidth: 190 }}
+                        >
+                          {selectableVariables.map((variable) => (
+                            <MenuItem key={variable.name} value={variable.name}>
+                              {variable.name} · {variable.kind}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                        <TextField
+                          select
+                          label="Covariates"
+                          size="small"
+                          value={associationCovariates}
+                          onChange={(event) => {
+                            const value = event.target.value
+                            setAssociationCovariates(
+                              typeof value === 'string' ? value.split(',') : value,
+                            )
+                          }}
+                          SelectProps={{ multiple: true }}
+                          sx={{ minWidth: 210 }}
+                        >
+                          {selectableVariables
+                            .filter((variable) => (
+                              variable.name !== phenotypeColumn
+                              && variable.name !== associationBlock
+                            ))
+                            .map((variable) => (
+                              <MenuItem key={variable.name} value={variable.name}>
+                                {variable.name}
+                              </MenuItem>
+                            ))}
+                        </TextField>
+                        <TextField
+                          select
+                          label="Subject / block"
+                          size="small"
+                          value={associationBlock}
+                          onChange={(event) => {
+                            setAssociationBlock(event.target.value)
+                            setAssociationCovariates((current) => current.filter(
+                              (value) => value !== event.target.value,
+                            ))
+                          }}
+                          sx={{ minWidth: 190 }}
+                        >
+                          <MenuItem value="">None</MenuItem>
+                          {selectableVariables
+                            .filter((variable) => variable.name !== phenotypeColumn)
+                            .map((variable) => (
+                              <MenuItem key={variable.name} value={variable.name}>
+                                {variable.name}
+                              </MenuItem>
+                            ))}
+                        </TextField>
+                      </Stack>
+                      {associationInvalid && (
+                        <Alert severity="error">Choose a phenotype before launching.</Alert>
+                      )}
+                    </>
+                  )}
+                </Stack>
+              </Paper>
               {(scoringMethod === 'gsva' || scoringMethod === 'ssgsea') && (
                 <Stack spacing={1.5}>
                   <Alert severity="info">

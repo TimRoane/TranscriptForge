@@ -108,6 +108,27 @@ class DifferentialExpressionParameters(BaseModel):
         return self
 
 
+class PhenotypeAssociationParameters(BaseModel):
+    enabled: bool = False
+    phenotype_column: VariableName | None = None
+    phenotype_kind: Literal["auto", "categorical", "numeric"] = "auto"
+    covariates: list[VariableName] = Field(default_factory=list, max_length=20)
+    block_column: VariableName | None = None
+
+    @model_validator(mode="after")
+    def validate_terms(self) -> "PhenotypeAssociationParameters":
+        if self.enabled and self.phenotype_column is None:
+            raise ValueError("An enabled phenotype association requires a phenotype column.")
+        terms = [*self.covariates]
+        if self.block_column is not None:
+            terms.append(self.block_column)
+        if self.phenotype_column in terms:
+            raise ValueError("The phenotype cannot also be a covariate or block column.")
+        if len(terms) != len(set(terms)):
+            raise ValueError("Association adjustment variables may only appear once.")
+        return self
+
+
 class SignatureScoringParameters(BaseModel):
     signature_mapping_id: str = Field(min_length=1, max_length=100)
     minimum_gene_set_size: int = Field(default=1, ge=1, le=5000)
@@ -118,6 +139,9 @@ class SignatureScoringParameters(BaseModel):
     gsva_abs_ranking: bool = False
     ssgsea_alpha: float = Field(default=0.25, gt=0, le=10)
     ssgsea_normalize: bool = True
+    phenotype_association: PhenotypeAssociationParameters = Field(
+        default_factory=PhenotypeAssociationParameters
+    )
 
     @model_validator(mode="after")
     def validate_size_range(self) -> "SignatureScoringParameters":

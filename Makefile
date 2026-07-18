@@ -1,4 +1,4 @@
-.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo terraform-check aws-batch-preflight aws-batch-acceptance
+.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-signature-cross-modality test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo terraform-check aws-batch-preflight aws-batch-acceptance
 
 dev:
 	docker compose up --build -d
@@ -15,7 +15,7 @@ migrate:
 test: test-api test-web
 
 test-api:
-	python3 -m pytest apps/api/tests
+	python3 -m pytest apps/api/tests analysis/python/tests
 
 test-web:
 	npm --workspace @transcriptforge/web test -- --run
@@ -27,6 +27,9 @@ test-r:
 test-signature-r:
 	docker compose run --rm --no-deps worker \
 		Rscript /app/analysis/r/tests/run_signature_scoring_acceptance.R
+
+test-signature-cross-modality:
+	python3 -m pytest analysis/python/tests/test_cross_modality_signature.py
 
 test-raw-rnaseq:
 	demo/raw_rnaseq/run_acceptance.sh

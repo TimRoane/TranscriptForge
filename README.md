@@ -129,7 +129,7 @@ result visible rather than weakening the threshold or altering public data for a
 | Exploration | PCA, hierarchical clustering, UMAP, and t-SNE with interactive and static outputs |
 | Differential expression | DESeq2, edgeR QL, limma-voom, and limma with design preview, contrast validation, result tables, plots, feature drill-down, and reports |
 | Enrichment | Seeded ranked-list and over-representation analysis against checksum-versioned GMT collections |
-| Gene signatures | Immutable weighted TSV/GMT definitions; Ensembl/symbol/Entrez mapping evidence; mean, z-score, weighted, rank, GSVA, and ssGSEA scoring |
+| Gene signatures | Immutable weighted TSV/GMT definitions; Ensembl/symbol/Entrez mapping evidence; six scoring methods; adjusted phenotype association; cross-modality acceptance without raw-scale equivalence claims |
 | Operations | Durable run state, in-app cancellation, retries through the workflow layer, artifact indexing, local/S3-compatible storage, and opt-in AWS Batch infrastructure |
 
 ## Architecture
@@ -183,14 +183,16 @@ The durable boundaries are described in [architecture](docs/architecture.md),
 
 The latest full regression checkpoint records:
 
-- 78 combined API, worker, contract, and scientific Python tests.
-- 14 frontend integration tests plus ESLint and a Node 22 production build.
-- Strict mypy across 60 source files and Ruff across the Python codebase.
+- 89 combined API, worker, contract, and scientific Python tests.
+- 15 frontend integration tests plus ESLint and a Node 22 production build.
+- Strict mypy across 61 source files and Ruff across the Python codebase.
 - Containerized acceptance for all four differential-expression engines and enrichment.
 - Paired/single-end and multi-lane RNA-seq acceptance, shared reference-cache reuse, and Nextflow
   `-resume` evidence.
 - Eight-public-CEL RMA-to-bundle-to-paired-limma acceptance.
 - Deterministic GSVA/ssGSEA fixtures with constant-gene handling and package provenance.
+- One checksum-frozen weighted signature accepted independently in RNA-seq and microarray bundles,
+  with concordant direction/AUROC and intentionally different raw score ranges.
 - JSON Schema, Docker Compose, Nextflow configuration, Alembic drift, and Terraform validation.
 
 ## Run locally
@@ -236,6 +238,7 @@ validation, preparation, and analysis cards expose a **Stop run** action.
 ```bash
 make test             # API, worker, contract, and frontend tests
 make test-r           # four DE engines plus enrichment in the pinned worker
+make test-signature-cross-modality # one frozen signature across RNA-seq and microarray bundles
 make test-raw-rnaseq  # paired, single-end, multi-lane, cache, and resume acceptance
 make test-microarray  # public CEL -> RMA -> Expression Bundle -> paired limma
 make test-all         # application tests plus the R acceptance harness
@@ -244,8 +247,9 @@ make pipeline-test    # Nextflow smoke workflow
 ```
 
 The raw RNA-seq and public microarray acceptances are intentionally heavier than unit tests. See
-[`demo/raw_rnaseq/`](demo/raw_rnaseq/) and [`demo/microarray/`](demo/microarray/) for inputs,
-provenance, and expected outputs.
+[`demo/raw_rnaseq/`](demo/raw_rnaseq/), [`demo/microarray/`](demo/microarray/), and
+[`demo/cross_modality_signature/`](demo/cross_modality_signature/) for inputs, provenance, and
+expected outputs.
 
 ## Repository map
 

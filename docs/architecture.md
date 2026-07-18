@@ -94,7 +94,11 @@ Expression Bundle checksum, and method parameters. Nextflow dispatches mean-expr
 weighted-linear, or rank-based scoring to the Python scientific package and GSVA/ssGSEA to the
 Bioconductor R runtime. Both routes publish the same schema-valid score tables, final-feature
 inventories, plots, reports, checksums, and explicit software provenance; the API only orchestrates
-and indexes those outputs.
+and indexes those outputs. A deterministic cross-modality acceptance freezes one weighted Ensembl
+signature and scores it independently in RNA-seq-derived log2 CPM and microarray RMA-like bundles.
+Its contract compares mapping coverage, within-cohort direction, rank discrimination, association,
+and standardized effects while explicitly setting raw-score scale comparability to false. No matrix
+merging, shared raw threshold, or platform-equivalence claim is permitted.
 
 ## Service boundaries
 

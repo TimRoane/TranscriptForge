@@ -4,6 +4,7 @@ import json
 from io import BytesIO
 from typing import Any
 
+import numpy as np
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,9 +23,11 @@ from transcriptforge_api.schemas.analyses import (
     DifferentialExpressionParameters,
     DifferentialExpressionPreviewRequest,
     DimensionReductionParameters,
+    MetadataVariableRead,
+    PhenotypeAssociationParameters,
     SignatureScoringParameters,
 )
-from transcriptforge_api.services.design_validation import validate_design
+from transcriptforge_api.services.design_validation import design_options, validate_design
 from transcriptforge_api.services.runs import ACTIVE_STATES
 from transcriptforge_api.storage.base import StorageBackend
 
@@ -105,6 +108,38 @@ async def create_analysis(
                     + ", ".join(invalid_sets[:10])
                     + ("." if len(invalid_sets) <= 10 else ", …")
                 )
+        association = request.parameters.phenotype_association
+        if association.enabled:
+            rows, options = design_options(prepared, storage)
+            known = {variable.name: variable for variable in options.variables}
+            requested_columns = [
+                association.phenotype_column,
+                *association.covariates,
+                association.block_column,
+            ]
+            for column in (item for item in requested_columns if item is not None):
+                variable = known.get(column)
+                if variable is None:
+                    raise AnalysisInputError(
+                        f"Association variable '{column}' is not present in sample metadata."
+                    )
+                if variable.missing_count:
+                    raise AnalysisInputError(
+                        f"Association variable '{column}' contains missing values."
+                    )
+                if variable.unique_count < 2:
+                    raise AnalysisInputError(
+                        f"Association variable '{column}' has only one observed value."
+                    )
+            phenotype = known[str(association.phenotype_column)]
+            if association.phenotype_kind != "auto" and (
+                phenotype.kind != association.phenotype_kind
+            ):
+                raise AnalysisInputError(
+                    f"Phenotype '{phenotype.name}' is {phenotype.kind}, not "
+                    f"{association.phenotype_kind}."
+                )
+            _validate_association_design(rows, known, association)
         configuration["signature_mapping_report_sha256"] = mapping.report_sha256
         configuration["signature_definition_id"] = mapping.signature_definition_id
         configuration["mapping_coverage"] = mapping.mapping_coverage
@@ -280,3 +315,51 @@ async def create_analysis_run(
         raise
     await session.refresh(run)
     return run
+
+
+def _validate_association_design(
+    rows: list[dict[str, str]],
+    known: dict[str, MetadataVariableRead],
+    association: PhenotypeAssociationParameters,
+) -> None:
+    columns = [np.ones(len(rows), dtype=np.float64)]
+    terms = [*association.covariates]
+    if association.block_column:
+        terms.append(association.block_column)
+    assert association.phenotype_column is not None
+    terms.append(association.phenotype_column)
+    for term in terms:
+        values = [row[term].strip() for row in rows]
+        variable = known[term]
+        kind = variable.kind
+        if term == association.block_column:
+            kind = "categorical"
+        if term == association.phenotype_column and association.phenotype_kind != "auto":
+            kind = association.phenotype_kind
+        if kind == "numeric":
+            numeric = np.asarray([float(value) for value in values], dtype=np.float64)
+            columns.append(numeric - np.mean(numeric))
+        else:
+            levels = sorted(set(values))
+            if term == association.phenotype_column and any(
+                values.count(level) < 2 for level in levels
+            ):
+                raise AnalysisInputError(
+                    f"Phenotype '{term}' requires at least two samples in every group."
+                )
+            columns.extend(
+                np.asarray([value == level for value in values], dtype=np.float64)
+                for level in levels[1:]
+            )
+    matrix = np.column_stack(columns)
+    rank = int(np.linalg.matrix_rank(matrix))
+    if rank < matrix.shape[1]:
+        raise AnalysisInputError(
+            "The phenotype association design is rank deficient. Remove confounded or "
+            "redundant covariates/block terms."
+        )
+    if matrix.shape[1] >= len(rows):
+        raise AnalysisInputError(
+            "The phenotype association design has no residual degrees of freedom. "
+            "Remove adjustment terms or add samples."
+        )

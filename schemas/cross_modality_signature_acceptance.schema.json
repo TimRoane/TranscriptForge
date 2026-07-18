@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.local/schemas/cross_modality_signature_acceptance.schema.json",
+  "title": "TranscriptForge Cross-Modality Signature Acceptance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "signature_definition",
+    "method",
+    "phenotype",
+    "interpretation_boundary",
+    "criteria",
+    "cohorts",
+    "concordance",
+    "passed"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "signature_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "sha256", "identifier_type", "signature_id", "feature_count"],
+      "properties": {
+        "source": { "$ref": "#/$defs/nonempty" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "identifier_type": { "const": "ensembl_gene_id" },
+        "signature_id": { "$ref": "#/$defs/nonempty" },
+        "feature_count": { "type": "integer", "minimum": 2 }
+      }
+    },
+    "method": { "enum": ["mean_expression", "mean_z_score", "weighted_linear", "rank_based"] },
+    "phenotype": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["column", "numerator", "denominator", "expected_direction"],
+      "properties": {
+        "column": { "$ref": "#/$defs/nonempty" },
+        "numerator": { "$ref": "#/$defs/nonempty" },
+        "denominator": { "$ref": "#/$defs/nonempty" },
+        "expected_direction": { "enum": ["positive", "negative"] }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw_score_scale_comparable", "permitted_comparisons", "warning"],
+      "properties": {
+        "raw_score_scale_comparable": { "const": false },
+        "permitted_comparisons": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["mapping_coverage", "within_cohort_direction", "within_cohort_rank_discrimination", "standardized_effect"] }
+        },
+        "warning": { "$ref": "#/$defs/nonempty" }
+      }
+    },
+    "criteria": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_mapping_coverage", "maximum_adjusted_p_value", "minimum_auc", "require_direction_concordance", "require_distinct_raw_scales"],
+      "properties": {
+        "minimum_mapping_coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+        "maximum_adjusted_p_value": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "minimum_auc": { "type": "number", "minimum": 0.5, "maximum": 1 },
+        "require_direction_concordance": { "const": true },
+        "require_distinct_raw_scales": { "const": true }
+      }
+    },
+    "cohorts": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/cohort" }
+    },
+    "concordance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["same_signature_sha256", "direction_concordant", "both_meet_mapping_threshold", "both_meet_fdr_threshold", "both_meet_auc_threshold", "raw_scales_distinct"],
+      "properties": {
+        "same_signature_sha256": { "const": true },
+        "direction_concordant": { "type": "boolean" },
+        "both_meet_mapping_threshold": { "type": "boolean" },
+        "both_meet_fdr_threshold": { "type": "boolean" },
+        "both_meet_auc_threshold": { "type": "boolean" },
+        "raw_scales_distinct": { "type": "boolean" }
+      }
+    },
+    "passed": { "type": "boolean" }
+  },
+  "$defs": {
+    "nonempty": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "cohort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cohort_id", "modality", "prepared_dataset_id", "bundle_sha256", "mapping_report_sha256", "signature_definition_sha256", "mapping_coverage", "sample_count", "score_minimum", "score_maximum", "raw_group_effect", "standardized_mean_difference", "auc", "p_value", "adjusted_p_value", "direction", "passed"],
+      "properties": {
+        "cohort_id": { "$ref": "#/$defs/nonempty" },
+        "modality": { "enum": ["bulk_rnaseq", "microarray"] },
+        "prepared_dataset_id": { "$ref": "#/$defs/nonempty" },
+        "bundle_sha256": { "$ref": "#/$defs/sha256" },
+        "mapping_report_sha256": { "$ref": "#/$defs/sha256" },
+        "signature_definition_sha256": { "$ref": "#/$defs/sha256" },
+        "mapping_coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+        "sample_count": { "type": "integer", "minimum": 4 },
+        "score_minimum": { "type": "number" },
+        "score_maximum": { "type": "number" },
+        "raw_group_effect": { "type": "number" },
+        "standardized_mean_difference": { "type": "number" },
+        "auc": { "type": "number", "minimum": 0, "maximum": 1 },
+        "p_value": { "type": "number", "minimum": 0, "maximum": 1 },
+        "adjusted_p_value": { "type": "number", "minimum": 0, "maximum": 1 },
+        "direction": { "enum": ["positive", "negative", "zero"] },
+        "passed": { "type": "boolean" }
+      }
+    }
+  }
+}

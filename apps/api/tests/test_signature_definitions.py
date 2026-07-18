@@ -15,12 +15,22 @@ from transcriptforge_api.storage.local import LocalStorage
 def _bundle() -> bytes:
     files = {
         "expression_bundle/bundle_manifest.json": json.dumps(
-            {"feature_metadata": "feature_metadata.tsv"}
+            {
+                "feature_metadata": "feature_metadata.tsv",
+                "sample_metadata": "sample_metadata.tsv",
+            }
         ).encode(),
         "expression_bundle/feature_metadata.tsv": (
             b"feature_id\tensembl_gene_id\tgene_symbol\tentrez_id\n"
             b"ENSG000001\tENSG000001\tTP53\t7157\n"
             b"ENSG000002\tENSG000002\tEGFR\t1956\n"
+        ),
+        "expression_bundle/sample_metadata.tsv": (
+            b"sample_id\tcondition\tbatch\tdonor_id\tage\n"
+            b"sample_1\tcontrol\tA\tdonor_1\t40\n"
+            b"sample_2\ttreated\tA\tdonor_1\t41\n"
+            b"sample_3\tcontrol\tB\tdonor_2\t44\n"
+            b"sample_4\ttreated\tB\tdonor_2\t45\n"
         ),
     }
     output = io.BytesIO()
@@ -170,6 +180,49 @@ async def test_upload_weighted_gene_list_and_map_with_visible_coverage(
     assert analysis_created.status_code == 201, analysis_created.text
     configuration = analysis_created.json()["configuration_json"]
     assert configuration["signature_mapping_report_sha256"] == mapping["report_sha256"]
+    association_created = await client.post(
+        f"/api/prepared-datasets/{prepared_id}/analyses",
+        json={
+            "name": "Condition-associated cartilage score",
+            "analysis_type": "signature",
+            "method": "weighted_linear",
+            "assay": "log_expression",
+            "parameters": {
+                "signature_mapping_id": mapping["id"],
+                "phenotype_association": {
+                    "enabled": True,
+                    "phenotype_column": "condition",
+                    "block_column": "donor_id",
+                },
+            },
+        },
+    )
+    assert association_created.status_code == 201, association_created.text
+    association_parameters = association_created.json()["configuration_json"]["parameters"]
+    assert association_parameters["phenotype_association"] == {
+        "enabled": True,
+        "phenotype_column": "condition",
+        "phenotype_kind": "auto",
+        "covariates": [],
+        "block_column": "donor_id",
+    }
+    invalid_association = await client.post(
+        f"/api/prepared-datasets/{prepared_id}/analyses",
+        json={
+            "analysis_type": "signature",
+            "method": "mean_expression",
+            "assay": "log_expression",
+            "parameters": {
+                "signature_mapping_id": mapping["id"],
+                "phenotype_association": {
+                    "enabled": True,
+                    "phenotype_column": "missing_column",
+                },
+            },
+        },
+    )
+    assert invalid_association.status_code == 409
+    assert "not present" in invalid_association.json()["detail"]
     gsva_created = await client.post(
         f"/api/prepared-datasets/{prepared_id}/analyses",
         json={

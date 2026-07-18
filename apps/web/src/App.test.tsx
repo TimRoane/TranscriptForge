@@ -566,7 +566,7 @@ describe('App', () => {
       prepared_dataset_id: 'prepared-1', analysis_id: 'signature-analysis-1',
     }
     const scores = {
-      schema_version: '1.0.0', analysis_id: analysis.id, prepared_dataset_id: 'prepared-1',
+      schema_version: '1.1.0', analysis_id: analysis.id, prepared_dataset_id: 'prepared-1',
       method: 'mean_z_score', assay: 'log_expression',
       formula: 'Arithmetic mean of mapped gene z-scores.', sample_count: 2, set_count: 1,
       signature_mapping: {
@@ -587,6 +587,21 @@ describe('App', () => {
           { sample_id: 'sample_B', score: 0.75, metadata: { condition: 'treated' } },
         ],
       }],
+      phenotype_association: {
+        phenotype_column: 'condition', phenotype_kind: 'categorical', covariates: [],
+        block_column: null, formula: 'score ~ condition',
+        design_matrix_columns: ['Intercept', 'condition[treated]'],
+        associations: [{
+          signature_id: 'set-1', signature_name: 'Cartilage response',
+          test: 'adjusted_two_group_comparison', sample_count: 2, effect: 1.5,
+          statistic: 4.2, degrees_of_freedom: 1, p_value: 0.03,
+          adjusted_p_value: 0.03, correlation: null,
+          group_summaries: [
+            { level: 'control', sample_count: 1, score_mean: -0.75 },
+            { level: 'treated', sample_count: 1, score_mean: 0.75 },
+          ],
+        }],
+      },
       warnings: ['Mapping report contains 1 missing identifier(s).'],
       software: {
         language: 'Python', language_version: '3.12.11',
@@ -634,6 +649,10 @@ describe('App', () => {
     expect(screen.getByText('condition=treated')).toBeInTheDocument()
     expect(screen.getByText(/1 missing identifier/)).toBeInTheDocument()
     expect(screen.getByText(/numpy 2.3.1/)).toBeInTheDocument()
+    expect(screen.getByText(/Do not compare raw signature-score magnitudes/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Scores by condition' })).toBeInTheDocument()
+    expect(screen.getByText('FDR 0.03')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Scores by condition' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Per-sample signature scores table/ })).toHaveAttribute(
       'href', expect.stringContaining('/artifacts/score-table/download'),
     )

@@ -268,7 +268,8 @@ export function AnalysisPage() {
             <Stack direction="row" spacing={2} mt={2} flexWrap="wrap">
               {artifacts.data.filter((artifact) => [
                 'signature_scores', 'signature_scores_table', 'signature_scored_features',
-                'signature_scores_svg', 'analysis_report', 'analysis_report_source',
+                'signature_scores_svg', 'signature_associations_table',
+                'signature_associations_svg', 'analysis_report', 'analysis_report_source',
                 'nextflow_report', 'nextflow_trace',
               ].includes(artifact.artifact_type)).map((artifact) => (
                 <Link
@@ -284,9 +285,10 @@ export function AnalysisPage() {
           </Paper>
         )}
         <Alert severity="info">
-          Research use only. Signature scores are cohort- and assay-dependent and are not
-          clinically validated. Mapping coverage and final scored features must accompany any
-          interpretation.
+          Research use only. Do not compare raw signature-score magnitudes across RNA-seq,
+          microarray, cohorts, or preprocessing pipelines. Compare prespecified within-dataset
+          direction, ranking, association, or standardized effects, with mapping coverage and final
+          scored features attached. Scores are not clinically validated.
         </Alert>
       </Stack>
     )
@@ -619,6 +621,9 @@ function SignatureScoreResults({ summary }: { summary: SignatureScores }) {
       {summary.warnings.map((warning) => (
         <Alert severity="warning" key={warning}>{warning}</Alert>
       ))}
+      {summary.phenotype_association && (
+        <SignatureAssociationResults summary={summary} />
+      )}
       {summary.sets.map((signatureSet) => {
         const range = signatureSet.score_maximum - signatureSet.score_minimum
         return (
@@ -692,6 +697,165 @@ function SignatureScoreResults({ summary }: { summary: SignatureScores }) {
         )
       })}
     </Stack>
+  )
+}
+
+function SignatureAssociationResults({ summary }: { summary: SignatureScores }) {
+  const association = summary.phenotype_association
+  if (!association) return null
+  return (
+    <Paper variant="outlined" sx={{ p: 3 }}>
+      <Stack spacing={2.5}>
+        <div>
+          <Typography variant="overline" color="secondary.main" fontWeight={750}>
+            Phenotype association
+          </Typography>
+          <Typography variant="h5" fontWeight={700}>
+            Scores by {association.phenotype_column}
+          </Typography>
+          <Typography color="text.secondary" mt={0.5}>
+            {association.formula} · {association.phenotype_kind} phenotype
+            {association.block_column ? ` · blocked by ${association.block_column}` : ''}
+          </Typography>
+        </div>
+        {association.associations.map((result) => {
+          const signatureSet = summary.sets.find(
+            (item) => item.signature_id === result.signature_id,
+          )
+          return (
+            <Paper key={result.signature_id} variant="outlined" sx={{ p: 2.5 }}>
+              <Stack spacing={1.5}>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  justifyContent="space-between"
+                  gap={1}
+                >
+                  <div>
+                    <Typography fontWeight={700}>{result.signature_name}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {result.test.replaceAll('_', ' ')} · n={result.sample_count} · df={result.degrees_of_freedom}
+                    </Typography>
+                  </div>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Chip
+                      size="small"
+                      color={result.adjusted_p_value <= 0.05 ? 'success' : 'default'}
+                      label={`FDR ${formatNumber(result.adjusted_p_value)}`}
+                    />
+                    <Chip size="small" label={`p ${formatNumber(result.p_value)}`} />
+                    {result.effect !== null && (
+                      <Chip size="small" label={`effect ${formatNumber(result.effect)}`} />
+                    )}
+                    {result.correlation !== null && (
+                      <Chip size="small" label={`r ${formatNumber(result.correlation)}`} />
+                    )}
+                  </Stack>
+                </Stack>
+                {signatureSet && (
+                  <SignaturePhenotypePlot
+                    phenotype={association.phenotype_column}
+                    kind={association.phenotype_kind}
+                    scores={signatureSet.scores}
+                  />
+                )}
+                {result.group_summaries.length > 0 && (
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {result.group_summaries.map((group) => (
+                      <Chip
+                        key={group.level}
+                        variant="outlined"
+                        label={`${group.level}: mean ${formatNumber(group.score_mean)} (n=${group.sample_count})`}
+                      />
+                    ))}
+                  </Stack>
+                )}
+              </Stack>
+            </Paper>
+          )
+        })}
+      </Stack>
+    </Paper>
+  )
+}
+
+function SignaturePhenotypePlot({
+  phenotype,
+  kind,
+  scores,
+}: {
+  phenotype: string
+  kind: 'categorical' | 'numeric'
+  scores: SignatureScores['sets'][number]['scores']
+}) {
+  const width = 720
+  const height = 270
+  const padding = 48
+  const values = scores.map((item) => item.score)
+  const minimum = Math.min(...values)
+  const maximum = Math.max(...values)
+  const y = (value: number) => height - padding - (
+    (value - minimum) / (maximum - minimum || 1)
+  ) * (height - padding * 2)
+  if (kind === 'categorical') {
+    const levels = [...new Set(scores.map((item) => item.metadata[phenotype]))].sort()
+    return (
+      <Box sx={{ overflowX: 'auto' }}>
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Scores by ${phenotype}`}>
+          <line x1={padding} y1={height - padding} x2={width - 20} y2={height - padding} stroke="#94a3b8" />
+          <line x1={padding} y1={20} x2={padding} y2={height - padding} stroke="#94a3b8" />
+          {levels.map((level, levelIndex) => {
+            const points = scores.filter((item) => item.metadata[phenotype] === level)
+            const center = padding + ((levelIndex + 0.5) / levels.length) * (width - padding - 20)
+            const mean = points.reduce((sum, item) => sum + item.score, 0) / points.length
+            return (
+              <g key={level}>
+                <line x1={center - 26} x2={center + 26} y1={y(mean)} y2={y(mean)} stroke="#0f172a" strokeWidth="3" />
+                {points.map((item, index) => (
+                  <circle
+                    key={item.sample_id}
+                    cx={center + ((index * 37) % 31 - 15)}
+                    cy={y(item.score)}
+                    r="5"
+                    fill={colors[levelIndex % colors.length]}
+                    opacity="0.82"
+                  >
+                    <title>{`${item.sample_id}: ${formatNumber(item.score)}`}</title>
+                  </circle>
+                ))}
+                <text x={center} y={height - 17} textAnchor="middle" fontSize="12">{level}</text>
+              </g>
+            )
+          })}
+        </svg>
+      </Box>
+    )
+  }
+  const numeric = scores.map((item) => Number(item.metadata[phenotype]))
+  const xMinimum = Math.min(...numeric)
+  const xMaximum = Math.max(...numeric)
+  const x = (value: number) => padding + (
+    (value - xMinimum) / (xMaximum - xMinimum || 1)
+  ) * (width - padding - 20)
+  return (
+    <Box sx={{ overflowX: 'auto' }}>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Scores by ${phenotype}`}>
+        <line x1={padding} y1={height - padding} x2={width - 20} y2={height - padding} stroke="#94a3b8" />
+        <line x1={padding} y1={20} x2={padding} y2={height - padding} stroke="#94a3b8" />
+        {scores.map((item) => (
+          <circle
+            key={item.sample_id}
+            cx={x(Number(item.metadata[phenotype]))}
+            cy={y(item.score)}
+            r="5"
+            fill="#155e75"
+            opacity="0.82"
+          >
+            <title>{`${item.sample_id}: ${phenotype}=${item.metadata[phenotype]}, score=${formatNumber(item.score)}`}</title>
+          </circle>
+        ))}
+        <text x={width / 2} y={height - 12} textAnchor="middle" fontSize="12">{phenotype}</text>
+      </svg>
+    </Box>
   )
 }
 

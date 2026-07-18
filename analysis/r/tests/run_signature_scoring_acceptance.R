@@ -100,7 +100,14 @@ request_document <- function(method) list(
     gsva_max_diff = TRUE,
     gsva_abs_ranking = FALSE,
     ssgsea_alpha = 0.25,
-    ssgsea_normalize = TRUE
+    ssgsea_normalize = TRUE,
+    phenotype_association = list(
+      enabled = TRUE,
+      phenotype_column = "condition",
+      phenotype_kind = "categorical",
+      covariates = list(),
+      block_column = NULL
+    )
   ),
   signature_mapping = list(
     id = "acceptance-mapping",
@@ -127,7 +134,8 @@ run_method <- function(method, suffix) {
   assert_true(status == 0L, paste(method, "runner failed:", log_text))
   assert_true(all(file.exists(file.path(output_dir, c(
     "signature_scores.json", "signature_scores.tsv", "scored_features.tsv",
-    "signature_scores.svg", "result_manifest.json", "report.qmd", "session_info.txt"
+    "signature_scores.svg", "signature_associations.tsv", "signature_associations.svg",
+    "result_manifest.json", "report.qmd", "session_info.txt"
   )))), paste(method, "did not publish every required artifact."))
   output_dir
 }
@@ -139,6 +147,10 @@ for (method in c("gsva", "ssgsea")) {
   sets <- setNames(summary$sets, vapply(summary$sets, function(item) item$signature_id, character(1L)))
   positive <- vapply(sets$positive$scores, function(item) item$score, numeric(1L))
   negative <- vapply(sets$negative$scores, function(item) item$score, numeric(1L))
+  associations <- setNames(
+    summary$phenotype_association$associations,
+    vapply(summary$phenotype_association$associations, function(item) item$signature_id, character(1L))
+  )
   assert_true(mean(positive[5:8]) > mean(positive[1:4]), paste(method, "lost the positive response."))
   assert_true(mean(negative[5:8]) < mean(negative[1:4]), paste(method, "lost the negative response."))
   assert_true(
@@ -147,6 +159,11 @@ for (method in c("gsva", "ssgsea")) {
     paste(method, "did not record constant-feature exclusion.")
   )
   assert_true(summary$software$language == "R" && nzchar(summary$software$packages$GSVA), paste(method, "omitted software provenance."))
+  assert_true(
+    associations$positive$effect > 0 && associations$negative$effect < 0 &&
+      associations$positive$adjusted_p_value < 0.05 && associations$negative$adjusted_p_value < 0.05,
+    paste(method, "lost the expected categorical phenotype associations.")
+  )
   assert_true(
     identical(
       readBin(file.path(first, "signature_scores.json"), "raw", file.info(file.path(first, "signature_scores.json"))$size),

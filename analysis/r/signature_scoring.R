@@ -53,6 +53,12 @@ mapping_warnings <- function(report) {
   warnings
 }
 
+cross_platform_warning <- paste(
+  "Raw signature scores must not be compared across RNA-seq, microarray, cohorts, or",
+  "preprocessing pipelines; compare prespecified within-dataset direction, ranking,",
+  "association, or standardized effects."
+)
+
 args <- parse_args(commandArgs(trailingOnly = TRUE))
 required <- c("request", "bundle", "output-dir")
 missing_args <- required[!required %in% names(args)]
@@ -129,7 +135,7 @@ scoring_matrix <- expression_matrix[variable_features, , drop = FALSE]
 gene_sets <- list()
 feature_rows <- list()
 set_details <- list()
-warnings <- mapping_warnings(mapping_report)
+warnings <- c(cross_platform_warning, mapping_warnings(mapping_report))
 row_cursor <- 1L
 
 for (set_index in seq_along(mapping_report$sets)) {
@@ -244,6 +250,125 @@ set_results <- lapply(names(gene_sets), function(signature_id) {
   )
 })
 
+phenotype_association <- NULL
+association_parameters <- parameters$phenotype_association
+if (!is.null(association_parameters) && isTRUE(association_parameters$enabled)) {
+  phenotype_column <- as.character(unlist(association_parameters$phenotype_column, use.names = FALSE))[[1L]]
+  covariates <- as.character(unlist(association_parameters$covariates, use.names = FALSE))
+  block_column <- as.character(unlist(association_parameters$block_column, use.names = FALSE))
+  if (!length(block_column)) block_column <- NULL
+  required_columns <- c(phenotype_column, covariates, block_column)
+  required_columns <- required_columns[!is.na(required_columns) & nzchar(required_columns)]
+  missing_columns <- setdiff(required_columns, names(metadata))
+  if (length(missing_columns)) {
+    abort(paste("Association variables are absent from sample metadata:", paste(missing_columns, collapse = ", ")))
+  }
+  if (any(vapply(metadata[, required_columns, drop = FALSE], function(values) any(!nzchar(as.character(values))), logical(1L)))) {
+    abort("Phenotype association variables contain missing values.")
+  }
+  phenotype_values <- as.character(metadata[[phenotype_column]])
+  phenotype_kind <- association_parameters$phenotype_kind
+  numeric_phenotype <- suppressWarnings(as.numeric(phenotype_values))
+  if (identical(phenotype_kind, "auto")) {
+    phenotype_kind <- if (all(is.finite(numeric_phenotype))) "numeric" else "categorical"
+  }
+  if (identical(phenotype_kind, "numeric") && any(!is.finite(numeric_phenotype))) {
+    abort(paste("Phenotype is not numeric:", phenotype_column))
+  }
+  quote_name <- function(value) paste0("`", gsub("`", "", value, fixed = TRUE), "`")
+  adjustment_terms <- c(covariates, block_column)
+  adjustment_terms <- adjustment_terms[!is.na(adjustment_terms) & nzchar(adjustment_terms)]
+  formula_label <- paste("score ~", paste(c(adjustment_terms, phenotype_column), collapse = " + "))
+  association_results <- lapply(set_results, function(signature_set) {
+    model_data <- metadata[, required_columns, drop = FALSE]
+    for (covariate in covariates) {
+      numeric_values <- suppressWarnings(as.numeric(as.character(model_data[[covariate]])))
+      model_data[[covariate]] <- if (all(is.finite(numeric_values))) numeric_values else factor(model_data[[covariate]])
+    }
+    if (!is.null(block_column) && nzchar(block_column)) {
+      model_data[[block_column]] <- factor(model_data[[block_column]])
+    }
+    if (identical(phenotype_kind, "numeric")) {
+      model_data[[phenotype_column]] <- numeric_phenotype
+    } else {
+      levels <- sort(unique(phenotype_values))
+      if (length(levels) < 2L) abort(paste("Phenotype has fewer than two levels:", phenotype_column))
+      model_data[[phenotype_column]] <- factor(phenotype_values, levels = levels)
+    }
+    model_data$.score <- vapply(signature_set$scores, function(item) item$score, numeric(1L))
+    reduced_rhs <- if (length(adjustment_terms)) paste(vapply(adjustment_terms, quote_name, character(1L)), collapse = " + ") else "1"
+    full_rhs <- paste(c(reduced_rhs, quote_name(phenotype_column)), collapse = " + ")
+    reduced_fit <- lm(as.formula(paste(".score ~", reduced_rhs)), data = model_data)
+    full_fit <- lm(as.formula(paste(".score ~", full_rhs)), data = model_data)
+    if (full_fit$rank < length(coef(full_fit))) {
+      abort("Phenotype association design is rank deficient; remove confounded adjustment terms.")
+    }
+    comparison <- anova(reduced_fit, full_fit)
+    statistic <- as.numeric(comparison$F[[2L]])
+    p_value <- as.numeric(comparison$`Pr(>F)`[[2L]])
+    residual_df <- as.integer(df.residual(full_fit))
+    if (residual_df < 1L) abort("Phenotype association has insufficient residual degrees of freedom.")
+    constant_response <- stats::sd(model_data$.score) <= .Machine$double.eps
+    if ((!is.finite(statistic) || !is.finite(p_value)) && constant_response) {
+      statistic <- 0
+      p_value <- 1
+    } else if (!is.finite(statistic) || !is.finite(p_value)) {
+      abort("Phenotype association produced non-finite model statistics.")
+    }
+    correlation <- NULL
+    effect <- NULL
+    group_summaries <- list()
+    if (identical(phenotype_kind, "numeric")) {
+      coefficient_name <- grep(paste0("^`?", phenotype_column, "`?$"), names(coef(full_fit)), value = TRUE)
+      if (length(coefficient_name) != 1L) abort("Unable to identify the numeric phenotype coefficient.")
+      effect <- unname(as.numeric(coef(full_fit)[[coefficient_name]]))
+      if (!constant_response) correlation <- unname(as.numeric(cor(numeric_phenotype, model_data$.score)))
+      test <- "adjusted_linear_regression"
+    } else {
+      levels <- levels(model_data[[phenotype_column]])
+      group_summaries <- lapply(levels, function(level) {
+        values <- model_data$.score[phenotype_values == level]
+        list(level = level, sample_count = length(values), score_mean = mean(values))
+      })
+      if (length(levels) == 2L) {
+        coefficient_names <- setdiff(names(coef(full_fit)), names(coef(reduced_fit)))
+        effect <- unname(as.numeric(coef(full_fit)[[coefficient_names[[1L]]]]))
+        test <- "adjusted_two_group_comparison"
+      } else {
+        test <- "adjusted_omnibus_group_comparison"
+      }
+    }
+    list(
+      signature_id = signature_set$signature_id,
+      signature_name = signature_set$name,
+      test = test,
+      sample_count = nrow(model_data),
+      effect = effect,
+      statistic = statistic,
+      degrees_of_freedom = residual_df,
+      p_value = p_value,
+      adjusted_p_value = 1,
+      correlation = correlation,
+      group_summaries = group_summaries
+    )
+  })
+  adjusted <- p.adjust(vapply(association_results, function(item) item$p_value, numeric(1L)), method = "BH")
+  for (index in seq_along(association_results)) association_results[[index]]$adjusted_p_value <- adjusted[[index]]
+  example_data <- metadata[, required_columns, drop = FALSE]
+  example_data$.score <- vapply(set_results[[1L]]$scores, function(item) item$score, numeric(1L))
+  example_data[[phenotype_column]] <- if (identical(phenotype_kind, "numeric")) numeric_phenotype else factor(phenotype_values, levels = sort(unique(phenotype_values)))
+  model_columns <- colnames(model.matrix(as.formula(paste(".score ~", paste(c(vapply(adjustment_terms, quote_name, character(1L)), quote_name(phenotype_column)), collapse = " + "))), data = example_data))
+  phenotype_association <- list(
+    phenotype_column = phenotype_column,
+    phenotype_kind = phenotype_kind,
+    covariates = as.list(covariates),
+    block_column = block_column,
+    formula = formula_label,
+    design_matrix_columns = as.list(model_columns),
+    associations = association_results
+  )
+}
+
 formula <- if (identical(request$method, "gsva")) {
   sprintf(
     "Bioconductor GSVA enrichment scores (kcdf=%s, tau=%s, maxDiff=%s, absRanking=%s).",
@@ -267,7 +392,7 @@ software <- list(
   )
 )
 summary <- list(
-  schema_version = "1.0.0",
+  schema_version = "1.1.0",
   analysis_id = request$analysis_id,
   prepared_dataset_id = request$prepared_dataset_id,
   method = request$method,
@@ -289,6 +414,7 @@ summary <- list(
   sample_count = length(sample_ids),
   set_count = length(set_results),
   sets = set_results,
+  phenotype_association = phenotype_association,
   warnings = as.list(unique(warnings)),
   software = software
 )
@@ -305,6 +431,40 @@ score_rows <- do.call(rbind, lapply(set_results, function(signature_set) {
 }))
 write.table(score_rows, file.path(output_dir, "signature_scores.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
 write.table(do.call(rbind, feature_rows), file.path(output_dir, "scored_features.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
+if (!is.null(phenotype_association)) {
+  association_rows <- do.call(rbind, lapply(phenotype_association$associations, function(item) {
+    data.frame(
+      signature_id = item$signature_id,
+      signature_name = item$signature_name,
+      phenotype = phenotype_association$phenotype_column,
+      phenotype_kind = phenotype_association$phenotype_kind,
+      test = item$test,
+      sample_count = item$sample_count,
+      effect = if (is.null(item$effect)) "" else format(item$effect, digits = 17),
+      correlation = if (is.null(item$correlation)) "" else format(item$correlation, digits = 17),
+      statistic = item$statistic,
+      degrees_of_freedom = item$degrees_of_freedom,
+      p_value = item$p_value,
+      adjusted_p_value = item$adjusted_p_value,
+      stringsAsFactors = FALSE
+    )
+  }))
+  write.table(association_rows, file.path(output_dir, "signature_associations.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
+  svg(file.path(output_dir, "signature_associations.svg"), width = 10, height = max(4, 3.5 * length(set_results)), bg = "white")
+  par(mfrow = c(length(set_results), 1L), mar = c(4, 4, 3, 1))
+  for (signature_set in set_results) {
+    values <- vapply(signature_set$scores, function(item) item$score, numeric(1L))
+    if (identical(phenotype_association$phenotype_kind, "numeric")) {
+      plot(numeric_phenotype, values, pch = 16L, col = "#155e75", xlab = phenotype_column, ylab = "Signature score", main = signature_set$name)
+      abline(lm(values ~ numeric_phenotype), col = "#be123c", lwd = 2)
+    } else {
+      groups <- factor(phenotype_values, levels = sort(unique(phenotype_values)))
+      stripchart(values ~ groups, vertical = TRUE, method = "jitter", pch = 16L, col = "#155e75", xlab = phenotype_column, ylab = "Signature score", main = signature_set$name)
+      segments(seq_along(levels(groups)) - 0.18, tapply(values, groups, mean), seq_along(levels(groups)) + 0.18, tapply(values, groups, mean), lwd = 3)
+    }
+  }
+  dev.off()
+}
 
 colors <- c("#155e75", "#7c3aed", "#d97706", "#be123c", "#15803d")
 svg(file.path(output_dir, "signature_scores.svg"), width = 10, height = 6, bg = "white")
@@ -320,6 +480,36 @@ legend(
 )
 dev.off()
 
+manifest_sections <- list(list(
+  id = "signature-scores", title = "Per-sample signature scores",
+  items = list(
+    list(type = "plotly_json", title = "Signature scores", path = "signature_scores.json"),
+    list(type = "image", title = "Static signature scores", path = "signature_scores.svg"),
+    list(type = "table", title = "Per-sample scores", path = "signature_scores.tsv")
+  )
+))
+manifest_downloads <- list(
+  list(type = "table", title = "Per-sample scores", path = "signature_scores.tsv"),
+  list(type = "table", title = "Final scored features", path = "scored_features.tsv"),
+  list(type = "image", title = "Signature scores (SVG)", path = "signature_scores.svg")
+)
+if (!is.null(phenotype_association)) {
+  manifest_sections[[length(manifest_sections) + 1L]] <- list(
+    id = "phenotype-association", title = "Phenotype association",
+    items = list(
+      list(type = "image", title = "Phenotype-aware signature scores", path = "signature_associations.svg"),
+      list(type = "table", title = "Phenotype association statistics", path = "signature_associations.tsv")
+    )
+  )
+  manifest_downloads <- c(manifest_downloads, list(
+    list(type = "table", title = "Phenotype association statistics", path = "signature_associations.tsv"),
+    list(type = "image", title = "Phenotype association (SVG)", path = "signature_associations.svg")
+  ))
+}
+manifest_downloads <- c(manifest_downloads, list(
+  list(type = "html", title = "Signature report", path = "report.html"),
+  list(type = "file", title = "Quarto report source", path = "report.qmd")
+))
 manifest <- list(
   schema_version = "1.0.0",
   analysis_type = "signature",
@@ -332,21 +522,8 @@ manifest <- list(
     list(label = "Mapped identifiers", value = mapping_report$mapped_identifier_count),
     list(label = "Missing identifiers", value = mapping_report$missing_identifier_count)
   ),
-  sections = list(list(
-    id = "signature-scores", title = "Per-sample signature scores",
-    items = list(
-      list(type = "plotly_json", title = "Signature scores", path = "signature_scores.json"),
-      list(type = "image", title = "Static signature scores", path = "signature_scores.svg"),
-      list(type = "table", title = "Per-sample scores", path = "signature_scores.tsv")
-    )
-  )),
-  downloads = list(
-    list(type = "table", title = "Per-sample scores", path = "signature_scores.tsv"),
-    list(type = "table", title = "Final scored features", path = "scored_features.tsv"),
-    list(type = "image", title = "Signature scores (SVG)", path = "signature_scores.svg"),
-    list(type = "html", title = "Signature report", path = "report.html"),
-    list(type = "file", title = "Quarto report source", path = "report.qmd")
-  ),
+  sections = manifest_sections,
+  downloads = manifest_downloads,
   warnings = as.list(unique(warnings))
 )
 write_json(manifest, file.path(output_dir, "result_manifest.json"))
@@ -362,7 +539,8 @@ report <- c(
   paste("- Mapping coverage:", sprintf("%.1f%%", 100 * mapping_report$mapping_coverage)),
   paste("- Formula:", formula), "", "## Scores", "", "![](signature_scores.svg)", "",
   "## Interpretation", "",
-  "Scores are exploratory, cohort- and assay-dependent, and are not clinically validated.",
+  cross_platform_warning,
+  "Scores are exploratory and are not clinically validated.",
   "Mapping coverage and the final scored-feature table must accompany interpretation.", "",
   "## Reproducibility", "", paste("- R:", software$language_version),
   paste("- GSVA:", software$packages$GSVA),

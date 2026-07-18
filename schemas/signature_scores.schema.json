@@ -15,11 +15,12 @@
     "sample_count",
     "set_count",
     "sets",
+    "phenotype_association",
     "warnings",
     "software"
   ],
   "properties": {
-    "schema_version": { "const": "1.0.0" },
+    "schema_version": { "const": "1.1.0" },
     "analysis_id": { "$ref": "#/$defs/nonempty" },
     "prepared_dataset_id": { "$ref": "#/$defs/nonempty" },
     "method": {
@@ -31,6 +32,9 @@
     "sample_count": { "type": "integer", "minimum": 1 },
     "set_count": { "type": "integer", "minimum": 1 },
     "sets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/set" } },
+    "phenotype_association": {
+      "oneOf": [{ "$ref": "#/$defs/phenotype_association" }, { "type": "null" }]
+    },
     "warnings": { "type": "array", "items": { "$ref": "#/$defs/nonempty" } },
     "software": { "$ref": "#/$defs/software" }
   },
@@ -122,6 +126,48 @@
         "score_maximum": { "type": "number" },
         "score_mean": { "type": "number" },
         "scores": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/score" } }
+      }
+    },
+    "group_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "sample_count", "score_mean"],
+      "properties": {
+        "level": { "$ref": "#/$defs/nonempty" },
+        "sample_count": { "type": "integer", "minimum": 1 },
+        "score_mean": { "type": "number" }
+      }
+    },
+    "association": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["signature_id", "signature_name", "test", "sample_count", "effect", "statistic", "degrees_of_freedom", "p_value", "adjusted_p_value", "correlation", "group_summaries"],
+      "properties": {
+        "signature_id": { "$ref": "#/$defs/nonempty" },
+        "signature_name": { "$ref": "#/$defs/nonempty" },
+        "test": { "enum": ["adjusted_linear_regression", "adjusted_two_group_comparison", "adjusted_omnibus_group_comparison"] },
+        "sample_count": { "type": "integer", "minimum": 3 },
+        "effect": { "type": ["number", "null"] },
+        "statistic": { "type": "number" },
+        "degrees_of_freedom": { "type": "integer", "minimum": 1 },
+        "p_value": { "type": "number", "minimum": 0, "maximum": 1 },
+        "adjusted_p_value": { "type": "number", "minimum": 0, "maximum": 1 },
+        "correlation": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+        "group_summaries": { "type": "array", "items": { "$ref": "#/$defs/group_summary" } }
+      }
+    },
+    "phenotype_association": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phenotype_column", "phenotype_kind", "covariates", "block_column", "formula", "design_matrix_columns", "associations"],
+      "properties": {
+        "phenotype_column": { "$ref": "#/$defs/nonempty" },
+        "phenotype_kind": { "enum": ["categorical", "numeric"] },
+        "covariates": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/nonempty" } },
+        "block_column": { "type": ["string", "null"] },
+        "formula": { "$ref": "#/$defs/nonempty" },
+        "design_matrix_columns": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/nonempty" } },
+        "associations": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/association" } }
       }
     }
   }

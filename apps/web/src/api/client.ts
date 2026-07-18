@@ -59,7 +59,7 @@ export type DatasetFileRole =
   | 'platform_manifest'
 
 export interface RawRNASeqIngestion {
-  schema_version: '1.1.0'
+  schema_version: '1.0.0' | '1.1.0'
   dataset_id: string
   organism: 'Homo sapiens'
   genome_build: string
@@ -370,6 +370,13 @@ export interface SignatureScoringParameters {
   gsva_abs_ranking: boolean
   ssgsea_alpha: number
   ssgsea_normalize: boolean
+  phenotype_association?: {
+    enabled: boolean
+    phenotype_column: string | null
+    phenotype_kind: 'auto' | 'categorical' | 'numeric'
+    covariates: string[]
+    block_column: string | null
+  }
 }
 
 export interface SignatureScoringConfiguration {
@@ -670,7 +677,7 @@ export interface SignatureMappingRecord {
 }
 
 export interface SignatureScores {
-  schema_version: '1.0.0'
+  schema_version: '1.1.0'
   analysis_id: string
   prepared_dataset_id: string
   method: SignatureScoringMethod
@@ -708,6 +715,31 @@ export interface SignatureScores {
       metadata: Record<string, string>
     }>
   }>
+  phenotype_association?: null | {
+    phenotype_column: string
+    phenotype_kind: 'categorical' | 'numeric'
+    covariates: string[]
+    block_column: string | null
+    formula: string
+    design_matrix_columns: string[]
+    associations: Array<{
+      signature_id: string
+      signature_name: string
+      test: 'adjusted_linear_regression' | 'adjusted_two_group_comparison' | 'adjusted_omnibus_group_comparison'
+      sample_count: number
+      effect: number | null
+      statistic: number
+      degrees_of_freedom: number
+      p_value: number
+      adjusted_p_value: number
+      correlation: number | null
+      group_summaries: Array<{
+        level: string
+        sample_count: number
+        score_mean: number
+      }>
+    }>
+  }
   warnings: string[]
   software: {
     language: string

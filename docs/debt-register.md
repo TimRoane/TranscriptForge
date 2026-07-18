@@ -208,15 +208,23 @@ judgment from the repository owner before they can be closed safely.
 - Type: Scientific content and product
 - Status: Open
 - Manual decision: Approve minimum mapping coverage, treatment of zero-variance genes, weight
-  normalization, score comparability claims, and the language shown when RNA-seq and microarray
-  values produce scores on different scales.
+  normalization, score comparability claims, the language shown when RNA-seq and microarray values
+  produce scores on different scales, and when repeated-measures association should graduate from
+  categorical subject fixed effects to a prespecified mixed-effects model.
 - Current state: Mapping evidence is immutable and visible, including retained weights, missing
   identifiers, ambiguities, duplicates, and exact source checksums. Mean expression, mean z-score,
   weighted linear, rank-based, GSVA, and ssGSEA methods are deterministic with explicit formulas,
   frozen parameters, runtime/package provenance, and final-feature downloads. GSVA/ssGSEA ignore
   weights with an explicit warning and reject post-constant-filter sets outside configured bounds.
-  Minimum coverage, default-method selection, and cross-cohort/platform interpretation policy still
-  require owner approval; no clinical or raw score-scale equivalence claim is made.
+  Saved-score association now supports adjusted categorical/numeric linear models, multi-level
+  omnibus tests, raw Pearson correlation, BH correction, and categorical subject/block fixed
+  effects with rank and residual-degree-of-freedom guardrails. It does not fit random effects or
+  claim causal/clinical interpretation. A deterministic cross-modality fixture now applies one
+  checksum-identical weighted signature to independently built RNA-seq log2-CPM and microarray
+  RMA-like bundles. Both recover the prespecified direction and rank discrimination while producing
+  intentionally different raw score ranges; the contract and product explicitly prohibit raw-scale
+  equivalence claims. Minimum coverage, default-method selection, association model policy, and
+  thresholds on independent public cohorts still require owner approval.
 - Exit criteria: Prespecify method-specific failure/warning thresholds; validate on synthetic and
   independent public cohorts; document within-cohort versus cross-cohort interpretation; approve
   report language and default method selection.

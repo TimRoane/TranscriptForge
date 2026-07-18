@@ -90,7 +90,20 @@
         "gsva_max_diff": { "type": "boolean" },
         "gsva_abs_ranking": { "type": "boolean" },
         "ssgsea_alpha": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
-        "ssgsea_normalize": { "type": "boolean" }
+        "ssgsea_normalize": { "type": "boolean" },
+        "phenotype_association": { "$ref": "#/$defs/phenotype_association" }
+      }
+    },
+    "phenotype_association": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "phenotype_column", "phenotype_kind", "covariates", "block_column"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "phenotype_column": { "oneOf": [{ "$ref": "#/$defs/variable_name" }, { "type": "null" }] },
+        "phenotype_kind": { "enum": ["auto", "categorical", "numeric"] },
+        "covariates": { "type": "array", "uniqueItems": true, "maxItems": 20, "items": { "$ref": "#/$defs/variable_name" } },
+        "block_column": { "oneOf": [{ "$ref": "#/$defs/variable_name" }, { "type": "null" }] }
       }
     },
     "signature_mapping": {

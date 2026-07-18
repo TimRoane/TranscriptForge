@@ -248,6 +248,20 @@ def _artifact_specs(run_root: Path) -> list[ArtifactSpec]:
             4,
         ),
         ArtifactSpec(
+            "signature_associations_table",
+            "Signature phenotype associations",
+            analysis / "signature_associations.tsv",
+            "text/tab-separated-values",
+            5,
+        ),
+        ArtifactSpec(
+            "signature_associations_svg",
+            "Signature phenotype associations (SVG)",
+            analysis / "signature_associations.svg",
+            "image/svg+xml",
+            6,
+        ),
+        ArtifactSpec(
             "result_manifest",
             "Result manifest",
             analysis / "result_manifest.json",
