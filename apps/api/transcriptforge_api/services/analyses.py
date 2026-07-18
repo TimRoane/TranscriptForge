@@ -20,12 +20,17 @@ from transcriptforge_api.models.base import new_id
 from transcriptforge_api.models.enums import AnalysisType, RunState, RunType
 from transcriptforge_api.schemas.analyses import (
     AnalysisCreate,
+    DeconvolutionParameters,
     DifferentialExpressionParameters,
     DifferentialExpressionPreviewRequest,
     DimensionReductionParameters,
     MetadataVariableRead,
     PhenotypeAssociationParameters,
     SignatureScoringParameters,
+)
+from transcriptforge_api.services.deconvolution import (
+    method_registry,
+    validate_saved_configuration,
 )
 from transcriptforge_api.services.design_validation import design_options, validate_design
 from transcriptforge_api.services.runs import ACTIVE_STATES
@@ -69,10 +74,33 @@ async def create_analysis(
             raise AnalysisInputError(
                 f"{request.method} signature scoring requires at least two samples."
             )
+    elif request.analysis_type == AnalysisType.DECONVOLUTION and not isinstance(
+        request.parameters, DeconvolutionParameters
+    ):
+        raise AnalysisInputError("Deconvolution parameters are invalid.")
     dataset = await session.get(Dataset, prepared.dataset_id)
     if dataset is None:
         raise AnalysisInputError("The source dataset no longer exists.")
     configuration = request.model_dump(mode="json", exclude={"name", "description"})
+    if request.analysis_type == AnalysisType.DECONVOLUTION:
+        assert isinstance(request.parameters, DeconvolutionParameters)
+        registry, method_spec, assay_descriptor, reference_profile = validate_saved_configuration(
+            prepared,
+            storage,
+            method_id=str(request.method),
+            assay_name=request.assay,
+            reference_profile=request.parameters.reference_profile,
+            minimum_gene_overlap=request.parameters.minimum_gene_overlap,
+        )
+        parameters = dict(configuration["parameters"])
+        parameters["reference_profile"] = reference_profile
+        configuration["parameters"] = parameters
+        configuration["method_registry_version"] = registry.registry_version
+        configuration["method_registry_sha256"] = registry.registry_sha256
+        configuration["method_spec"] = method_spec.model_dump(mode="json")
+        configuration["input_assay_descriptor"] = assay_descriptor
+        configuration["result_type"] = method_spec.result_type
+        configuration["execution_available"] = method_spec.implementation_status == "available"
     if request.analysis_type == AnalysisType.SIGNATURE:
         assert isinstance(request.parameters, SignatureScoringParameters)
         mapping = await session.get(SignatureMapping, request.parameters.signature_mapping_id)
@@ -219,6 +247,16 @@ async def create_analysis_run(
     *,
     profile: str,
 ) -> Run:
+    if analysis.analysis_type == AnalysisType.DECONVOLUTION.value:
+        registry = method_registry()
+        method_id = str(analysis.configuration_json.get("method", ""))
+        method = next((item for item in registry.methods if item.id == method_id), None)
+        if method is None or method.implementation_status != "available":
+            raise AnalysisInputError(
+                "This deconvolution design is saved, but its scientific runner is not available "
+                "yet. Phase 8 execution will be enabled after the pinned method container and "
+                "reference acceptance pass."
+            )
     active = await session.scalar(
         select(Run.id).where(
             Run.analysis_id == analysis.id,
@@ -275,6 +313,11 @@ async def create_analysis_run(
             "report_sha256": mapping.report_sha256,
             "report": mapping.report_json,
         }
+    if analysis.analysis_type == AnalysisType.DECONVOLUTION.value:
+        frozen["deconvolution_method"] = configuration["method_spec"]
+        frozen["method_registry_version"] = configuration["method_registry_version"]
+        frozen["method_registry_sha256"] = configuration["method_registry_sha256"]
+        frozen["input_assay_descriptor"] = configuration["input_assay_descriptor"]
     if analysis.analysis_type == AnalysisType.DIFFERENTIAL_EXPRESSION.value:
         frozen.update(
             design_formula=configuration["design_formula"],

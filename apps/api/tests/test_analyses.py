@@ -54,7 +54,7 @@ async def _prepared_dataset(
                 preparation_run_id=preparation_run_id,
                 bundle_uri=stored.uri,
                 bundle_manifest_uri="test://manifest",
-                value_types_available=["raw_counts", "log_expression"],
+                value_types_available=["raw_counts", "log_expression", "tpm"],
                 sample_count=4,
                 feature_count=5,
                 qc_status="PASS",
@@ -87,11 +87,48 @@ def _bundle_payload() -> BytesIO:
         b"sample_C\tcontrol\tcontrol\tbatch_2\tdonor_2\t44\n"
         b"sample_D\ttreated\ttreated\tbatch_2\tdonor_2\t44\n"
     )
-    manifest = json.dumps({"sample_metadata": "metadata/sample_metadata.tsv"}).encode()
+    manifest = json.dumps(
+        {
+            "organism": "Homo sapiens",
+            "sample_metadata": "metadata/sample_metadata.tsv",
+            "feature_metadata": "metadata/features.tsv",
+            "assays": [
+                {
+                    "name": "raw_counts",
+                    "path": "assays/raw_counts.tsv.gz",
+                    "value_type": "nonnegative_integer",
+                    "scale": "linear",
+                    "feature_level": "gene",
+                    "recommended_for": ["differential_expression"],
+                    "sha256": "a" * 64,
+                },
+                {
+                    "name": "log_expression",
+                    "path": "assays/log_expression.tsv.gz",
+                    "value_type": "continuous",
+                    "scale": "log2",
+                    "feature_level": "gene",
+                    "recommended_for": ["signature_analysis", "deconvolution"],
+                    "sha256": "b" * 64,
+                },
+                {
+                    "name": "tpm",
+                    "path": "assays/tpm.tsv.gz",
+                    "value_type": "nonnegative_continuous",
+                    "scale": "linear",
+                    "feature_level": "gene",
+                    "recommended_for": ["deconvolution"],
+                    "sha256": "c" * 64,
+                },
+            ],
+        }
+    ).encode()
+    features = b"feature_id\tgene_symbol\nENSG00000141510\tTP53\nENSG00000146648\tEGFR\n"
     with tarfile.open(fileobj=payload, mode="w:gz") as archive:
         for name, content in (
             ("expression_bundle/bundle_manifest.json", manifest),
             ("expression_bundle/metadata/sample_metadata.tsv", metadata),
+            ("expression_bundle/metadata/features.tsv", features),
         ):
             member = tarfile.TarInfo(name)
             member.size = len(content)
@@ -99,6 +136,103 @@ def _bundle_payload() -> BytesIO:
             archive.addfile(member, BytesIO(content))
     payload.seek(0)
     return payload
+
+
+async def test_deconvolution_registry_capabilities_and_saved_design(
+    client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    storage: LocalStorage,
+    dispatched_analysis_ids: list[str],
+) -> None:
+    prepared_id = await _prepared_dataset(session_factory, storage)
+
+    registry_response = await client.get("/api/deconvolution/methods")
+    assert registry_response.status_code == 200
+    registry = registry_response.json()
+    methods = {item["id"]: item for item in registry["methods"]}
+    assert set(methods) == {
+        "epic",
+        "quantiseq",
+        "mcp_counter",
+        "xcell",
+        "cibersortx_external",
+    }
+    assert methods["epic"]["result_type"] == "cell_fraction"
+    assert methods["quantiseq"]["composition_constraint"] == "sum_to_one_with_other"
+    assert methods["mcp_counter"]["result_type"] == "enrichment_score"
+    assert methods["xcell"]["within_sample_cell_type_comparison"] is False
+    assert methods["cibersortx_external"]["execution_mode"] == "external_import"
+
+    capability_response = await client.get(
+        f"/api/prepared-datasets/{prepared_id}/deconvolution/methods"
+    )
+    assert capability_response.status_code == 200, capability_response.text
+    capabilities = {item["method"]["id"]: item for item in capability_response.json()["methods"]}
+    assert capabilities["epic"]["compatible_assays"] == ["tpm"]
+    assert capabilities["epic"]["configuration_available"] is True
+    assert capabilities["epic"]["execution_available"] is False
+    assert capabilities["mcp_counter"]["compatible_assays"] == ["log_expression"]
+    assert capabilities["cibersortx_external"]["configuration_available"] is False
+
+    created = await client.post(
+        f"/api/prepared-datasets/{prepared_id}/analyses",
+        json={
+            "analysis_type": "deconvolution",
+            "method": "epic",
+            "assay": "tpm",
+            "parameters": {"minimum_gene_overlap": 0.7},
+        },
+    )
+    assert created.status_code == 201, created.text
+    configuration = created.json()["configuration_json"]
+    assert configuration["parameters"] == {
+        "reference_profile": "TRef",
+        "minimum_gene_overlap": 0.7,
+    }
+    assert configuration["method_registry_sha256"] == registry["registry_sha256"]
+    assert configuration["method_spec"]["result_type"] == "cell_fraction"
+    assert configuration["input_assay_descriptor"]["scale"] == "linear"
+    assert configuration["execution_available"] is False
+
+    launch = await client.post(f"/api/analyses/{created.json()['id']}/run")
+    assert launch.status_code == 409
+    assert "scientific runner is not available" in launch.json()["detail"]
+    assert dispatched_analysis_ids == []
+
+    wrong_assay = await client.post(
+        f"/api/prepared-datasets/{prepared_id}/analyses",
+        json={
+            "analysis_type": "deconvolution",
+            "method": "epic",
+            "assay": "log_expression",
+        },
+    )
+    assert wrong_assay.status_code == 409
+    assert "cannot use assay 'log_expression'" in wrong_assay.json()["detail"]
+
+    weak_overlap = await client.post(
+        f"/api/prepared-datasets/{prepared_id}/analyses",
+        json={
+            "analysis_type": "deconvolution",
+            "method": "quantiseq",
+            "assay": "tpm",
+            "parameters": {"minimum_gene_overlap": 0.4},
+        },
+    )
+    assert weak_overlap.status_code == 409
+    assert "at least 50%" in weak_overlap.json()["detail"]
+
+    wrong_reference = await client.post(
+        f"/api/prepared-datasets/{prepared_id}/analyses",
+        json={
+            "analysis_type": "deconvolution",
+            "method": "quantiseq",
+            "assay": "tpm",
+            "parameters": {"reference_profile": "TRef"},
+        },
+    )
+    assert wrong_reference.status_code == 409
+    assert "Choose one of: TIL10" in wrong_reference.json()["detail"]
 
 
 async def test_create_launch_list_and_clone_pca_analysis(
@@ -350,11 +484,7 @@ async def test_differential_expression_design_options_and_validated_save(
             b"gene_2\tXYZ2\t20\t-0.2\t0.3\t-0.67\t0.5\t0.8\t"
             b"treated versus control\tDESeq2\tFALSE\n"
         )
-        expression_payload = (
-            b"feature_id\tsample_A\tsample_B\n"
-            b"gene_1\t5.1\t7.2\n"
-            b"gene_2\t4.2\t4.0\n"
-        )
+        expression_payload = b"feature_id\tsample_A\tsample_B\ngene_1\t5.1\t7.2\ngene_2\t4.2\t4.0\n"
         for display_order, (artifact_type, payload) in enumerate(
             (
                 ("differential_expression_results", table_payload),
@@ -409,9 +539,7 @@ async def test_differential_expression_design_options_and_validated_save(
     assert "gene_1" in filtered_download.text
     assert "gene_2" not in filtered_download.text
 
-    detail = await client.get(
-        f"/api/runs/{run.id}/differential-expression/features/gene_1"
-    )
+    detail = await client.get(f"/api/runs/{run.id}/differential-expression/features/gene_1")
     assert detail.status_code == 200
     assert detail.json()["result"]["gene_symbol"] == "ABC1"
     assert [item["level"] for item in detail.json()["expression_profile"]["group_summaries"]] == [

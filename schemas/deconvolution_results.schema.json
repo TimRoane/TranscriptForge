@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.local/schemas/deconvolution_results.schema.json",
+  "title": "TranscriptForge Deconvolution Results",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "analysis_id", "prepared_dataset_id", "method", "method_registry_version", "method_registry_sha256", "result_type", "quantity_label", "unit", "composition_constraint", "input_validation", "reference", "cell_types", "sample_ids", "estimates", "warnings", "software", "provenance"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "analysis_id": {"$ref": "#/$defs/nonempty"},
+    "prepared_dataset_id": {"$ref": "#/$defs/nonempty"},
+    "method": {"enum": ["epic", "quantiseq", "mcp_counter", "xcell", "cibersortx_external"]},
+    "method_registry_version": {"type": "string", "pattern": "^[0-9]{4}\\.[0-9]{2}\\.[0-9]+$"},
+    "method_registry_sha256": {"$ref": "#/$defs/sha256"},
+    "result_type": {"enum": ["cell_fraction", "enrichment_score"]},
+    "quantity_label": {"$ref": "#/$defs/nonempty"},
+    "unit": {"enum": ["fraction", "arbitrary_score"]},
+    "composition_constraint": {"enum": ["bounded_sum", "sum_to_one_with_other", "not_compositional", "declared_by_import"]},
+    "input_validation": {"$ref": "#/$defs/input_validation"},
+    "reference": {"$ref": "#/$defs/reference"},
+    "cell_types": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/cell_type"}},
+    "sample_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/nonempty"}},
+    "estimates": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/estimate"}},
+    "composition_summaries": {"type": "array", "items": {"$ref": "#/$defs/composition"}},
+    "warnings": {"type": "array", "items": {"$ref": "#/$defs/nonempty"}},
+    "software": {"type": "object", "minProperties": 1},
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expression_bundle_sha256", "analysis_request_sha256", "reference_sha256"],
+      "properties": {
+        "expression_bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "analysis_request_sha256": {"$ref": "#/$defs/sha256"},
+        "reference_sha256": {"$ref": "#/$defs/sha256"},
+        "external_source_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"result_type": {"const": "cell_fraction"}}, "required": ["result_type"]},
+      "then": {
+        "required": ["composition_summaries"],
+        "properties": {"unit": {"const": "fraction"}}
+      }
+    },
+    {
+      "if": {"properties": {"result_type": {"const": "enrichment_score"}}, "required": ["result_type"]},
+      "then": {
+        "properties": {
+          "unit": {"const": "arbitrary_score"},
+          "composition_constraint": {"const": "not_compositional"},
+          "composition_summaries": {"maxItems": 0}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "nonempty": {"type": "string", "minLength": 1},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "input_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assay", "scale", "value_type", "feature_level", "identifier_namespace", "input_feature_count", "reference_gene_count", "overlap_gene_count", "overlap_fraction", "minimum_overlap_fraction", "passed"],
+      "properties": {
+        "assay": {"$ref": "#/$defs/nonempty"},
+        "scale": {"enum": ["linear", "log2", "variance_stabilized"]},
+        "value_type": {"enum": ["nonnegative_continuous", "continuous"]},
+        "feature_level": {"const": "gene"},
+        "identifier_namespace": {"const": "gene_symbol"},
+        "input_feature_count": {"type": "integer", "minimum": 1},
+        "reference_gene_count": {"type": "integer", "minimum": 1},
+        "overlap_gene_count": {"type": "integer", "minimum": 0},
+        "overlap_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "minimum_overlap_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "passed": {"type": "boolean"}
+      }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "sha256", "cell_type_count"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonempty"},
+        "version": {"$ref": "#/$defs/nonempty"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "cell_type_count": {"type": "integer", "minimum": 1}
+      }
+    },
+    "cell_type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonempty"},
+        "label": {"$ref": "#/$defs/nonempty"},
+        "category": {"$ref": "#/$defs/nonempty"}
+      }
+    },
+    "estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sample_id", "cell_type_id", "value"],
+      "properties": {
+        "sample_id": {"$ref": "#/$defs/nonempty"},
+        "cell_type_id": {"$ref": "#/$defs/nonempty"},
+        "value": {"type": "number", "minimum": 0}
+      }
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sample_id", "reported_sum", "residual_fraction", "within_tolerance"],
+      "properties": {
+        "sample_id": {"$ref": "#/$defs/nonempty"},
+        "reported_sum": {"type": "number", "minimum": 0},
+        "residual_fraction": {"type": "number", "minimum": 0},
+        "within_tolerance": {"type": "boolean"}
+      }
+    }
+  }
+}

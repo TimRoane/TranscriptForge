@@ -109,6 +109,22 @@ default. The fixed preference order recommends mean z-score for within-cohort wo
 cohorts, platforms, or preprocessing. Because the marker publication includes the benchmark cohort,
 this evidence is explicitly technical rather than independent biological validation.
 
+Cell-type deconvolution is governed by a checksum-versioned method registry before any scientific
+runner is selected. Each entry declares native versus external execution, fraction versus enrichment
+output, units, composition constraints, valid within-/between-sample comparisons, organism, gene
+identifier namespace, assay name/scale/value type, minimum reference overlap, and reference choices.
+The API evaluates those declarations against the assay and feature-metadata records inside the
+immutable Expression Bundle; a prepared-dataset capability response never infers suitability from an
+assay name alone. Saved designs freeze the complete method entry, registry checksum, exact assay
+descriptor, reference choice, and overlap threshold. Contract-ready methods remain unlaunchable
+until their pinned runtime, checksum-frozen reference, overlap report, and acceptance fixture pass.
+
+The result contract preserves this distinction downstream: EPIC and quanTIseq emit cell fractions
+with per-sample composition summaries, while MCP-counter and xCell emit non-compositional enrichment
+scores in arbitrary units. The UI must never show enrichment scores as percentages or renormalize
+them to sum to one. CIBERSORTx is registered only as a future external relative-fraction import; it
+will not become an automatic local or cloud dependency.
+
 ## Service boundaries
 
 - `apps/api`: HTTP API, persistence, storage abstraction, queueing, and run orchestration.

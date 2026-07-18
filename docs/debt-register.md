@@ -233,6 +233,26 @@ judgment from the repository owner before they can be closed safely.
   prospectively selected independent cohort and approve a mixed-effects policy if fixed subject
   effects become inadequate.
 
+### TD-015 — Cell-deconvolution references and validation policy
+
+- Type: Scientific content, licensing, and product
+- Status: Open
+- Manual decision: Approve the redistributable reference/profile source and pinned package version
+  for EPIC and quanTIseq, then select independent mixture and real-tissue validation cohorts. Confirm
+  whether the provisional 50% reference-gene overlap floor should be method-specific after empirical
+  calibration.
+- Current state: A checksum-versioned registry distinguishes EPIC/quanTIseq cell fractions from
+  MCP-counter/xCell enrichment scores and keeps CIBERSORTx external-import-only. Saved designs freeze
+  the method record, exact assay descriptor, reference choice, and overlap threshold. Input checks
+  enforce human gene-level data, explicit gene symbols, and method-specific assay scale/value types.
+  A result schema requires overlap evidence and reference/request/bundle checksums, and it prevents
+  enrichment scores from carrying fraction units or composition summaries. No method runner or
+  reference matrix is installed yet, so execution remains visibly blocked.
+- Exit criteria: Review reference redistribution terms; pin packages, containers, reference files,
+  and checksums; publish overlap/constant-gene/negative-value handling; validate synthetic mixtures
+  with known proportions and at least one independent public cohort; approve method-specific overlap
+  thresholds and expected fraction-sum tolerances before enabling execution.
+
 ## Closed items
 
 Move resolved items here with the closing date, pull request/commit, and evidence. Do not delete debt

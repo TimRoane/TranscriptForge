@@ -15,12 +15,15 @@ from transcriptforge_api.models.enums import RunState
 from transcriptforge_api.schemas.analyses import (
     AnalysisCreate,
     AnalysisRead,
+    DeconvolutionCapabilitiesRead,
+    DeconvolutionRegistryRead,
     DesignOptionsRead,
     DesignValidationRead,
     DifferentialExpressionPreviewRequest,
 )
 from transcriptforge_api.schemas.runs import RunRead
 from transcriptforge_api.services import analyses as analysis_service
+from transcriptforge_api.services import deconvolution as deconvolution_service
 from transcriptforge_api.services import runs as run_service
 from transcriptforge_api.services.design_validation import design_options, validate_design
 from transcriptforge_api.storage import get_storage_backend
@@ -62,6 +65,27 @@ async def create_analysis(
     try:
         return await analysis_service.create_analysis(session, storage, prepared, request)
     except (analysis_service.AnalysisInputError, ValueError) as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+
+
+@router.get("/deconvolution/methods", response_model=DeconvolutionRegistryRead)
+async def get_deconvolution_methods() -> DeconvolutionRegistryRead:
+    return deconvolution_service.method_registry()
+
+
+@router.get(
+    "/prepared-datasets/{prepared_id}/deconvolution/methods",
+    response_model=DeconvolutionCapabilitiesRead,
+)
+async def get_prepared_deconvolution_methods(
+    prepared_id: str, session: Session, storage: Storage
+) -> DeconvolutionCapabilitiesRead:
+    prepared = await require_prepared(session, prepared_id)
+    try:
+        return await run_in_threadpool(
+            deconvolution_service.prepared_method_capabilities, prepared, storage
+        )
+    except (KeyError, ValueError, tarfile.TarError) as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
 
 

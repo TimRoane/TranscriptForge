@@ -22,6 +22,10 @@
     "contrast_label": { "type": "string", "minLength": 1 },
     "design_validation": { "type": "object" },
     "signature_mapping": { "type": "object" },
+    "method_registry_version": { "type": "string", "pattern": "^[0-9]{4}\\.[0-9]{2}\\.[0-9]+$" },
+    "method_registry_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "deconvolution_method": { "type": "object" },
+    "input_assay_descriptor": { "type": "object" },
     "expression_bundle": {
       "type": "object",
       "additionalProperties": false,
@@ -64,9 +68,71 @@
           "signature_mapping": { "$ref": "#/$defs/signature_mapping" }
         }
       }
+    },
+    {
+      "if": { "properties": { "analysis_type": { "const": "deconvolution" } }, "required": ["analysis_type"] },
+      "then": {
+        "required": ["method_registry_version", "method_registry_sha256", "deconvolution_method", "input_assay_descriptor"],
+        "properties": {
+          "method": { "enum": ["epic", "quantiseq", "mcp_counter", "xcell"] },
+          "parameters": { "$ref": "#/$defs/deconvolution_parameters" },
+          "deconvolution_method": { "$ref": "#/$defs/deconvolution_method" },
+          "input_assay_descriptor": { "$ref": "#/$defs/deconvolution_assay" }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "method": { "enum": ["epic", "quantiseq"] } }, "required": ["method"] },
+            "then": { "properties": { "assay": { "const": "tpm" } } }
+          },
+          {
+            "if": { "properties": { "method": { "enum": ["mcp_counter", "xcell"] } }, "required": ["method"] },
+            "then": { "properties": { "assay": { "const": "log_expression" } } }
+          }
+        ]
+      }
     }
   ],
   "$defs": {
+    "deconvolution_parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference_profile", "minimum_gene_overlap"],
+      "properties": {
+        "reference_profile": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "minimum_gene_overlap": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "deconvolution_assay": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name", "scale", "value_type", "feature_level", "sha256"],
+      "properties": {
+        "name": { "enum": ["tpm", "log_expression"] },
+        "scale": { "enum": ["linear", "log2", "variance_stabilized"] },
+        "value_type": { "enum": ["nonnegative_continuous", "continuous"] },
+        "feature_level": { "const": "gene" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "deconvolution_method": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "display_name", "execution_mode", "implementation_status", "result_type", "quantity_label", "unit", "composition_constraint", "input", "references", "default_reference", "interpretation"],
+      "properties": {
+        "id": { "enum": ["epic", "quantiseq", "mcp_counter", "xcell"] },
+        "display_name": { "type": "string", "minLength": 1 },
+        "execution_mode": { "const": "native" },
+        "implementation_status": { "enum": ["runner_pending", "planned", "available"] },
+        "result_type": { "enum": ["cell_fraction", "enrichment_score"] },
+        "quantity_label": { "type": "string", "minLength": 1 },
+        "unit": { "enum": ["fraction", "arbitrary_score"] },
+        "composition_constraint": { "enum": ["bounded_sum", "sum_to_one_with_other", "not_compositional"] },
+        "input": { "type": "object" },
+        "references": { "type": "array" },
+        "default_reference": { "type": "string", "minLength": 1 },
+        "interpretation": { "type": "string", "minLength": 1 }
+      }
+    },
     "signature_parameters": {
       "type": "object",
       "additionalProperties": false,

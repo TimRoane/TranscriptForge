@@ -1,0 +1,159 @@
+{
+  "schema_version": "1.0.0",
+  "registry_version": "2026.07.0",
+  "methods": [
+    {
+      "id": "epic",
+      "display_name": "EPIC",
+      "execution_mode": "native",
+      "implementation_status": "runner_pending",
+      "result_type": "cell_fraction",
+      "quantity_label": "Estimated cell fraction",
+      "unit": "fraction",
+      "composition_constraint": "bounded_sum",
+      "within_sample_cell_type_comparison": true,
+      "between_sample_comparison": true,
+      "input": {
+        "organism": "Homo sapiens",
+        "feature_level": "gene",
+        "identifier_namespace": "gene_symbol",
+        "assay_options": [
+          {
+            "name": "tpm",
+            "scales": ["linear"],
+            "value_types": ["nonnegative_continuous"]
+          }
+        ],
+        "minimum_reference_overlap": 0.5,
+        "negative_values_permitted": false
+      },
+      "references": [
+        {"id": "TRef", "label": "Tumor-infiltrating cell reference"},
+        {"id": "BRef", "label": "Blood circulating-cell reference"}
+      ],
+      "default_reference": "TRef",
+      "interpretation": "Fractions are method- and reference-specific estimates. A residual uncharacterized compartment may keep the reported cell-type sum below one.",
+      "source_url": "https://epic.unil.ch/"
+    },
+    {
+      "id": "quantiseq",
+      "display_name": "quanTIseq",
+      "execution_mode": "native",
+      "implementation_status": "runner_pending",
+      "result_type": "cell_fraction",
+      "quantity_label": "Estimated immune-cell fraction",
+      "unit": "fraction",
+      "composition_constraint": "sum_to_one_with_other",
+      "within_sample_cell_type_comparison": true,
+      "between_sample_comparison": true,
+      "input": {
+        "organism": "Homo sapiens",
+        "feature_level": "gene",
+        "identifier_namespace": "gene_symbol",
+        "assay_options": [
+          {
+            "name": "tpm",
+            "scales": ["linear"],
+            "value_types": ["nonnegative_continuous"]
+          }
+        ],
+        "minimum_reference_overlap": 0.5,
+        "negative_values_permitted": false
+      },
+      "references": [
+        {"id": "TIL10", "label": "quanTIseq TIL10 immune reference"}
+      ],
+      "default_reference": "TIL10",
+      "interpretation": "Outputs are immune-cell fractions plus an uncharacterized Other fraction; they are not enrichment scores.",
+      "source_url": "https://icbi.i-med.ac.at/quantiseq/"
+    },
+    {
+      "id": "mcp_counter",
+      "display_name": "MCP-counter",
+      "execution_mode": "native",
+      "implementation_status": "planned",
+      "result_type": "enrichment_score",
+      "quantity_label": "Cell-population abundance score",
+      "unit": "arbitrary_score",
+      "composition_constraint": "not_compositional",
+      "within_sample_cell_type_comparison": false,
+      "between_sample_comparison": true,
+      "input": {
+        "organism": "Homo sapiens",
+        "feature_level": "gene",
+        "identifier_namespace": "gene_symbol",
+        "assay_options": [
+          {
+            "name": "log_expression",
+            "scales": ["log2", "variance_stabilized"],
+            "value_types": ["continuous"]
+          }
+        ],
+        "minimum_reference_overlap": 0.5,
+        "negative_values_permitted": true
+      },
+      "references": [
+        {"id": "MCPcounter_v1", "label": "MCP-counter transcriptomic markers"}
+      ],
+      "default_reference": "MCPcounter_v1",
+      "interpretation": "Scores use arbitrary units and compare a given population between samples; they are not fractions and should not be compared across cell types within a sample.",
+      "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5073889/"
+    },
+    {
+      "id": "xcell",
+      "display_name": "xCell",
+      "execution_mode": "native",
+      "implementation_status": "planned",
+      "result_type": "enrichment_score",
+      "quantity_label": "Cell-type enrichment score",
+      "unit": "arbitrary_score",
+      "composition_constraint": "not_compositional",
+      "within_sample_cell_type_comparison": false,
+      "between_sample_comparison": true,
+      "input": {
+        "organism": "Homo sapiens",
+        "feature_level": "gene",
+        "identifier_namespace": "gene_symbol",
+        "assay_options": [
+          {
+            "name": "log_expression",
+            "scales": ["log2", "variance_stabilized"],
+            "value_types": ["continuous"]
+          }
+        ],
+        "minimum_reference_overlap": 0.5,
+        "negative_values_permitted": true
+      },
+      "references": [
+        {"id": "xCell_v1", "label": "xCell 64-cell-type signatures"}
+      ],
+      "default_reference": "xCell_v1",
+      "interpretation": "xCell values are enrichment scores, not percentages. Compare a cell type across samples and do not normalize scores to sum to one.",
+      "source_url": "https://github.com/dviraran/xCell"
+    },
+    {
+      "id": "cibersortx_external",
+      "display_name": "CIBERSORTx result import",
+      "execution_mode": "external_import",
+      "implementation_status": "external_import_pending",
+      "result_type": "cell_fraction",
+      "quantity_label": "Externally estimated relative fraction",
+      "unit": "fraction",
+      "composition_constraint": "declared_by_import",
+      "within_sample_cell_type_comparison": true,
+      "between_sample_comparison": true,
+      "input": {
+        "organism": "Homo sapiens",
+        "feature_level": "gene",
+        "identifier_namespace": "gene_symbol",
+        "assay_options": [],
+        "minimum_reference_overlap": 0.0,
+        "negative_values_permitted": false
+      },
+      "references": [],
+      "default_reference": null,
+      "interpretation": "TranscriptForge does not execute CIBERSORTx. A future adapter will import relative-fraction exports only when mode, signature matrix, source file checksum, and external runtime provenance are supplied.",
+      "source_url": "https://cibersortx.stanford.edu/"
+    }
+  ]
+}

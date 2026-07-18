@@ -38,6 +38,7 @@ import {
   type DimensionReductionMethod,
 } from '../api/client'
 import { ErrorState, LoadingState } from '../components/ApiState'
+import { DeconvolutionSetupPanel } from '../components/DeconvolutionSetupPanel'
 import { SignatureMappingPanel } from '../components/SignatureMappingPanel'
 
 const PRIMARY_VARIABLE_PRIORITY = [
@@ -76,6 +77,7 @@ const ANALYSIS_TYPE_LABELS = {
   dimension_reduction: 'Exploratory analysis',
   differential_expression: 'Differential expression',
   signature: 'Signature analysis',
+  deconvolution: 'Cell-type deconvolution',
 }
 
 function normalizedVariableName(name: string) {
@@ -757,6 +759,8 @@ export function PreparedDatasetPage() {
           projectId={dataset.data.project_id}
         />
       )}
+
+      <DeconvolutionSetupPanel preparedDatasetId={preparedDatasetId} />
 
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Stack spacing={2.5}>

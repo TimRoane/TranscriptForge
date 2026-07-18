@@ -201,6 +201,85 @@ export function AnalysisPage() {
   if (runs.isError) return <ErrorState error={runs.error} />
 
   const configuration = analysis.data.configuration_json
+  if (configuration.analysis_type === 'deconvolution') {
+    return (
+      <Stack spacing={3}>
+        <Link
+          component={RouterLink}
+          to={`/prepared-datasets/${analysis.data.prepared_dataset_id}`}
+          underline="hover"
+          sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, width: 'fit-content' }}
+        >
+          <ArrowBackRoundedIcon fontSize="small" /> Expression Bundle v{prepared.data?.version ?? '…'}
+        </Link>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={2}>
+          <Box>
+            <Typography variant="overline" color="secondary.main" fontWeight={750}>
+              Cell-type deconvolution · validated input contract
+            </Typography>
+            <Typography variant="h3" fontWeight={750}>{analysis.data.name}</Typography>
+            <Typography color="text.secondary" mt={1}>
+              {configuration.method_spec.display_name} · {configuration.assay} ·{' '}
+              {configuration.parameters.reference_profile}
+            </Typography>
+          </Box>
+          <Button variant="contained" startIcon={<PlayArrowRoundedIcon />} disabled>
+            Scientific runner pending
+          </Button>
+        </Stack>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          {[
+            ['Output type', configuration.result_type.replace('_', ' ')],
+            ['Quantity', configuration.method_spec.quantity_label],
+            ['Minimum overlap', `${(configuration.parameters.minimum_gene_overlap * 100).toFixed(0)}%`],
+            ['Registry', configuration.method_registry_version],
+          ].map(([label, value]) => (
+            <Paper key={label} variant="outlined" sx={{ p: 2, flex: 1 }}>
+              <Typography variant="overline" color="text.secondary">{label}</Typography>
+              <Typography variant="h6" fontWeight={700}>{value}</Typography>
+            </Paper>
+          ))}
+        </Stack>
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Stack spacing={1.5}>
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Chip
+                color={configuration.result_type === 'cell_fraction' ? 'primary' : 'warning'}
+                label={configuration.result_type === 'cell_fraction'
+                  ? 'Cell fractions'
+                  : 'Enrichment scores · not percentages'}
+              />
+              <Chip label={`${configuration.input_assay_descriptor.scale} scale`} />
+              <Chip label={configuration.method_spec.composition_constraint.replaceAll('_', ' ')} />
+            </Stack>
+            <Typography>{configuration.method_spec.interpretation}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+              Assay SHA-256: <code>{configuration.input_assay_descriptor.sha256}</code><br />
+              Method registry SHA-256: <code>{configuration.method_registry_sha256}</code>
+            </Typography>
+            <Link
+              href={configuration.method_spec.source_url}
+              target="_blank"
+              rel="noreferrer"
+              underline="hover"
+              sx={{ width: 'fit-content' }}
+            >
+              Method documentation
+            </Link>
+          </Stack>
+        </Paper>
+        <Alert severity="info">
+          This saved design has passed method/assay/scale validation. Execution is intentionally
+          disabled until the pinned runner, reference checksum, overlap report, and scientific
+          acceptance fixture are implemented.
+        </Alert>
+        <Alert severity="warning">
+          Research use only. Cell fractions and enrichment scores have different mathematical
+          meanings and must never be relabeled or normalized into one another.
+        </Alert>
+      </Stack>
+    )
+  }
   if (configuration.analysis_type === 'signature') {
     const methodLabels = {
       mean_expression: 'Mean expression',

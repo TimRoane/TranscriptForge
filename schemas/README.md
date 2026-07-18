@@ -21,5 +21,9 @@ These JSON Schema 2020-12 contracts are the language-neutral boundary shared by 
   features and weights, coverage, duplicates, missing identifiers, and ambiguous identifiers.
 - `signature_scores.schema.json` freezes method semantics, mapping and bundle provenance, final
   scored-feature counts, per-sample scores, aligned metadata, and scientific warnings.
+- `deconvolution_method_registry.schema.json` separates fraction-producing, enrichment-score, and
+  external-import methods while declaring accepted assay scales and identifier requirements.
+- `deconvolution_results.schema.json` requires gene-overlap evidence, reference checksums,
+  result-type-specific units, per-sample estimates, and composition summaries only for fractions.
 
 Every durable document includes a semantic `schema_version`. Consumers reject unknown major versions.

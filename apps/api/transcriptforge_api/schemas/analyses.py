@@ -12,6 +12,7 @@ DifferentialExpressionMethod = Literal["auto", "deseq2", "limma", "edger_ql", "l
 SignatureScoringMethod = Literal[
     "mean_expression", "mean_z_score", "weighted_linear", "rank_based", "gsva", "ssgsea"
 ]
+DeconvolutionMethod = Literal["epic", "quantiseq", "mcp_counter", "xcell"]
 VariableName = Annotated[
     str, StringConstraints(min_length=1, max_length=100, pattern=r"^[A-Za-z][A-Za-z0-9_]*$")
 ]
@@ -150,6 +151,75 @@ class SignatureScoringParameters(BaseModel):
         return self
 
 
+class DeconvolutionParameters(BaseModel):
+    reference_profile: str | None = Field(default=None, min_length=1, max_length=100)
+    minimum_gene_overlap: float = Field(default=0.5, ge=0, le=1)
+
+
+class DeconvolutionAssayOptionRead(BaseModel):
+    name: str
+    scales: list[Literal["linear", "log2", "variance_stabilized"]]
+    value_types: list[Literal["nonnegative_continuous", "continuous"]]
+
+
+class DeconvolutionInputRead(BaseModel):
+    organism: Literal["Homo sapiens"]
+    feature_level: Literal["gene"]
+    identifier_namespace: Literal["gene_symbol"]
+    assay_options: list[DeconvolutionAssayOptionRead]
+    minimum_reference_overlap: float
+    negative_values_permitted: bool
+
+
+class DeconvolutionReferenceRead(BaseModel):
+    id: str
+    label: str
+
+
+class DeconvolutionMethodRead(BaseModel):
+    id: Literal["epic", "quantiseq", "mcp_counter", "xcell", "cibersortx_external"]
+    display_name: str
+    execution_mode: Literal["native", "external_import"]
+    implementation_status: Literal[
+        "runner_pending", "planned", "external_import_pending", "available"
+    ]
+    result_type: Literal["cell_fraction", "enrichment_score"]
+    quantity_label: str
+    unit: Literal["fraction", "arbitrary_score"]
+    composition_constraint: Literal[
+        "bounded_sum", "sum_to_one_with_other", "not_compositional", "declared_by_import"
+    ]
+    within_sample_cell_type_comparison: bool
+    between_sample_comparison: bool
+    input: DeconvolutionInputRead
+    references: list[DeconvolutionReferenceRead]
+    default_reference: str | None
+    interpretation: str
+    source_url: str
+
+
+class DeconvolutionRegistryRead(BaseModel):
+    schema_version: Literal["1.0.0"]
+    registry_version: str
+    registry_sha256: str
+    methods: list[DeconvolutionMethodRead]
+
+
+class DeconvolutionMethodCapabilityRead(BaseModel):
+    method: DeconvolutionMethodRead
+    compatible_assays: list[str]
+    configuration_available: bool
+    execution_available: bool
+    blocked_reasons: list[str]
+
+
+class DeconvolutionCapabilitiesRead(BaseModel):
+    prepared_dataset_id: str
+    registry_version: str
+    registry_sha256: str
+    methods: list[DeconvolutionMethodCapabilityRead]
+
+
 class AnalysisCreate(BaseModel):
     name: str = Field(default="Principal component analysis", min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=4000)
@@ -157,11 +227,20 @@ class AnalysisCreate(BaseModel):
         AnalysisType.DIMENSION_REDUCTION,
         AnalysisType.DIFFERENTIAL_EXPRESSION,
         AnalysisType.SIGNATURE,
+        AnalysisType.DECONVOLUTION,
     ] = AnalysisType.DIMENSION_REDUCTION
-    method: DimensionMethod | DifferentialExpressionMethod | SignatureScoringMethod = "pca"
+    method: (
+        DimensionMethod
+        | DifferentialExpressionMethod
+        | SignatureScoringMethod
+        | DeconvolutionMethod
+    ) = "pca"
     assay: str = Field(default="log_expression", min_length=1, max_length=100)
     parameters: (
-        DimensionReductionParameters | DifferentialExpressionParameters | SignatureScoringParameters
+        DimensionReductionParameters
+        | DifferentialExpressionParameters
+        | SignatureScoringParameters
+        | DeconvolutionParameters
     ) = Field(default_factory=DimensionReductionParameters)
     random_seed: int = Field(default=42, ge=0, le=2_147_483_647)
 
@@ -184,6 +263,13 @@ class AnalysisCreate(BaseModel):
                 payload.get("parameters", {})
             )
             payload["name"] = payload.get("name", "Signature scoring")
+        elif analysis_type == AnalysisType.DECONVOLUTION.value:
+            payload["method"] = payload.get("method", "epic")
+            payload["assay"] = payload.get("assay", "tpm")
+            payload["parameters"] = DeconvolutionParameters.model_validate(
+                payload.get("parameters", {})
+            )
+            payload["name"] = payload.get("name", "Cell-type deconvolution")
         else:
             payload["parameters"] = DimensionReductionParameters.model_validate(
                 payload.get("parameters", {})
@@ -202,6 +288,7 @@ class AnalysisCreate(BaseModel):
             "gsva",
             "ssgsea",
         }
+        deconvolution_methods = {"epic", "quantiseq", "mcp_counter", "xcell"}
         if self.analysis_type == AnalysisType.DIMENSION_REDUCTION:
             if self.method not in dimension_methods or not isinstance(
                 self.parameters, DimensionReductionParameters
@@ -217,6 +304,11 @@ class AnalysisCreate(BaseModel):
             or not isinstance(self.parameters, SignatureScoringParameters)
         ):
             raise ValueError("Signature scoring requires a supported scoring method.")
+        elif self.analysis_type == AnalysisType.DECONVOLUTION and (
+            self.method not in deconvolution_methods
+            or not isinstance(self.parameters, DeconvolutionParameters)
+        ):
+            raise ValueError("Deconvolution requires a registered native method.")
         return self
 
 

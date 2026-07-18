@@ -390,17 +390,90 @@ export interface SignatureScoringConfiguration {
   mapping_coverage: number
 }
 
+export type DeconvolutionMethod = 'epic' | 'quantiseq' | 'mcp_counter' | 'xcell'
+export type DeconvolutionResultType = 'cell_fraction' | 'enrichment_score'
+
+export interface DeconvolutionMethodSpec {
+  id: DeconvolutionMethod | 'cibersortx_external'
+  display_name: string
+  execution_mode: 'native' | 'external_import'
+  implementation_status: 'runner_pending' | 'planned' | 'external_import_pending' | 'available'
+  result_type: DeconvolutionResultType
+  quantity_label: string
+  unit: 'fraction' | 'arbitrary_score'
+  composition_constraint:
+    | 'bounded_sum'
+    | 'sum_to_one_with_other'
+    | 'not_compositional'
+    | 'declared_by_import'
+  within_sample_cell_type_comparison: boolean
+  between_sample_comparison: boolean
+  input: {
+    organism: 'Homo sapiens'
+    feature_level: 'gene'
+    identifier_namespace: 'gene_symbol'
+    assay_options: Array<{
+      name: string
+      scales: Array<'linear' | 'log2' | 'variance_stabilized'>
+      value_types: Array<'nonnegative_continuous' | 'continuous'>
+    }>
+    minimum_reference_overlap: number
+    negative_values_permitted: boolean
+  }
+  references: Array<{ id: string; label: string }>
+  default_reference: string | null
+  interpretation: string
+  source_url: string
+}
+
+export interface DeconvolutionCapabilities {
+  prepared_dataset_id: string
+  registry_version: string
+  registry_sha256: string
+  methods: Array<{
+    method: DeconvolutionMethodSpec
+    compatible_assays: string[]
+    configuration_available: boolean
+    execution_available: boolean
+    blocked_reasons: string[]
+  }>
+}
+
+export interface DeconvolutionConfiguration {
+  analysis_type: 'deconvolution'
+  method: DeconvolutionMethod
+  assay: string
+  parameters: {
+    reference_profile: string
+    minimum_gene_overlap: number
+  }
+  random_seed: number
+  method_registry_version: string
+  method_registry_sha256: string
+  method_spec: DeconvolutionMethodSpec
+  input_assay_descriptor: {
+    name: string
+    scale: 'linear' | 'log2' | 'variance_stabilized'
+    value_type: string
+    feature_level: 'gene'
+    sha256: string
+  }
+  result_type: DeconvolutionResultType
+  execution_available: boolean
+}
+
 export interface Analysis {
   id: string
   project_id: string
   prepared_dataset_id: string
-  analysis_type: 'dimension_reduction' | 'differential_expression' | 'signature'
+  analysis_type: 'dimension_reduction' | 'differential_expression' | 'signature' | 'deconvolution'
   name: string
   description: string | null
   configuration_json:
     | DimensionReductionConfiguration
     | DifferentialExpressionConfiguration
     | SignatureScoringConfiguration
+    | DeconvolutionConfiguration
   created_at: string
 }
 
@@ -1116,6 +1189,40 @@ export function createSignatureScoringAnalysis(
       parameters: {
         signature_mapping_id: payload.signatureMappingId,
         ...payload.parameters,
+      },
+      random_seed: 0,
+    }),
+  })
+}
+
+export function fetchDeconvolutionCapabilities(
+  preparedDatasetId: string,
+  signal?: AbortSignal,
+): Promise<DeconvolutionCapabilities> {
+  return request(`/prepared-datasets/${preparedDatasetId}/deconvolution/methods`, { signal })
+}
+
+export function createDeconvolutionAnalysis(
+  preparedDatasetId: string,
+  payload: {
+    name: string
+    method: DeconvolutionMethod
+    assay: string
+    referenceProfile: string
+    minimumGeneOverlap: number
+  },
+): Promise<Analysis> {
+  return request(`/prepared-datasets/${preparedDatasetId}/analyses`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: payload.name,
+      analysis_type: 'deconvolution',
+      method: payload.method,
+      assay: payload.assay,
+      parameters: {
+        reference_profile: payload.referenceProfile,
+        minimum_gene_overlap: payload.minimumGeneOverlap,
       },
       random_seed: 0,
     }),

@@ -21,6 +21,8 @@ def load_json(path: Path) -> dict[str, Any]:
     "schema_name",
     [
         "dataset_manifest.schema.json",
+        "deconvolution_method_registry.schema.json",
+        "deconvolution_results.schema.json",
         "enrichment_summary.schema.json",
         "expression_bundle.schema.json",
         "microarray_ingestion.schema.json",
@@ -46,6 +48,104 @@ def test_demo_count_manifest_is_valid() -> None:
     schema = load_json(SCHEMAS / "dataset_manifest.schema.json")
     manifest = load_json(ROOT / "demo/configs/count_matrix_dataset_manifest.json")
     Draft202012Validator(schema).validate(manifest)
+
+
+def test_deconvolution_registry_is_valid_and_semantically_distinct() -> None:
+    schema = load_json(SCHEMAS / "deconvolution_method_registry.schema.json")
+    registry = load_json(ROOT / "apps/api/transcriptforge_api/resources/deconvolution_methods.json")
+    Draft202012Validator(schema).validate(registry)
+    methods = {item["id"]: item for item in registry["methods"]}
+    assert methods["epic"]["result_type"] == "cell_fraction"
+    assert methods["quantiseq"]["unit"] == "fraction"
+    assert methods["mcp_counter"]["result_type"] == "enrichment_score"
+    assert methods["xcell"]["composition_constraint"] == "not_compositional"
+
+
+def test_deconvolution_analysis_request_and_result_type_contracts() -> None:
+    request_schema = load_json(SCHEMAS / "analysis_request.schema.json")
+    method = load_json(ROOT / "apps/api/transcriptforge_api/resources/deconvolution_methods.json")[
+        "methods"
+    ][0]
+    request = {
+        "schema_version": "1.0.0",
+        "analysis_id": "deconvolution-1",
+        "prepared_dataset_id": "prepared-1",
+        "analysis_type": "deconvolution",
+        "method": "epic",
+        "assay": "tpm",
+        "parameters": {"reference_profile": "TRef", "minimum_gene_overlap": 0.5},
+        "random_seed": 0,
+        "method_registry_version": "2026.07.0",
+        "method_registry_sha256": "a" * 64,
+        "deconvolution_method": method,
+        "input_assay_descriptor": {
+            "name": "tpm",
+            "path": "assays/tpm.tsv.gz",
+            "scale": "linear",
+            "value_type": "nonnegative_continuous",
+            "feature_level": "gene",
+            "sha256": "b" * 64,
+        },
+    }
+    Draft202012Validator(request_schema).validate(request)
+    request["assay"] = "log_expression"
+    with pytest.raises(ValidationError):
+        Draft202012Validator(request_schema).validate(request)
+
+    result_schema = load_json(SCHEMAS / "deconvolution_results.schema.json")
+    result = {
+        "schema_version": "1.0.0",
+        "analysis_id": "deconvolution-1",
+        "prepared_dataset_id": "prepared-1",
+        "method": "epic",
+        "method_registry_version": "2026.07.0",
+        "method_registry_sha256": "a" * 64,
+        "result_type": "cell_fraction",
+        "quantity_label": "Estimated cell fraction",
+        "unit": "fraction",
+        "composition_constraint": "bounded_sum",
+        "input_validation": {
+            "assay": "tpm",
+            "scale": "linear",
+            "value_type": "nonnegative_continuous",
+            "feature_level": "gene",
+            "identifier_namespace": "gene_symbol",
+            "input_feature_count": 1000,
+            "reference_gene_count": 100,
+            "overlap_gene_count": 90,
+            "overlap_fraction": 0.9,
+            "minimum_overlap_fraction": 0.5,
+            "passed": True,
+        },
+        "reference": {
+            "id": "TRef",
+            "version": "pinned-test",
+            "sha256": "c" * 64,
+            "cell_type_count": 2,
+        },
+        "cell_types": [{"id": "b_cell", "label": "B cells"}],
+        "sample_ids": ["sample_1"],
+        "estimates": [{"sample_id": "sample_1", "cell_type_id": "b_cell", "value": 0.2}],
+        "composition_summaries": [
+            {
+                "sample_id": "sample_1",
+                "reported_sum": 0.2,
+                "residual_fraction": 0.8,
+                "within_tolerance": True,
+            }
+        ],
+        "warnings": [],
+        "software": {"language": "R"},
+        "provenance": {
+            "expression_bundle_sha256": "d" * 64,
+            "analysis_request_sha256": "e" * 64,
+            "reference_sha256": "c" * 64,
+        },
+    }
+    Draft202012Validator(result_schema).validate(result)
+    result["result_type"] = "enrichment_score"
+    with pytest.raises(ValidationError):
+        Draft202012Validator(result_schema).validate(result)
 
 
 def test_pinned_human_reference_bundle_is_valid() -> None:

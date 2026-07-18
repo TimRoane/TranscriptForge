@@ -43,6 +43,33 @@ const completedRun = {
   finished_at: '2026-07-16T00:00:02Z',
   created_at: '2026-07-16T00:00:00Z',
 }
+const deconvolutionCapabilities = {
+  prepared_dataset_id: 'prepared-1',
+  registry_version: '2026.07.0',
+  registry_sha256: 'f'.repeat(64),
+  methods: [{
+    method: {
+      id: 'epic', display_name: 'EPIC', execution_mode: 'native',
+      implementation_status: 'runner_pending', result_type: 'cell_fraction',
+      quantity_label: 'Estimated cell fraction', unit: 'fraction',
+      composition_constraint: 'bounded_sum', within_sample_cell_type_comparison: true,
+      between_sample_comparison: true,
+      input: {
+        organism: 'Homo sapiens', feature_level: 'gene', identifier_namespace: 'gene_symbol',
+        assay_options: [{
+          name: 'tpm', scales: ['linear'], value_types: ['nonnegative_continuous'],
+        }],
+        minimum_reference_overlap: 0.5, negative_values_permitted: false,
+      },
+      references: [{ id: 'TRef', label: 'Tumor-infiltrating cell reference' }],
+      default_reference: 'TRef',
+      interpretation: 'Fractions are method- and reference-specific estimates.',
+      source_url: 'https://epic.unil.ch/',
+    },
+    compatible_assays: ['tpm'], configuration_available: true,
+    execution_available: false, blocked_reasons: ['Scientific runner is not implemented yet.'],
+  }],
+}
 
 function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } })
@@ -451,7 +478,7 @@ describe('App', () => {
           dataset_id: 'dataset-1',
           version: 1,
           preparation_run_id: 'preparation-run-1',
-          value_types_available: ['raw_counts', 'log_expression'],
+          value_types_available: ['raw_counts', 'log_expression', 'tpm'],
           sample_count: 1,
           feature_count: 5,
           qc_status: 'PASS',
@@ -517,6 +544,9 @@ describe('App', () => {
           created_at: '2026-07-16T00:00:00Z', updated_at: '2026-07-16T00:00:00Z',
         }])
       }
+      if (url.endsWith('/prepared-datasets/prepared-1/deconvolution/methods')) {
+        return jsonResponse(deconvolutionCapabilities)
+      }
       return jsonResponse({ detail: 'Not found' }, 404)
     })
 
@@ -543,6 +573,11 @@ describe('App', () => {
     expect(screen.getByRole('spinbutton', { name: 'Minimum set size' })).toHaveValue(1)
     expect(screen.getByRole('combobox', { name: 'Kernel' })).toHaveTextContent('Gaussian')
     expect(screen.getByText(/pinned R environment/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Configure cell-type deconvolution' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Deconvolution method' })).toHaveTextContent('EPIC')
+    expect(screen.getByText('Cell fractions')).toBeInTheDocument()
+    expect(screen.getByText('Runner pending')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save deconvolution design' })).toBeEnabled()
   })
 
   it('renders deterministic signature scores with mapping evidence and downloads', async () => {
@@ -657,6 +692,49 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: /Per-sample signature scores table/ })).toHaveAttribute(
       'href', expect.stringContaining('/artifacts/score-table/download'),
     )
+  })
+
+  it('keeps saved deconvolution semantics visible while its runner is pending', async () => {
+    const analysis = {
+      id: 'deconvolution-analysis-1', project_id: 'project-1', prepared_dataset_id: 'prepared-1',
+      analysis_type: 'deconvolution', name: 'EPIC cell composition', description: null,
+      configuration_json: {
+        analysis_type: 'deconvolution', method: 'epic', assay: 'tpm',
+        parameters: { reference_profile: 'TRef', minimum_gene_overlap: 0.5 },
+        random_seed: 0, method_registry_version: '2026.07.0',
+        method_registry_sha256: 'f'.repeat(64),
+        method_spec: deconvolutionCapabilities.methods[0].method,
+        input_assay_descriptor: {
+          name: 'tpm', scale: 'linear', value_type: 'nonnegative_continuous',
+          feature_level: 'gene', sha256: 'c'.repeat(64),
+        },
+        result_type: 'cell_fraction', execution_available: false,
+      },
+      created_at: '2026-07-18T00:00:00Z',
+    }
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return jsonResponse(health)
+      if (url.endsWith('/analyses/deconvolution-analysis-1/runs')) return jsonResponse([])
+      if (url.endsWith('/analyses/deconvolution-analysis-1')) return jsonResponse(analysis)
+      if (url.endsWith('/prepared-datasets/prepared-1')) {
+        return jsonResponse({
+          id: 'prepared-1', dataset_id: 'dataset-1', version: 1,
+          preparation_run_id: 'preparation-run-1', value_types_available: ['tpm'],
+          sample_count: 4, feature_count: 1000, qc_status: 'PASS',
+          created_at: '2026-07-18T00:00:00Z',
+        })
+      }
+      return jsonResponse({ detail: 'Not found' }, 404)
+    })
+
+    renderApp('/analyses/deconvolution-analysis-1')
+
+    expect(await screen.findByRole('heading', { name: 'EPIC cell composition' })).toBeInTheDocument()
+    expect(screen.getByText('Cell fractions')).toBeInTheDocument()
+    expect(screen.getByText('bounded sum')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Scientific runner pending' })).toBeDisabled()
+    expect(screen.getByText(/must never be relabeled or normalized into one another/i)).toBeInTheDocument()
   })
 
   it('renders microarray-specific QC without count-library assumptions', async () => {

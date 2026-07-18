@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.local/schemas/deconvolution_method_registry.schema.json",
+  "title": "TranscriptForge Deconvolution Method Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "registry_version", "methods"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "registry_version": {"type": "string", "pattern": "^[0-9]{4}\\.[0-9]{2}\\.[0-9]+$"},
+    "methods": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/method"}
+    }
+  },
+  "$defs": {
+    "nonempty": {"type": "string", "minLength": 1},
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonempty"},
+        "label": {"$ref": "#/$defs/nonempty"}
+      }
+    },
+    "assay_option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "scales", "value_types"],
+      "properties": {
+        "name": {"enum": ["tpm", "normalized_expression", "log_expression"]},
+        "scales": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["linear", "log2", "variance_stabilized"]}
+        },
+        "value_types": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["nonnegative_continuous", "continuous"]}
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["organism", "feature_level", "identifier_namespace", "assay_options", "minimum_reference_overlap", "negative_values_permitted"],
+      "properties": {
+        "organism": {"const": "Homo sapiens"},
+        "feature_level": {"const": "gene"},
+        "identifier_namespace": {"const": "gene_symbol"},
+        "assay_options": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/assay_option"}},
+        "minimum_reference_overlap": {"type": "number", "minimum": 0, "maximum": 1},
+        "negative_values_permitted": {"type": "boolean"}
+      }
+    },
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "display_name", "execution_mode", "implementation_status", "result_type", "quantity_label", "unit", "composition_constraint", "within_sample_cell_type_comparison", "between_sample_comparison", "input", "references", "default_reference", "interpretation", "source_url"],
+      "properties": {
+        "id": {"enum": ["epic", "quantiseq", "mcp_counter", "xcell", "cibersortx_external"]},
+        "display_name": {"$ref": "#/$defs/nonempty"},
+        "execution_mode": {"enum": ["native", "external_import"]},
+        "implementation_status": {"enum": ["runner_pending", "planned", "external_import_pending", "available"]},
+        "result_type": {"enum": ["cell_fraction", "enrichment_score"]},
+        "quantity_label": {"$ref": "#/$defs/nonempty"},
+        "unit": {"enum": ["fraction", "arbitrary_score"]},
+        "composition_constraint": {"enum": ["bounded_sum", "sum_to_one_with_other", "not_compositional", "declared_by_import"]},
+        "within_sample_cell_type_comparison": {"type": "boolean"},
+        "between_sample_comparison": {"type": "boolean"},
+        "input": {"$ref": "#/$defs/input"},
+        "references": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/reference"}},
+        "default_reference": {"oneOf": [{"$ref": "#/$defs/nonempty"}, {"type": "null"}]},
+        "interpretation": {"$ref": "#/$defs/nonempty"},
+        "source_url": {"type": "string", "format": "uri"}
+      }
+    }
+  }
+}

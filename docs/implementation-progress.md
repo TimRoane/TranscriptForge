@@ -7,9 +7,9 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 ## Current position
 
 - Active roadmap phase: Phase 8 — cell-type deconvolution
-- Active milestone: Phase 8 — method registry and input-capability contracts
-- Current task: Define fraction-versus-enrichment result types and assay/scale/organism/identifier requirements before adding EPIC and quanTIseq runners
-- Overall milestone status: Phase 7 complete; durable signature ingestion/mapping, six scoring methods, adjusted phenotype association, cross-modality acceptance, and a public technical benchmark are implemented
+- Active milestone: Phase 8 — first executable fraction methods
+- Current task: Pin the EPIC and quanTIseq runtime/reference inputs, then implement overlap-audited scientific runners behind Nextflow
+- Overall milestone status: Phase 7 complete; Phase 8 registry, bundle capability validation, immutable design contracts, and result-type semantics are implemented, with scientific execution intentionally pending
 
 ## Completed
 
@@ -217,6 +217,13 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 - [x] Selected mean z-score through a fixed preference order as the within-cohort product default, added a visible below-80% exploratory warning, and retained explicit language prohibiting transferable raw thresholds across cohorts, platforms, or preprocessing pipelines.
 - [x] Added a reproducible containerized Make target that checksum-verifies the public bundle and marker definition, runs all Python/R scoring paths, validates the result contract, and reproduced the committed acceptance result byte-for-byte.
 - [x] Completed every Phase 7 task and acceptance criterion, while retaining independent biological validation and mixed-effects policy as explicit scientific debt rather than overstating the technical benchmark.
+- [x] Added a checksum-versioned cell-deconvolution registry covering EPIC, quanTIseq, MCP-counter, xCell, and external-only CIBERSORTx with execution status, reference choices, and explicit source documentation.
+- [x] Typed every method as cell fraction or enrichment score with distinct units, composition constraints, and allowed within-sample versus between-sample comparisons; enrichment scores cannot be mislabeled as percentages.
+- [x] Declared and enforced method-specific organism, feature level, gene-symbol namespace, assay name, scale, value type, negative-value, and provisional minimum-reference-overlap requirements against the immutable Expression Bundle manifest and feature metadata.
+- [x] Added global and prepared-bundle method-capability APIs that show compatible assays, configuration availability, execution availability, and every blocking reason without guessing from filenames.
+- [x] Extended saved analyses with deconvolution parameters and froze the registry version/checksum, complete method record, resolved reference, exact assay descriptor/checksum, output type, and overlap threshold.
+- [x] Added versioned Analysis Request and Deconvolution Results contracts requiring reference/overlap provenance, typed estimates, and fraction-only composition summaries; schema tests reject fraction/enrichment semantic mismatches.
+- [x] Added a prepared-bundle deconvolution setup panel and saved-design page that keep method semantics visible and intentionally disable execution until a pinned runner, reference checksum, and acceptance fixture pass.
 - [x] Reworked the root README as a hiring-manager-facing product overview with real RNA-seq and public-microarray user-flow screenshots, architecture, verification evidence, local setup, repository map, and explicit constraints.
 - [x] Materialized a live eight-array GSE39795 project through the public API, published its 23,702-gene/257,430-probe-set RMA Expression Bundle, and ran a full-rank paired `~ donor + zone` limma analysis for the portfolio walkthrough.
 - [x] Corrected server design preview so numeric-looking declared block identifiers are encoded categorically, matching the independent R scientific boundary and preserving paired-design semantics.
@@ -455,14 +462,20 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
   Ruff, strict mypy across 61 source files, ESLint, the Node.js 22 production build, JSON Schema and
   Docker Compose validation, and `git diff --check` passed. The known production chunk-size warning
   remains tracked under TD-006.
+- Phase 8 registry/contract regression: 96 combined Python tests and 16 frontend integration tests
+  passed; Ruff, strict mypy across 62 source files, ESLint, the Node.js 22 production build, all
+  versioned JSON Schemas, Docker Compose validation, and `git diff --check` passed. API tests covered
+  method/result semantics, bundle-specific capability routing, resolved references, overlap floors,
+  incompatible assay rejection, and the explicit pre-runner launch block. The existing production
+  chunk-size warning remains tracked under TD-006.
 
 The development stack remains running. The large-study project is at `http://localhost:5173/projects/0694625c-23e1-4847-9622-e508ad95b895`, its prepared bundle at `http://localhost:5173/prepared-datasets/ac5bbe72-ec4e-40ec-9258-f9eae3679209`, and live results are available for PCA (`74cfc4a8-bdea-49b5-ab94-69d8534c52d6`), clustering (`2af084ac-6e90-4beb-b07c-4eabd214f066`), UMAP (`e94db15b-ab8a-4fee-ab6f-9d8e3a2ef63c`), t-SNE (`1dac23c8-5621-46bd-bb71-ddc38640647e`), DESeq2 (`e033fb5c-0516-4a74-9bf8-8e0b77d1eeaa`), limma (`2a13c140-0f8a-4617-bb59-e17b386469f9`), edgeR QL (`c31e8833-39a1-4aa8-a33b-ca87b5df90d4`), limma-voom (`339a7348-f43b-402e-be0a-555c69a0267c`), and edgeR QL with enrichment (`53509cd4-532c-4173-b505-a65e43101b6b`). The polished raw RNA-seq ingestion dashboard is at `http://localhost:5173/projects/e9574d9b-dc8f-480d-b844-64e5be0bdf31`. The public microarray project is at `http://localhost:5173/projects/32eb730d-7bda-43c1-a930-a37d91789e44`, its prepared bundle at `http://localhost:5173/prepared-datasets/75deff90-236b-4055-9c1b-e74c2ba9ec67`, and its paired limma result at `http://localhost:5173/analyses/0a800b33-6940-4b55-8928-c6c491ebe53d`.
 
 ## Next tasks
 
-1. Add a typed deconvolution method registry that distinguishes cell-fraction outputs from enrichment scores and declares method-specific input requirements.
-2. Add immutable deconvolution Analysis Request and result contracts with scale, gene-overlap, and reference provenance.
-3. Implement EPIC and quanTIseq behind the shared Nextflow/scientific-runtime boundary before adding result-type-aware plots and cross-method comparison.
+1. Review EPIC and quanTIseq reference redistribution terms, pin their packages/runtime, and add checksum-frozen reference manifests.
+2. Implement EPIC and quanTIseq scientific runners with exact gene-symbol mapping, overlap reports, constant/duplicate/negative-value handling, and deterministic result publication.
+3. Route both runners through Nextflow and the durable worker, then add fraction-aware result plots and known-mixture acceptance before enabling the saved Run action.
 
 ## Decisions and constraints
 
