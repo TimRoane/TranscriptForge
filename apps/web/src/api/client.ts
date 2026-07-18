@@ -352,6 +352,237 @@ export interface DifferentialExpressionConfiguration {
   design_validation: DesignValidation
 }
 
+export interface ClassifierParameters {
+  outcome_column: string
+  positive_class: string | null
+  group_column: string | null
+  cohort_column: string | null
+  validation_mode: 'repeated_nested_cross_validation'
+  feature_filter: 'top_variance'
+  top_variable_features: number
+  class_weight: 'none' | 'balanced'
+  outer_folds: number
+  inner_folds: number
+  repeats: number
+  primary_metric: 'roc_auc' | 'pr_auc' | 'balanced_accuracy' | 'macro_roc_auc' | 'macro_f1'
+  probability_calibration: 'none' | 'sigmoid'
+  decision_threshold_strategy: 'fixed_0_5' | 'inner_cv_youden'
+  bootstrap_iterations: number
+  permutation_count: number
+}
+
+export interface ClassifierFold {
+  repeat: number
+  fold: number
+  training_sample_count: number
+  test_sample_count: number
+  training_class_counts: Record<string, number>
+  test_class_counts: Record<string, number>
+  training_group_count: number
+  test_group_count: number
+  group_overlap_count: 0
+}
+
+export interface ClassifierDesignValidation {
+  valid: boolean
+  method: 'elastic_net' | 'multinomial_elastic_net'
+  assay: 'log_expression'
+  outcome_column: string
+  negative_class: string | null
+  positive_class: string | null
+  class_labels: string[]
+  eligible_sample_count: number
+  class_counts: Record<string, number>
+  group_column: string | null
+  group_count: number
+  cohort_column: string | null
+  outer_folds: number
+  inner_folds: number
+  repeats: number
+  expected_oof_prediction_count: number
+  preprocessing_scope: 'fit_inside_each_training_fold'
+  tuning_scope: 'inner_training_folds_only'
+  fold_plan: ClassifierFold[]
+  errors: string[]
+  warnings: string[]
+}
+
+export interface ClassifierConfiguration {
+  analysis_type: 'classifier'
+  method: 'elastic_net' | 'multinomial_elastic_net'
+  assay: 'log_expression'
+  parameters: ClassifierParameters
+  random_seed: number
+  design_validation: ClassifierDesignValidation
+  execution_available: boolean
+  leakage_policy: {
+    preprocessing_scope: 'fit_inside_each_training_fold'
+    feature_selection_scope: 'fit_inside_each_training_fold'
+    hyperparameter_tuning_scope: 'inner_training_folds_only'
+    outer_test_fold_role: 'evaluation_only'
+  }
+}
+
+export interface ClassifierResults {
+  schema_version: '1.0.0'
+  analysis_id: string
+  prepared_dataset_id: string
+  method: 'elastic_net'
+  assay: 'log_expression'
+  outcome: {
+    column: string
+    negative_class: string
+    positive_class: string
+    class_counts: Record<string, number>
+  }
+  validation: {
+    mode: 'repeated_nested_cross_validation'
+    group_column: string | null
+    cohort_column: string | null
+    outer_folds: number
+    inner_folds: number
+    repeats: number
+    primary_metric: string
+    probability_calibration: string
+    decision_threshold_strategy: string
+  }
+  sample_count: number
+  input_feature_count: number
+  top_variable_features: number
+  oof_coverage: {
+    expected_prediction_count: number
+    observed_prediction_count: number
+    one_prediction_per_sample_per_repeat: true
+  }
+  metrics: Record<string, number>
+  repeat_metrics: Array<Record<string, number> & { repeat: number }>
+  confidence_intervals: {
+    method: 'experimental_unit_percentile_bootstrap'
+    iterations: number
+    confidence_level: 0.95
+    intervals: Record<string, { lower: number; upper: number }>
+  }
+  diagnostic_curves: {
+    roc_curve: Array<{ false_positive_rate: number; true_positive_rate: number; threshold: number | null }>
+    precision_recall_curve: Array<{ recall: number; precision: number; threshold: number | null }>
+    calibration_curve: Array<{ predicted_probability: number; observed_fraction: number; sample_count: number }>
+    calibration_intercept: number
+    calibration_slope: number
+    confusion_matrix: Record<string, number>
+  }
+  permutation_control: {
+    method: 'full_nested_cross_validation_label_permutation'
+    count: number
+    roc_auc_values: number[]
+    mean_roc_auc?: number
+    empirical_p_value: number | null
+    note?: string
+  }
+  learning_curve: Array<{
+    training_fraction: number
+    mean_roc_auc: number
+    fold_roc_auc: number[]
+  }>
+  model_comparisons: Array<{
+    method: 'elastic_net' | 'random_forest' | 'hist_gradient_boosting'
+    role: 'primary_locked_model' | 'comparison_only_not_exported'
+    metrics: Record<string, number>
+    tuning_scope: 'inner_training_folds_only'
+    best_parameters_by_outer_fold?: Array<Record<string, unknown>>
+  }>
+  folds: Array<ClassifierFold & {
+    selected_feature_count: number
+    nonzero_feature_count: number
+    best_c: number
+    best_l1_ratio: number
+    decision_threshold: number
+  }>
+  feature_stability: Array<{
+    feature_id: string
+    selection_frequency: number
+    nonzero_frequency: number
+    mean_coefficient: number
+  }>
+  leakage_audit: Record<string, string | boolean>
+  locked_model: {
+    path: 'model.json'
+    feature_schema_path: 'inference_schema.json'
+    model_card_path: 'model_card.json'
+    inference_example_path: 'inference_example.tsv'
+  }
+  warnings: string[]
+}
+
+export interface MulticlassClassifierResults {
+  schema_version: '1.0.0'
+  analysis_id: string
+  prepared_dataset_id: string
+  method: 'multinomial_elastic_net'
+  assay: 'log_expression'
+  outcome: {
+    column: string
+    classes: string[]
+    class_counts: Record<string, number>
+  }
+  validation: {
+    mode: 'repeated_nested_cross_validation'
+    group_column: string | null
+    cohort_column: string | null
+    outer_folds: number
+    inner_folds: number
+    repeats: number
+    primary_metric: 'macro_roc_auc' | 'macro_f1' | 'balanced_accuracy'
+    prediction_rule: 'maximum_class_probability'
+  }
+  sample_count: number
+  input_feature_count: number
+  top_variable_features: number
+  oof_coverage: {
+    expected_prediction_count: number
+    observed_prediction_count: number
+    one_prediction_per_sample_per_repeat: true
+  }
+  metrics: Record<string, number>
+  repeat_metrics: Array<Record<string, number> & { repeat: number }>
+  confidence_intervals: {
+    method: 'experimental_unit_percentile_bootstrap'
+    iterations: number
+    confidence_level: 0.95
+    intervals: Record<string, { lower: number; upper: number }>
+  }
+  diagnostics: {
+    one_vs_rest_roc_curves: Record<string, Array<{
+      false_positive_rate: number
+      true_positive_rate: number
+    }>>
+    confusion_matrix: number[][]
+    class_order: string[]
+  }
+  permutation_control: {
+    method: 'full_nested_cross_validation_label_permutation'
+    count: number
+    macro_roc_auc_values: number[]
+    mean_macro_roc_auc: number | null
+    empirical_p_value: number | null
+  }
+  folds: Array<ClassifierFold & {
+    selected_feature_count: number
+    nonzero_coefficient_count: number
+    best_c: number
+    best_l1_ratio: number
+  }>
+  feature_stability: Array<{
+    feature_id: string
+    class_label: string
+    selection_frequency: number
+    nonzero_frequency: number
+    mean_coefficient: number
+  }>
+  leakage_audit: Record<string, string | boolean>
+  locked_model: ClassifierResults['locked_model']
+  warnings: string[]
+}
+
 export type SignatureScoringMethod =
   | 'mean_expression'
   | 'mean_z_score'
@@ -441,7 +672,7 @@ export interface DeconvolutionCapabilities {
 
 export interface DeconvolutionConfiguration {
   analysis_type: 'deconvolution'
-  method: DeconvolutionMethod
+  method: DeconvolutionMethod | 'cibersortx_external'
   assay: string
   parameters: {
     reference_profile: string
@@ -462,18 +693,26 @@ export interface DeconvolutionConfiguration {
   }
   result_type: DeconvolutionResultType
   execution_available: boolean
+  external_import?: CibersortxImportProvenance
 }
 
 export interface DeconvolutionResults {
   schema_version: '1.0.0'
   analysis_id: string
   prepared_dataset_id: string
-  method: 'quantiseq'
-  result_type: 'cell_fraction'
+  method: 'quantiseq' | 'mcp_counter' | 'xcell' | 'cibersortx_external'
+  method_registry_version: string
+  method_registry_sha256: string
+  result_type: DeconvolutionResultType
   quantity_label: string
-  unit: 'fraction'
-  composition_constraint: 'sum_to_one_with_other'
+  unit: 'fraction' | 'arbitrary_score'
+  composition_constraint: 'sum_to_one_with_other' | 'not_compositional' | 'declared_by_import'
   input_validation: {
+    assay: string
+    scale: 'linear' | 'log2' | 'variance_stabilized'
+    value_type: string
+    feature_level: 'gene'
+    identifier_namespace: 'gene_symbol'
     input_feature_count: number
     mapped_feature_count: number
     blank_symbol_count: number
@@ -488,7 +727,7 @@ export interface DeconvolutionResults {
   cell_types: Array<{ id: string; label: string; category?: string }>
   sample_ids: string[]
   estimates: Array<{ sample_id: string; cell_type_id: string; value: number }>
-  composition_summaries: Array<{
+  composition_summaries?: Array<{
     sample_id: string
     reported_sum: number
     residual_fraction: number
@@ -500,14 +739,120 @@ export interface DeconvolutionResults {
     expression_bundle_sha256: string
     analysis_request_sha256: string
     reference_sha256: string
+    external_source_sha256?: string
   }
+  external_import?: CibersortxImportProvenance
+}
+
+export interface CibersortxImportProvenance {
+  source_filename: string
+  source_sha256: string
+  source_size_bytes: number
+  mode: 'relative'
+  values_declared_as: 'relative_fraction'
+  batch_correction: 'none' | 'B-mode' | 'S-mode'
+  permutations: number
+  signature: { name: string; version: string; sha256: string; gene_count: number }
+  runtime: {
+    platform: 'CIBERSORTx'
+    version: string
+    external_run_id: string
+    executed_at: string
+  }
+}
+
+export interface CibersortxImportMetadata {
+  analysis_name: string
+  assay: string
+  mode: 'relative'
+  fractions_declared: true
+  batch_correction: 'none' | 'B-mode' | 'S-mode'
+  permutations: number
+  mixture_gene_count: number
+  overlap_gene_count: number
+  signature: CibersortxImportProvenance['signature']
+  runtime: Omit<CibersortxImportProvenance['runtime'], 'platform'>
+}
+
+export interface DeconvolutionComparisonRun {
+  analysis_id: string
+  analysis_name: string
+  run_id: string
+  method: DeconvolutionMethod | 'cibersortx_external'
+  display_name: string
+  result_type: DeconvolutionResultType
+  quantity_label: string
+  unit: 'fraction' | 'arbitrary_score'
+  composition_constraint:
+    | 'bounded_sum'
+    | 'sum_to_one_with_other'
+    | 'not_compositional'
+    | 'declared_by_import'
+  assay: {
+    name: string
+    scale: 'linear' | 'log2' | 'variance_stabilized'
+    value_type: 'nonnegative_continuous' | 'continuous'
+    feature_level: 'gene'
+    identifier_namespace: 'gene_symbol'
+  }
+  reference: { id: string; version: string; sha256: string }
+  reference_overlap_fraction: number
+  sample_ids: string[]
+  cell_types: Array<{ id: string; label: string }>
+  estimates: Array<{ sample_id: string; cell_type_id: string; value: number }>
+  result_sha256: string
+  method_registry_version: string
+  method_registry_sha256: string
+}
+
+export interface DeconvolutionComparison {
+  schema_version: '1.0.0'
+  prepared_dataset_id: string
+  latest_successful_run_count: number
+  sections: Array<{
+    id: string
+    result_type: DeconvolutionResultType
+    unit: 'fraction' | 'arbitrary_score'
+    composition_constraints: Array<
+      'bounded_sum' | 'sum_to_one_with_other' | 'not_compositional' | 'declared_by_import'
+    >
+    comparison_mode: 'fraction_pattern' | 'within_population_pattern'
+    assay: DeconvolutionComparisonRun['assay']
+    sample_ids: string[]
+    shared_cell_types: Array<{ id: string; label: string }>
+    reference_mode: 'method_specific_exact_population_intersection'
+    runs: DeconvolutionComparisonRun[]
+    correlations: Array<{
+      left_run_id: string
+      right_run_id: string
+      left_method: string
+      right_method: string
+      cell_type_id: string
+      cell_type_label: string
+      sample_count: number
+      pearson_correlation: number
+    }>
+    warnings: string[]
+  }>
+  exclusions: Array<{
+    analysis_id: string
+    analysis_name: string
+    run_id: string
+    reason: string
+  }>
+  interpretation: string
 }
 
 export interface Analysis {
   id: string
   project_id: string
   prepared_dataset_id: string
-  analysis_type: 'dimension_reduction' | 'differential_expression' | 'signature' | 'deconvolution'
+  analysis_type:
+    | 'dimension_reduction'
+    | 'differential_expression'
+    | 'signature'
+    | 'deconvolution'
+    | 'classifier'
   name: string
   description: string | null
   configuration_json:
@@ -515,6 +860,7 @@ export interface Analysis {
     | DifferentialExpressionConfiguration
     | SignatureScoringConfiguration
     | DeconvolutionConfiguration
+    | ClassifierConfiguration
   created_at: string
 }
 
@@ -565,6 +911,13 @@ export interface CreateDifferentialExpressionRequest extends DifferentialExpress
   description?: string
   analysis_type: 'differential_expression'
   random_seed?: number
+}
+
+export interface ClassifierPreviewRequest {
+  assay: 'log_expression'
+  method: 'elastic_net' | 'multinomial_elastic_net'
+  parameters: ClassifierParameters
+  random_seed: number
 }
 
 export interface PCAPlot {
@@ -1210,6 +1563,44 @@ export function createDifferentialExpressionAnalysis(
   })
 }
 
+export function fetchClassifierDesignOptions(
+  preparedDatasetId: string,
+  signal?: AbortSignal,
+): Promise<DesignOptions> {
+  return request(`/prepared-datasets/${preparedDatasetId}/classifier/design-options`, { signal })
+}
+
+export function fetchClassifierResults(
+  runId: string,
+  signal?: AbortSignal,
+): Promise<ClassifierResults | MulticlassClassifierResults> {
+  return request(`/runs/${runId}/classifier-results`, { signal })
+}
+
+export function validateClassifierDesign(
+  preparedDatasetId: string,
+  payload: ClassifierPreviewRequest,
+  signal?: AbortSignal,
+): Promise<ClassifierDesignValidation> {
+  return request(`/prepared-datasets/${preparedDatasetId}/classifier/validate-design`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal,
+  })
+}
+
+export function createClassifierAnalysis(
+  preparedDatasetId: string,
+  payload: ClassifierPreviewRequest & { name: string },
+): Promise<Analysis> {
+  return request(`/prepared-datasets/${preparedDatasetId}/analyses`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, analysis_type: 'classifier' }),
+  })
+}
+
 export function createSignatureScoringAnalysis(
   preparedDatasetId: string,
   payload: {
@@ -1241,6 +1632,13 @@ export function fetchDeconvolutionCapabilities(
   signal?: AbortSignal,
 ): Promise<DeconvolutionCapabilities> {
   return request(`/prepared-datasets/${preparedDatasetId}/deconvolution/methods`, { signal })
+}
+
+export function fetchDeconvolutionComparison(
+  preparedDatasetId: string,
+  signal?: AbortSignal,
+): Promise<DeconvolutionComparison> {
+  return request(`/prepared-datasets/${preparedDatasetId}/deconvolution/comparison`, { signal })
 }
 
 export function fetchDeconvolutionResults(
@@ -1278,6 +1676,20 @@ export function createDeconvolutionAnalysis(
       },
       random_seed: 0,
     }),
+  })
+}
+
+export function importCibersortxResult(
+  preparedDatasetId: string,
+  metadata: CibersortxImportMetadata,
+  file: File,
+): Promise<Analysis> {
+  const form = new FormData()
+  form.append('metadata', JSON.stringify(metadata))
+  form.append('file', file)
+  return request(`/prepared-datasets/${preparedDatasetId}/deconvolution/cibersortx-imports`, {
+    method: 'POST',
+    body: form,
   })
 }
 

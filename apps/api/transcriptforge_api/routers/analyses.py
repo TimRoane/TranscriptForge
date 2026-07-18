@@ -4,7 +4,7 @@ import tarfile
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
@@ -15,7 +15,11 @@ from transcriptforge_api.models.enums import RunState
 from transcriptforge_api.schemas.analyses import (
     AnalysisCreate,
     AnalysisRead,
+    CibersortxImportRequest,
+    ClassifierDesignValidationRead,
+    ClassifierPreviewRequest,
     DeconvolutionCapabilitiesRead,
+    DeconvolutionComparisonRead,
     DeconvolutionRegistryRead,
     DesignOptionsRead,
     DesignValidationRead,
@@ -23,6 +27,7 @@ from transcriptforge_api.schemas.analyses import (
 )
 from transcriptforge_api.schemas.runs import RunRead
 from transcriptforge_api.services import analyses as analysis_service
+from transcriptforge_api.services import classifier_design as classifier_design_service
 from transcriptforge_api.services import deconvolution as deconvolution_service
 from transcriptforge_api.services import runs as run_service
 from transcriptforge_api.services.design_validation import design_options, validate_design
@@ -84,6 +89,90 @@ async def get_prepared_deconvolution_methods(
     try:
         return await run_in_threadpool(
             deconvolution_service.prepared_method_capabilities, prepared, storage
+        )
+    except (KeyError, ValueError, tarfile.TarError) as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+
+
+@router.get(
+    "/prepared-datasets/{prepared_id}/deconvolution/comparison",
+    response_model=DeconvolutionComparisonRead,
+)
+async def get_prepared_deconvolution_comparison(
+    prepared_id: str, session: Session, storage: Storage
+) -> DeconvolutionComparisonRead:
+    await require_prepared(session, prepared_id)
+    return await deconvolution_service.deconvolution_comparison(session, storage, prepared_id)
+
+
+@router.post(
+    "/prepared-datasets/{prepared_id}/deconvolution/cibersortx-imports",
+    response_model=AnalysisRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def import_cibersortx_result(
+    prepared_id: str,
+    session: Session,
+    storage: Storage,
+    metadata: Annotated[str, Form(min_length=2, max_length=20_000)],
+    file: Annotated[UploadFile, File()],
+) -> Analysis:
+    prepared = await require_prepared(session, prepared_id)
+    try:
+        request = CibersortxImportRequest.model_validate_json(metadata)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"CIBERSORTx import metadata is invalid: {error}",
+        ) from error
+    source = await file.read(deconvolution_service.MAX_CIBERSORTX_RESULT_BYTES + 1)
+    try:
+        return await deconvolution_service.import_cibersortx_result(
+            session,
+            storage,
+            prepared,
+            request,
+            source_filename=file.filename or "cibersortx_result.tsv",
+            source=source,
+        )
+    except deconvolution_service.CibersortxImportError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+
+
+@router.get(
+    "/prepared-datasets/{prepared_id}/classifier/design-options",
+    response_model=DesignOptionsRead,
+)
+async def get_classifier_design_options(
+    prepared_id: str, session: Session, storage: Storage
+) -> DesignOptionsRead:
+    prepared = await require_prepared(session, prepared_id)
+    try:
+        return await run_in_threadpool(lambda: design_options(prepared, storage)[1])
+    except (KeyError, ValueError, tarfile.TarError) as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+
+
+@router.post(
+    "/prepared-datasets/{prepared_id}/classifier/validate-design",
+    response_model=ClassifierDesignValidationRead,
+)
+async def preview_classifier_design(
+    prepared_id: str,
+    request: ClassifierPreviewRequest,
+    session: Session,
+    storage: Storage,
+) -> ClassifierDesignValidationRead:
+    prepared = await require_prepared(session, prepared_id)
+    try:
+        return await run_in_threadpool(
+            classifier_design_service.validate_classifier_design,
+            prepared,
+            storage,
+            request,
         )
     except (KeyError, ValueError, tarfile.TarError) as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error

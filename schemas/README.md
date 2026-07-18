@@ -4,7 +4,8 @@ These JSON Schema 2020-12 contracts are the language-neutral boundary shared by 
 
 - `dataset_manifest.schema.json` describes immutable source inputs before preparation.
 - `expression_bundle.schema.json` inventories prepared assays and metadata.
-- `analysis_request.schema.json` freezes one downstream analysis request.
+- `analysis_request.schema.json` freezes one downstream analysis request, including classifier
+  outcome direction, grouped repeated nested CV, and training-fold-only leakage controls.
 - `result_manifest.schema.json` drives generic result rendering.
 - `sample_metadata.schema.json` describes the required tabular sample-metadata contract.
 - `validation_report.schema.json` describes actionable matrix/metadata findings and previews.
@@ -25,5 +26,19 @@ These JSON Schema 2020-12 contracts are the language-neutral boundary shared by 
   external-import methods while declaring accepted assay scales and identifier requirements.
 - `deconvolution_results.schema.json` requires gene-overlap evidence, reference checksums,
   result-type-specific units, per-sample estimates, and composition summaries only for fractions.
+  CIBERSORTx results additionally require an external source checksum, explicit relative-mode
+  declaration, signature checksum, external run/runtime record, and batch/permutation provenance.
+- `classifier_results.schema.json` requires complete repeated out-of-fold coverage, fold-level
+  tuning and leakage evidence, uncertainty, diagnostics, negative controls, comparison models,
+  feature stability, locked-model references, and immutable provenance.
+- `classifier_model.schema.json` defines the locked binary feature/scaling/estimator/calibration and
+  decision-threshold recipe; `classifier_prediction_results.schema.json` requires complete feature
+  compatibility plus checksummed model/bundle provenance for every external prediction run.
+- `multiclass_classifier_results.schema.json`, `multiclass_classifier_model.schema.json`, and
+  `multiclass_classifier_prediction_results.schema.json` preserve the same leakage and inference
+  boundaries for multinomial elastic net with classwise probabilities and macro metrics.
+- `classifier_external_validation_protocol.schema.json` freezes cohort identity, endpoint mapping,
+  preprocessing, model-lock prerequisites, one-use evaluation policy, success criteria, and the
+  information inspected before a real external cohort is evaluated.
 
 Every durable document includes a semantic `schema_version`. Consumers reject unknown major versions.

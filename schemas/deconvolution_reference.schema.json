@@ -8,21 +8,22 @@
   "properties": {
     "schema_version": {"const": "1.0.0"},
     "id": {"type": "string", "minLength": 1},
-    "method": {"const": "quantiseq"},
+    "method": {"enum": ["quantiseq", "mcp_counter", "xcell"]},
     "version": {"type": "string", "minLength": 1},
     "organism": {"const": "Homo sapiens"},
     "identifier_namespace": {"const": "gene_symbol"},
     "package": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "version", "bioconductor_release", "source_url", "source_sha256", "license"],
+      "required": ["name", "version", "source_url", "source_sha256", "license"],
       "properties": {
-        "name": {"const": "quantiseqr"},
+        "name": {"enum": ["quantiseqr", "MCPcounter", "xCell"]},
         "version": {"type": "string", "minLength": 1},
         "bioconductor_release": {"type": "string", "minLength": 1},
+        "commit": {"$ref": "#/$defs/commit"},
         "source_url": {"type": "string", "format": "uri"},
         "source_sha256": {"$ref": "#/$defs/sha256"},
-        "license": {"const": "GPL-3"}
+        "license": {"enum": ["GPL-3", "GPL-3; reference markers CC0-1.0"]}
       }
     },
     "files": {
@@ -31,11 +32,18 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["package_path", "sha256"],
+        "required": ["sha256"],
         "properties": {
           "package_path": {"type": "string", "pattern": "^extdata/[A-Za-z0-9_.-]+$"},
+          "runtime_path": {"type": "string", "pattern": "^/opt/transcriptforge/deconvolution/[A-Za-z0-9_.-]+$"},
+          "package_object": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._]*$"},
           "sha256": {"$ref": "#/$defs/sha256"}
-        }
+        },
+        "oneOf": [
+          {"required": ["package_path"]},
+          {"required": ["runtime_path"]},
+          {"required": ["package_object"]}
+        ]
       }
     },
     "signature_gene_count": {"type": "integer", "minimum": 1},
@@ -55,6 +63,7 @@
     }
   },
   "$defs": {
-    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "commit": {"type": "string", "pattern": "^[a-f0-9]{40}$"}
   }
 }

@@ -6,10 +6,10 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 
 ## Current position
 
-- Active roadmap phase: Phase 8 — cell-type deconvolution
-- Active milestone: Phase 8 — expand executable and external-import methods
-- Current task: Add MCP-counter/xCell enrichment runners and the provenance-required CIBERSORTx import adapter; EPIC remains license-gated
-- Overall milestone status: Phase 7 complete; the first Phase 8 vertical slice (quanTIseq/TIL10 fractions) is executable end to end, while remaining methods and cross-method comparison are pending
+- Active roadmap phase: Phase 9 — classifier development and validation
+- Active milestone: Phase 9 software complete; prospective biological validation pending
+- Current task: Prepare GSE140494 without touching GSE32646 outcomes, lock the development model, then execute the frozen external protocol once
+- Overall milestone status: Binary and multiclass design, nested-CV execution, model export, inference, API/UI, and external-cohort support are complete. GSE32646 and the success thresholds are prospectively frozen, but no real independent-cohort performance has been calculated, so Phase 9 remains scientifically open.
 
 ## Completed
 
@@ -232,6 +232,45 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 - [x] Routed quanTIseq through a dedicated Nextflow process and checksum-pinned scientific container, validated its result contract in the durable worker, and indexed every fraction/reference/report artifact.
 - [x] Enabled quanTIseq run/rerun/cancel controls and a result page with per-sample stacked fractions, complete percentage tables, overlap metrics, warnings, downloads, and frozen provenance; runnable methods are selected by default in setup.
 - [x] Added a deterministic four-mixture acceptance fixture recovering B-cell, NK-cell, CD8 T-cell, and neutrophil dominance while checking 99%+ overlap, duplicate/blank audits, sum-to-one compositions, complete artifacts, and byte-identical repeated JSON.
+- [x] Pinned MCPcounter 1.2.0 and xCell 1.1.0 to exact upstream commits/source SHA-256 values, froze the CC0 MCP-counter marker file and serialized xCell reference-object checksums, and installed both only in the containerized scientific toolchain.
+- [x] Generalized the audited R runner across linear TPM fractions and log-scale enrichment input while retaining method-specific negative-value rules, sum-versus-mean duplicate-symbol aggregation, package/reference checks, exact sample order, and effective overlap evidence.
+- [x] Implemented MCP-counter mean-marker abundance scores and the xCell ssGSEA/calibration/spillover pipeline for RNA-seq and microarray Expression Bundles; both publish arbitrary-score results without composition summaries or percentage conversion.
+- [x] Added separate enrichment-pattern SVGs and a result-type-aware dashboard with within-population z-score coloring, complete raw-score tables, explicit comparison limits, generic package provenance, downloads, and run/rerun/cancel controls.
+- [x] Added known-marker MCP-counter/xCell acceptance mixtures that recover B-lineage, NK, endothelial, and fibroblast enrichment, require 95% reference overlap, verify complete artifact publication and non-compositional semantics, and produce byte-identical repeated JSON.
+- [x] Added a prepared-bundle comparison API that selects the latest successful result per saved deconvolution analysis, validates artifact completeness, and excludes malformed results with visible reasons.
+- [x] Partitioned comparison sections by result type, unit, exact assay semantics, sample order, and Expression Bundle checksum so cell fractions, enrichment scores, and incompatible inputs cannot be combined.
+- [x] Added exact population-ID-and-label intersection across method-specific references plus per-population Pearson concordance for compatible methods with at least three samples, while declining inferred ontology/reference crosswalks and zero-variance correlations.
+- [x] Added a cross-method result panel with links to contributing analyses, reference/overlap/composition evidence, shared-population counts, concordance tables, semantic warnings, exclusions, and a clear single-method empty state.
+- [x] Promoted CIBERSORTx to an available external-import adapter without adding credentials, proprietary resources, terms automation, or a native/cloud execution dependency.
+- [x] Added a multipart relative-result import boundary requiring the exact TPM assay, explicit relative-fraction declaration, signature name/version/checksum/gene count, mixture/signature overlap, batch mode, permutations, external runtime version/run ID/time, and the original export.
+- [x] Added strict UTF-8 TSV/CSV parsing, exact Expression Bundle sample-set validation and canonical reordering, unique population checks, finite 0–1 fractions, per-sample sum-to-one tolerance, size bounds, and schema validation before persistence.
+- [x] Materialized imported results as immutable successful external-import runs with original-source, normalized-table, structured-result, result-manifest, and frozen-provenance artifacts; native rerun attempts are explicitly rejected.
+- [x] Added a CIBERSORTx import form and imported-result dashboard with relative-fraction plots/tables, signature/runtime/source checksums, external-run evidence, downloads, research-use caveats, and compatibility-aware comparison participation.
+- [x] Completed every Phase 8 implementation task and acceptance criterion while retaining EPIC legal review, independent validation, and empirical overlap calibration under TD-015.
+- [x] Added a strict Phase 9 binary-classifier request contract for elastic-net logistic regression over immutable gene-level log expression, including outcome direction, grouping, cohort, feature filtering, class weighting, repeated nested-CV dimensions, metric, calibration, threshold, bootstrap, and permutation settings.
+- [x] Added deterministic classifier design-options and preview APIs that require exactly two complete outcome levels, detect repeated experimental units, reject infeasible outer or inner folds, and prove zero group overlap before a model can be saved.
+- [x] Frozen the complete outer-fold plan, class/group counts, expected repeated OOF coverage, training-fold-only preprocessing and feature-selection policy, inner-fold-only tuning policy, and evaluation-only outer-test role in every saved classifier analysis.
+- [x] Kept classifier execution server-blocked until the scientific runner and leakage-trap acceptance test are implemented, preventing the design contract from implying unverified modeling capability.
+- [x] Added a classifier setup panel with biological defaults, explicit outcome direction and experimental-unit grouping, nested-CV controls, fold audit, warnings, and a saved-analysis page that exposes the immutable leakage policy without a misleading run action.
+- [x] Added API, JSON Schema, and frontend regression coverage for grouped deterministic previews, ungrouped repeated-unit rejection, request freezing, launch rejection, fold audit rendering, and exact save serialization.
+- [x] Added a versioned binary-classifier result contract covering repeated OOF coverage, fold-specific tuning/calibration/threshold evidence, core metrics, feature stability, leakage scopes, bundle provenance, and software versions.
+- [x] Implemented a deterministic elastic-net scientific runner that refits variance selection and standardization inside every inner and outer training partition, tunes C/L1 ratio only from inner validation predictions, and never exposes outer test samples to preprocessing or selection.
+- [x] Implemented optional sigmoid calibration and Youden threshold selection exclusively from inner-training OOF decisions, followed by one evaluation-only probability for each outer test sample.
+- [x] Recomputed the complete grouped split plan in the scientific runner and rejected any disagreement with the API-frozen plan, any inner/outer group overlap, incomplete inner predictions, or anything other than exactly one OOF prediction per sample per repeat.
+- [x] Added deterministic known-signal recovery and an adversarial leakage-scope acceptance test that passes the production fit scopes and fails an intentionally incorrect implementation that observes an outer test sample.
+- [x] Routed classifier requests through the durable worker and dedicated Nextflow process, validated classifier results before indexing, and published structured results, OOF predictions, feature stability, reports, and full workflow provenance as immutable artifacts.
+- [x] Enabled run/rerun/cancel controls and added an initial classifier result dashboard with ROC-AUC, PR-AUC, balanced accuracy, Brier score, OOF completeness evidence, feature stability, downloads, and explicit internal-validation language.
+- [x] Added complete per-repeat metrics, experimental-unit percentile-bootstrap confidence intervals, ROC and precision-recall coordinates, calibration intercept/slope and reliability bins, a confusion matrix, and deterministic combined diagnostic SVG.
+- [x] Added full label permutations that repeat fold-local variance selection, preprocessing, inner-CV hyperparameter tuning, calibration, and outer-fold fitting for every permutation, plus an empirical p-value and leakage-safe learning curve.
+- [x] Added random-forest and histogram-gradient-boosting comparison models over the identical repeated outer splits, with algorithm selection and parameter tuning confined to each outer training partition; elastic net remains the only locked primary model.
+- [x] Fit the final elastic-net model only after internal validation, froze selected features, scaling, coefficients, intercept, calibration, decision threshold, and training scope, and published a research-only model card, machine-readable inference schema, and blank input template.
+- [x] Indexed every diagnostic/model/card/schema artifact in the durable worker and persist successful locked models in the model registry; the result dashboard now shows confidence bounds, permutation evidence, curves, per-repeat metrics, comparison models, and the external-validation warning.
+- [x] Implemented `PREDICT_WITH_MODEL` as a real Nextflow entry workflow. It validates locked-model dimensions and assay compatibility, blocks any missing required feature or non-finite value, reproduces the frozen preprocessing/calibration/threshold, and publishes per-sample predictions, exact feature overlap, input checksums, and a schema-valid Result Manifest.
+- [x] Added an explicit multinomial elastic-net mode for 3–20 outcome classes, with nullable binary direction, macro-metric choices, every-class outer/inner feasibility checks, deterministic grouped fold plans, and method-specific request validation.
+- [x] Implemented deterministic multinomial grouped repeated nested CV with fold-local variance filtering and scaling, inner-only C/L1 tuning, complete OOF class-probability vectors, macro ROC-AUC/F1, balanced accuracy, log loss, group-bootstrap intervals, one-vs-rest ROC coordinates, confusion evidence, classwise feature stability, and fully re-tuned label permutations.
+- [x] Added locked multinomial coefficient/intercept/scaling artifacts, model cards and inference schemas; `PREDICT_WITH_MODEL` now validates and applies binary or multiclass models and emits normalized class probabilities with checksummed provenance.
+- [x] Added binary/multiclass setup and result interfaces, including explicit classifier-type selection, compatible outcome filtering, macro metrics, multiclass confusion/stability evidence, locked-artifact downloads, and regression coverage for request serialization and rendering.
+- [x] Prospectively selected GSE140494 for model development and the disjoint Osaka University GSE32646 cohort for one-use external validation, after rejecting overlapping MD Anderson accessions as independent evidence. A new schema-valid protocol freezes GPL570/RMA preparation, endpoint mapping, the truth-label embargo, ROC-AUC at least 0.65 with lower 95% bound above 0.50, secondary metrics, and prohibited post-hoc changes. No external expression performance has been inspected or claimed.
 - [x] Reworked the root README as a hiring-manager-facing product overview with real RNA-seq and public-microarray user-flow screenshots, architecture, verification evidence, local setup, repository map, and explicit constraints.
 - [x] Materialized a live eight-array GSE39795 project through the public API, published its 23,702-gene/257,430-probe-set RMA Expression Bundle, and ran a full-rank paired `~ donor + zone` limma analysis for the portfolio walkthrough.
 - [x] Corrected server design preview so numeric-looking declared block identifiers are encoded categorically, matching the independent R scientific boundary and preserving paired-design semantics.
@@ -481,20 +520,62 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
   Compose validation, a Nextflow DSL2 smoke run, and `git diff --check` passed. The containerized
   quanTIseq fixture passed known-mixture recovery, mapping/overlap audits, sum-to-one checks, complete
   artifact publication, and byte-identical repeated JSON.
+- Phase 8 enrichment-runner regression: 100 combined Python tests, Ruff, strict mypy across 62 source
+  files, ESLint, 18 frontend integration tests, the Node.js 22 production build, both Dockerfile
+  checks, and a Nextflow DSL2 smoke run passed. Containerized quanTIseq, MCP-counter, and xCell
+  fixtures passed expected-population recovery, overlap/semantic audits, complete artifacts, and
+  byte-identical repeated JSON. The existing Vite chunk-size warning remains tracked under TD-006.
+- Phase 8 cross-method comparison regression: 101 combined Python tests, Ruff, strict mypy across 62
+  source files, ESLint, 18 frontend integration tests, and the Node.js 22 production build passed.
+  API coverage verifies strict fraction/enrichment partitioning, exact population matching,
+  reference warnings, deterministic correlations, and malformed-result exclusions. Frontend coverage
+  verifies the compatible-run inventory, MCP-counter/xCell concordance, reference caveat, and
+  no-comparison state. The existing Vite chunk-size warning remains tracked under TD-006.
+- Phase 8 CIBERSORTx/completion regression: 103 combined Python tests and 20 frontend integration
+  tests passed with Ruff, strict mypy across 62 source files, ESLint, the Node.js 22 production build,
+  all versioned JSON Schemas, Docker Compose validation, and `git diff --check`. Coverage verifies
+  complete provenance, immutable artifacts, exact sample identity/order, fraction composition,
+  source download integrity, explicit-declaration enforcement, native-run rejection, import-form
+  serialization, imported-result rendering, and comparison discovery. The existing Vite chunk-size
+  warning remains tracked under TD-006.
+- Phase 9 classifier-design regression: 105 combined Python tests and 22 frontend integration tests
+  passed with Ruff, strict mypy across 63 source files, ESLint, the Node.js 22 production build,
+  all versioned JSON Schemas, Docker Compose validation, and deterministic grouped outer/inner split
+  coverage. The existing Vite chunk-size warning remains tracked under TD-006.
+- Phase 9 executable classifier regression: 109 combined Python tests and 22 frontend integration
+  tests passed with Ruff, strict mypy across 65 source files, ESLint, the Node.js 22 production build,
+  the classifier and Result Manifest schemas, Docker Compose validation, Nextflow graph compilation,
+  deterministic known-signal recovery, complete repeated OOF coverage, and the deliberate leakage
+  trap. The existing Vite chunk-size warning remains tracked under TD-006.
+- Phase 9 binary completion regression: 113 combined Python tests and 22 frontend integration tests
+  passed with Ruff, strict mypy across 67 source files, ESLint, and the Node.js 22 production build.
+  The focused classifier acceptance additionally proves deterministic bootstrap/permutation/model
+  artifacts, leakage-matched tree comparisons, locked-model inference, and missing-feature rejection.
+  A direct `PREDICT_WITH_MODEL` Nextflow run predicted 24 samples with complete model-feature overlap
+  and published a schema-valid Result Manifest. The existing Vite chunk-size warning remains tracked
+  under TD-006.
+- Phase 9 multiclass and prospective-protocol regression: 120 combined Python tests and 24 frontend
+  integration tests passed. Ruff and strict mypy passed across 68 API/analysis source files; ESLint,
+  TypeScript, and the Node.js 22 production build passed. Direct Nextflow `RUN_ANALYSIS` and
+  `PREDICT_WITH_MODEL` runs produced schema-valid multinomial results, locked models, normalized
+  class probabilities for all 36 fixture samples, and Result Manifests. All differential-expression,
+  signature-scoring, quanTIseq, MCP-counter, and xCell containerized R acceptance suites also passed;
+  Docker Compose validation and `git diff --check` passed. The existing Vite chunk-size warning
+  remains tracked under TD-006.
 
 The development stack remains running. The large-study project is at `http://localhost:5173/projects/0694625c-23e1-4847-9622-e508ad95b895`, its prepared bundle at `http://localhost:5173/prepared-datasets/ac5bbe72-ec4e-40ec-9258-f9eae3679209`, and live results are available for PCA (`74cfc4a8-bdea-49b5-ab94-69d8534c52d6`), clustering (`2af084ac-6e90-4beb-b07c-4eabd214f066`), UMAP (`e94db15b-ab8a-4fee-ab6f-9d8e3a2ef63c`), t-SNE (`1dac23c8-5621-46bd-bb71-ddc38640647e`), DESeq2 (`e033fb5c-0516-4a74-9bf8-8e0b77d1eeaa`), limma (`2a13c140-0f8a-4617-bb59-e17b386469f9`), edgeR QL (`c31e8833-39a1-4aa8-a33b-ca87b5df90d4`), limma-voom (`339a7348-f43b-402e-be0a-555c69a0267c`), and edgeR QL with enrichment (`53509cd4-532c-4173-b505-a65e43101b6b`). The polished raw RNA-seq ingestion dashboard is at `http://localhost:5173/projects/e9574d9b-dc8f-480d-b844-64e5be0bdf31`. The public microarray project is at `http://localhost:5173/projects/32eb730d-7bda-43c1-a930-a37d91789e44`, its prepared bundle at `http://localhost:5173/prepared-datasets/75deff90-236b-4055-9c1b-e74c2ba9ec67`, and its paired limma result at `http://localhost:5173/analyses/0a800b33-6940-4b55-8928-c6c491ebe53d`.
 
 ## Next tasks
 
-1. Implement MCP-counter and xCell as non-compositional enrichment-score runners without percentage or sum-to-one presentation.
-2. Add cross-method result sections/comparison constrained by compatible result type, unit, reference, and input assay semantics.
-3. Implement the CIBERSORTx external-result import adapter with frozen source checksum, mode, signature, runtime provenance, and explicit relative-fraction declarations.
-4. Select an independent public validation cohort and empirically approve method-specific overlap floors; enable EPIC only after legal review and an explicit user-supplied installation/acceptance workflow.
+1. Add a checksum-pinned GPL570 preparation adapter, materialize GSE140494 as development-only, and prepare the GSE32646 Expression Bundle without joining its pCR/nCR truth to model predictions.
+2. Fit and lock the GSE140494 model, run `PREDICT_WITH_MODEL` on GSE32646 exactly once, then evaluate the frozen primary and secondary metrics without refitting; document dataset shift and close or retain TD-018 according to the result.
+3. Select an independent public deconvolution validation cohort and empirically approve method-specific overlap floors; enable EPIC only after legal review and an explicit user-supplied installation/acceptance workflow.
 
 ## Decisions and constraints
 
 - Python supports 3.12 and newer; production containers currently pin Python 3.12.
 - The frontend targets Node.js 22.13+ and patched Vite/Vitest releases; Docker is the supported path on hosts with older Node versions.
+- Repository `.venv` executables are authoritative for Python checks, and the pinned worker/scientific containers are authoritative for R, Bioconductor, Node, and workflow checks; host-installed package versions must not be used as acceptance evidence.
 - Scientific computation does not live in the API; the API queues frozen requests for Nextflow workers.
 - Run inputs and outputs will be immutable and namespaced by internal identifiers.
 - All platform output is explicitly research-use only and not clinically validated.

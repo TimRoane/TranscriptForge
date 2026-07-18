@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.dev/schemas/multiclass-classifier-model/1.0.0",
+  "title": "TranscriptForge Locked Multiclass Classifier",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "model_type", "analysis_id", "prepared_dataset_id", "assay", "outcome_column", "classes", "selected_feature_ids", "preprocessing", "estimator", "prediction_rule", "training"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "model_type": { "const": "multiclass_elastic_net_logistic_regression" },
+    "analysis_id": { "type": "string", "minLength": 1 },
+    "prepared_dataset_id": { "type": "string", "minLength": 1 },
+    "assay": { "const": "log_expression" },
+    "outcome_column": { "type": "string", "minLength": 1 },
+    "classes": { "type": "array", "minItems": 3, "maxItems": 20, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "selected_feature_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "preprocessing": {
+      "type": "object", "additionalProperties": false,
+      "required": ["feature_filter", "means", "scales"],
+      "properties": {
+        "feature_filter": { "const": "top_variance_fit_on_complete_development_cohort_after_validation" },
+        "means": { "$ref": "#/$defs/vector" }, "scales": { "$ref": "#/$defs/positive_vector" }
+      }
+    },
+    "estimator": {
+      "type": "object", "additionalProperties": false,
+      "required": ["c", "l1_ratio", "coefficients", "intercepts"],
+      "properties": {
+        "c": { "type": "number", "exclusiveMinimum": 0 }, "l1_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "coefficients": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/vector" } },
+        "intercepts": { "type": "array", "minItems": 3, "items": { "type": "number" } }
+      }
+    },
+    "prediction_rule": { "const": "maximum_class_probability" },
+    "training": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sample_count", "feature_count", "random_seed", "lock_scope"],
+      "properties": {
+        "sample_count": { "type": "integer", "minimum": 6 }, "feature_count": { "type": "integer", "minimum": 1 },
+        "random_seed": { "type": "integer", "minimum": 0 }, "lock_scope": { "const": "complete_development_cohort_after_nested_cv" }
+      }
+    }
+  },
+  "$defs": {
+    "vector": { "type": "array", "minItems": 1, "items": { "type": "number" } },
+    "positive_vector": { "type": "array", "minItems": 1, "items": { "type": "number", "exclusiveMinimum": 0 } }
+  }
+}

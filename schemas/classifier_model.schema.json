@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.dev/schemas/classifier-model/1.0.0",
+  "title": "TranscriptForge Locked Binary Classifier",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "model_type", "analysis_id", "prepared_dataset_id", "assay", "outcome_column", "negative_class", "positive_class", "selected_feature_ids", "preprocessing", "estimator", "calibration", "decision_threshold", "training"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "model_type": { "const": "binary_elastic_net_logistic_regression" },
+    "analysis_id": { "type": "string", "minLength": 1 },
+    "prepared_dataset_id": { "type": "string", "minLength": 1 },
+    "assay": { "const": "log_expression" },
+    "outcome_column": { "type": "string", "minLength": 1 },
+    "negative_class": { "type": "string", "minLength": 1 },
+    "positive_class": { "type": "string", "minLength": 1 },
+    "selected_feature_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "preprocessing": {
+      "type": "object", "additionalProperties": false,
+      "required": ["feature_filter", "means", "scales"],
+      "properties": {
+        "feature_filter": { "const": "top_variance_fit_on_complete_development_cohort_after_validation" },
+        "means": { "$ref": "#/$defs/vector" },
+        "scales": { "$ref": "#/$defs/positive_vector" }
+      }
+    },
+    "estimator": {
+      "type": "object", "additionalProperties": false,
+      "required": ["c", "l1_ratio", "coefficients", "intercept"],
+      "properties": {
+        "c": { "type": "number", "exclusiveMinimum": 0 },
+        "l1_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "coefficients": { "$ref": "#/$defs/vector" },
+        "intercept": { "type": "number" }
+      }
+    },
+    "calibration": {
+      "type": "object", "additionalProperties": false,
+      "required": ["method", "coefficient", "intercept"],
+      "properties": {
+        "method": { "enum": ["none", "sigmoid"] },
+        "coefficient": { "type": ["number", "null"] },
+        "intercept": { "type": ["number", "null"] }
+      }
+    },
+    "decision_threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+    "training": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sample_count", "feature_count", "random_seed", "lock_scope"],
+      "properties": {
+        "sample_count": { "type": "integer", "minimum": 4 },
+        "feature_count": { "type": "integer", "minimum": 1 },
+        "random_seed": { "type": "integer", "minimum": 0 },
+        "lock_scope": { "const": "complete_development_cohort_after_nested_cv" }
+      }
+    }
+  },
+  "$defs": {
+    "vector": { "type": "array", "minItems": 1, "items": { "type": "number" } },
+    "positive_vector": { "type": "array", "minItems": 1, "items": { "type": "number", "exclusiveMinimum": 0 } }
+  }
+}

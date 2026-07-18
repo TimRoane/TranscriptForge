@@ -1,0 +1,4 @@
+Mixture	B cells	CD8 T cells	NK cells	P-value	Correlation	RMSE
+sample_A	0.50	0.30	0.20	0.01	0.92	0.08
+sample_B	0.25	0.55	0.20	0.01	0.90	0.09
+sample_C	0.20	0.25	0.55	0.02	0.88	0.11

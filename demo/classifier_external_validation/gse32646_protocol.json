@@ -1,0 +1,98 @@
+{
+  "schema_version": "1.0.0",
+  "protocol_id": "breast-pcr-gse140494-to-gse32646-v1",
+  "status": "prospectively_frozen",
+  "frozen_at": "2026-07-17T22:00:00Z",
+  "intended_use": "Research-only prediction of pathological complete response to neoadjuvant chemotherapy from pretreatment breast-tumor expression; no diagnostic or treatment claim.",
+  "development_cohort": {
+    "accession": "GSE140494",
+    "role": "model_development",
+    "institution": "EXPRESSION prospective multicenter phase II trial; GEO submission from Leibniz Research Centre Dortmund",
+    "platform": "GPL570",
+    "specimen": "Pretreatment primary breast-tumor core needle biopsy",
+    "treatment": "Three cycles docetaxel followed by three cycles FEC"
+  },
+  "external_cohort": {
+    "accession": "GSE32646",
+    "role": "external_validation",
+    "institution": "Osaka University Graduate School of Medicine, Japan",
+    "platform": "GPL570",
+    "specimen": "Pretreatment primary breast-tumor vacuum-assisted core biopsy",
+    "treatment": "Paclitaxel followed by 5-fluorouracil, epirubicin, and cyclophosphamide",
+    "eligible_sample_count": 115,
+    "class_counts": {
+      "pCR": 27,
+      "nCR": 88
+    },
+    "independence_evidence": [
+      "Different contributing institutions and countries",
+      "Disjoint GEO sample accessions and disjoint public patient-title namespaces (BC_Patient versus OU)",
+      "GSE32646 is not a subseries or cited validation partition of GSE140494"
+    ]
+  },
+  "endpoint": {
+    "name": "Pathological complete response after neoadjuvant chemotherapy",
+    "positive_class": "pCR",
+    "negative_class": "nCR",
+    "mapping_policy": "Map only explicit GSE32646 pathologic response values pCR and nCR; do not derive labels from clinical response, receptor status, or expression. Document the cohorts' published pCR-definition difference as dataset shift."
+  },
+  "preprocessing": {
+    "assay": "log_expression",
+    "normalization": "Independently RMA-normalize each GPL570 cohort from raw CEL files using one frozen container and package lock; never jointly normalize development and external arrays.",
+    "feature_namespace": "Entrez Gene identifiers from one checksum-pinned GPL570 annotation release shared by both cohorts",
+    "duplicate_policy": "Aggregate probes mapping to the same Entrez Gene by median before model development and apply the identical frozen mapping to GSE32646.",
+    "outcome_blinding": "External expression may be prepared and feature-compatible before lock, but pCR labels may not be joined to predictions or used for filtering, tuning, normalization, imputation, calibration, or threshold selection until the model and prediction artifacts are checksummed."
+  },
+  "model_lock": {
+    "required_artifacts": [
+      "model.json",
+      "model_card.md",
+      "inference_schema.json",
+      "inference_template.tsv",
+      "classifier_results.json"
+    ],
+    "allowed_post_lock_operations": [
+      "Apply PREDICT_WITH_MODEL once to the compatible external Expression Bundle",
+      "Join the frozen pCR/nCR truth table by exact sample_id after prediction checksums exist",
+      "Compute the prespecified metrics and confidence intervals without refitting"
+    ]
+  },
+  "evaluation": {
+    "execution_count": 1,
+    "primary_metric": "roc_auc",
+    "confidence_interval": "Two-sided 95% experimental-unit bootstrap interval with 2000 deterministic stratified resamples",
+    "success_criteria": {
+      "minimum_point_estimate": 0.65,
+      "minimum_lower_confidence_bound": 0.5
+    },
+    "secondary_metrics": [
+      "pr_auc",
+      "balanced_accuracy_at_locked_threshold",
+      "sensitivity_at_locked_threshold",
+      "specificity_at_locked_threshold",
+      "brier_score",
+      "calibration_intercept",
+      "calibration_slope"
+    ]
+  },
+  "information_inspected_before_freeze": [
+    "GEO series descriptions, institutions, platforms, specimen and treatment summaries",
+    "Public sample identifiers and endpoint availability",
+    "External endpoint class counts only (27 pCR and 88 nCR)",
+    "No GSE32646 expression values, model predictions, feature associations, or performance metrics"
+  ],
+  "prohibited_actions": [
+    "Replace or subset the external cohort after viewing predictions or performance",
+    "Tune features, hyperparameters, calibration, or threshold on GSE32646",
+    "Jointly normalize development and external arrays",
+    "Use GSE20194 or another known-overlapping MD Anderson series as independent evidence for a GSE25055-derived model",
+    "Describe the result as clinical, diagnostic, treatment-selection, or deployment validation"
+  ],
+  "provenance": {
+    "primary_sources": [
+      "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE140494",
+      "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE32646"
+    ],
+    "selection_notes": "GSE32646 was selected before model fitting because it preserves the GPL570 measurement platform and a closely related taxane/anthracycline endpoint while changing institution, country, recruitment, biopsy workflow, and regimen. Those shifts make it a meaningful transportability test and must be reported rather than adjusted using outcomes."
+  }
+}

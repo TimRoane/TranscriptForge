@@ -130,7 +130,8 @@ result visible rather than weakening the threshold or altering public data for a
 | Differential expression | DESeq2, edgeR QL, limma-voom, and limma with design preview, contrast validation, result tables, plots, feature drill-down, and reports |
 | Enrichment | Seeded ranked-list and over-representation analysis against checksum-versioned GMT collections |
 | Gene signatures | Immutable weighted TSV/GMT definitions; Ensembl/symbol/Entrez mapping evidence; six scoring methods; adjusted phenotype association; an 80% recommended mapping threshold; public-corpus and cross-modality acceptance without raw-scale equivalence claims |
-| Cell composition | Checksum-versioned EPIC, quanTIseq, MCP-counter, xCell, and external CIBERSORTx capability registry; assay/scale/identifier validation; fraction-versus-enrichment result contracts; scientific runners pending acceptance |
+| Cell composition | Executable checksum-pinned quanTIseq fractions plus MCP-counter/xCell enrichment scores; compatibility-aware comparisons; provenance-required CIBERSORTx relative-result import; license-gated EPIC |
+| Classifier development | Binary and multinomial elastic net with grouped repeated nested CV, complete OOF probabilities, uncertainty and diagnostic curves, full label permutations, feature stability, locked model/card/schema export, and feature-gated external prediction; binary runs also include tree-model comparisons |
 | Operations | Durable run state, in-app cancellation, retries through the workflow layer, artifact indexing, local/S3-compatible storage, and opt-in AWS Batch infrastructure |
 
 ## Architecture
@@ -249,6 +250,30 @@ make test-all         # application tests plus the R acceptance harness
 make lint             # Python and TypeScript static checks
 make pipeline-test    # Nextflow smoke workflow
 ```
+
+Locked binary and multinomial classifiers publish `model.json`, a model card, and an inference
+schema. Apply a downloaded model to a compatible untouched Expression Bundle through the same
+workflow boundary:
+
+```bash
+nextflow run pipelines/main.nf \
+  -entry PREDICT_WITH_MODEL \
+  -profile standard \
+  --model /path/to/model.json \
+  --expression_bundle /path/to/expression_bundle.tar.gz \
+  --outdir prediction-output
+```
+
+Inference blocks if any frozen feature is absent or the assay contains non-finite required values.
+The output includes per-sample probabilities/classes, exact feature overlap, model and bundle
+checksums, and a Result Manifest. It remains research-only until evaluated on a prospectively chosen
+independent cohort.
+
+The first biological validation is frozen prospectively rather than selected after seeing model
+performance: [GSE140494 is the development cohort and GSE32646 is the one-use independent cohort](demo/classifier_external_validation/README.md).
+The protocol fixes endpoint mapping, independent RMA preparation, the truth-label embargo, a
+ROC-AUC success gate, secondary metrics, and prohibited post-hoc changes. It is currently a protocol,
+not a completed external-validation claim.
 
 The raw RNA-seq and public microarray acceptances are intentionally heavier than unit tests. See
 [`demo/raw_rnaseq/`](demo/raw_rnaseq/), [`demo/microarray/`](demo/microarray/), and

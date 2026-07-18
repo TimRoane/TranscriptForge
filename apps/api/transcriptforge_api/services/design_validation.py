@@ -34,14 +34,18 @@ def design_options(
         values = [row.get(name, "").strip() for row in rows]
         present = [value for value in values if value.lower() not in _MISSING]
         kind = _variable_kind(present)
-        levels = sorted(set(present)) if kind == "categorical" else []
+        unique_values = sorted(set(present))
+        # Binary numeric encodings such as 0/1 are valid classifier outcomes and still
+        # need named choices in the UI. Higher-cardinality numeric variables remain
+        # level-free so continuous metadata is not presented as categorical.
+        levels = unique_values if kind == "categorical" or len(unique_values) == 2 else []
         variables.append(
             MetadataVariableRead(
                 name=name,
                 kind=kind,
                 levels=levels,
                 missing_count=len(values) - len(present),
-                unique_count=len(set(present)),
+                unique_count=len(unique_values),
             )
         )
     return rows, DesignOptionsRead(

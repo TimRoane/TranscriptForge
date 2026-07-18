@@ -22,6 +22,7 @@
     "sample_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/nonempty"}},
     "estimates": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/estimate"}},
     "composition_summaries": {"type": "array", "items": {"$ref": "#/$defs/composition"}},
+    "external_import": {"$ref": "#/$defs/external_import"},
     "warnings": {"type": "array", "items": {"$ref": "#/$defs/nonempty"}},
     "software": {"type": "object", "minProperties": 1},
     "provenance": {
@@ -41,7 +42,14 @@
       "if": {"properties": {"result_type": {"const": "cell_fraction"}}, "required": ["result_type"]},
       "then": {
         "required": ["composition_summaries"],
-        "properties": {"unit": {"const": "fraction"}}
+        "properties": {
+          "unit": {"const": "fraction"},
+          "estimates": {
+            "items": {
+              "properties": {"value": {"minimum": 0}}
+            }
+          }
+        }
       }
     },
     {
@@ -51,6 +59,18 @@
           "unit": {"const": "arbitrary_score"},
           "composition_constraint": {"const": "not_compositional"},
           "composition_summaries": {"maxItems": 0}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"method": {"const": "cibersortx_external"}}, "required": ["method"]},
+      "then": {
+        "required": ["external_import"],
+        "properties": {
+          "result_type": {"const": "cell_fraction"},
+          "unit": {"const": "fraction"},
+          "composition_constraint": {"const": "declared_by_import"},
+          "provenance": {"required": ["external_source_sha256"]}
         }
       }
     }
@@ -107,7 +127,7 @@
       "properties": {
         "sample_id": {"$ref": "#/$defs/nonempty"},
         "cell_type_id": {"$ref": "#/$defs/nonempty"},
-        "value": {"type": "number", "minimum": 0}
+        "value": {"type": "number"}
       }
     },
     "composition": {
@@ -119,6 +139,42 @@
         "reported_sum": {"type": "number", "minimum": 0},
         "residual_fraction": {"type": "number", "minimum": 0},
         "within_tolerance": {"type": "boolean"}
+      }
+    },
+    "external_import": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_filename", "source_sha256", "source_size_bytes", "mode", "values_declared_as", "batch_correction", "permutations", "signature", "runtime"],
+      "properties": {
+        "source_filename": {"$ref": "#/$defs/nonempty"},
+        "source_sha256": {"$ref": "#/$defs/sha256"},
+        "source_size_bytes": {"type": "integer", "minimum": 1},
+        "mode": {"const": "relative"},
+        "values_declared_as": {"const": "relative_fraction"},
+        "batch_correction": {"enum": ["none", "B-mode", "S-mode"]},
+        "permutations": {"type": "integer", "minimum": 0},
+        "signature": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version", "sha256", "gene_count"],
+          "properties": {
+            "name": {"$ref": "#/$defs/nonempty"},
+            "version": {"$ref": "#/$defs/nonempty"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "gene_count": {"type": "integer", "minimum": 1}
+          }
+        },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["platform", "version", "external_run_id", "executed_at"],
+          "properties": {
+            "platform": {"const": "CIBERSORTx"},
+            "version": {"$ref": "#/$defs/nonempty"},
+            "external_run_id": {"$ref": "#/$defs/nonempty"},
+            "executed_at": {"type": "string", "format": "date-time"}
+          }
+        }
       }
     }
   }

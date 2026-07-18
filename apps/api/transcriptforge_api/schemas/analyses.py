@@ -1,9 +1,16 @@
 """Saved analysis, design, and contrast API contracts."""
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from transcriptforge_api.models.enums import AnalysisType
 
@@ -13,6 +20,7 @@ SignatureScoringMethod = Literal[
     "mean_expression", "mean_z_score", "weighted_linear", "rank_based", "gsva", "ssgsea"
 ]
 DeconvolutionMethod = Literal["epic", "quantiseq", "mcp_counter", "xcell"]
+ClassifierMethod = Literal["elastic_net", "multinomial_elastic_net"]
 VariableName = Annotated[
     str, StringConstraints(min_length=1, max_length=100, pattern=r"^[A-Za-z][A-Za-z0-9_]*$")
 ]
@@ -158,6 +166,40 @@ class DeconvolutionParameters(BaseModel):
     scale_mrna: bool = True
 
 
+class ClassifierParameters(BaseModel):
+    outcome_column: VariableName
+    positive_class: str | None = Field(default=None, min_length=1, max_length=200)
+    group_column: VariableName | None = None
+    cohort_column: VariableName | None = None
+    validation_mode: Literal["repeated_nested_cross_validation"] = (
+        "repeated_nested_cross_validation"
+    )
+    feature_filter: Literal["top_variance"] = "top_variance"
+    top_variable_features: int = Field(default=500, ge=10, le=20_000)
+    class_weight: Literal["none", "balanced"] = "balanced"
+    outer_folds: int = Field(default=5, ge=2, le=10)
+    inner_folds: int = Field(default=4, ge=2, le=10)
+    repeats: int = Field(default=3, ge=1, le=20)
+    primary_metric: Literal[
+        "roc_auc", "pr_auc", "balanced_accuracy", "macro_roc_auc", "macro_f1"
+    ] = "roc_auc"
+    probability_calibration: Literal["none", "sigmoid"] = "none"
+    decision_threshold_strategy: Literal["fixed_0_5", "inner_cv_youden"] = "fixed_0_5"
+    bootstrap_iterations: int = Field(default=1000, ge=200, le=5000)
+    permutation_count: int = Field(default=100, ge=0, le=1000)
+
+    @model_validator(mode="after")
+    def validate_columns(self) -> "ClassifierParameters":
+        columns = [self.outcome_column]
+        if self.group_column is not None:
+            columns.append(self.group_column)
+        if self.cohort_column is not None:
+            columns.append(self.cohort_column)
+        if len(columns) != len(set(columns)):
+            raise ValueError("Outcome, group, and cohort columns must be distinct.")
+        return self
+
+
 class DeconvolutionAssayOptionRead(BaseModel):
     name: str
     scales: list[Literal["linear", "log2", "variance_stabilized"]]
@@ -222,6 +264,169 @@ class DeconvolutionCapabilitiesRead(BaseModel):
     methods: list[DeconvolutionMethodCapabilityRead]
 
 
+class DeconvolutionComparisonAssayRead(BaseModel):
+    name: str
+    scale: Literal["linear", "log2", "variance_stabilized"]
+    value_type: Literal["nonnegative_continuous", "continuous"]
+    feature_level: Literal["gene"]
+    identifier_namespace: Literal["gene_symbol"]
+
+
+class DeconvolutionComparisonReferenceRead(BaseModel):
+    id: str
+    version: str
+    sha256: str
+
+
+class DeconvolutionComparisonCellTypeRead(BaseModel):
+    id: str
+    label: str
+
+
+class DeconvolutionComparisonEstimateRead(BaseModel):
+    sample_id: str
+    cell_type_id: str
+    value: float
+
+
+class DeconvolutionComparisonRunRead(BaseModel):
+    analysis_id: str
+    analysis_name: str
+    run_id: str
+    method: Literal["epic", "quantiseq", "mcp_counter", "xcell", "cibersortx_external"]
+    display_name: str
+    result_type: Literal["cell_fraction", "enrichment_score"]
+    quantity_label: str
+    unit: Literal["fraction", "arbitrary_score"]
+    composition_constraint: Literal[
+        "bounded_sum", "sum_to_one_with_other", "not_compositional", "declared_by_import"
+    ]
+    assay: DeconvolutionComparisonAssayRead
+    reference: DeconvolutionComparisonReferenceRead
+    reference_overlap_fraction: float = Field(ge=0, le=1)
+    sample_ids: list[str]
+    cell_types: list[DeconvolutionComparisonCellTypeRead]
+    estimates: list[DeconvolutionComparisonEstimateRead]
+    result_sha256: str
+    method_registry_version: str
+    method_registry_sha256: str
+
+
+class DeconvolutionPairwiseCorrelationRead(BaseModel):
+    left_run_id: str
+    right_run_id: str
+    left_method: str
+    right_method: str
+    cell_type_id: str
+    cell_type_label: str
+    sample_count: int = Field(ge=3)
+    pearson_correlation: float = Field(ge=-1, le=1)
+
+
+class DeconvolutionComparisonSectionRead(BaseModel):
+    id: str
+    result_type: Literal["cell_fraction", "enrichment_score"]
+    unit: Literal["fraction", "arbitrary_score"]
+    composition_constraints: list[
+        Literal["bounded_sum", "sum_to_one_with_other", "not_compositional", "declared_by_import"]
+    ]
+    comparison_mode: Literal["fraction_pattern", "within_population_pattern"]
+    assay: DeconvolutionComparisonAssayRead
+    sample_ids: list[str]
+    shared_cell_types: list[DeconvolutionComparisonCellTypeRead]
+    reference_mode: Literal["method_specific_exact_population_intersection"]
+    runs: list[DeconvolutionComparisonRunRead]
+    correlations: list[DeconvolutionPairwiseCorrelationRead]
+    warnings: list[str]
+
+
+class DeconvolutionComparisonExclusionRead(BaseModel):
+    analysis_id: str
+    analysis_name: str
+    run_id: str
+    reason: str
+
+
+class DeconvolutionComparisonRead(BaseModel):
+    schema_version: Literal["1.0.0"]
+    prepared_dataset_id: str
+    latest_successful_run_count: int = Field(ge=0)
+    sections: list[DeconvolutionComparisonSectionRead]
+    exclusions: list[DeconvolutionComparisonExclusionRead]
+    interpretation: str
+
+
+class CibersortxSignatureRead(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    version: str = Field(min_length=1, max_length=100)
+    sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    gene_count: int = Field(ge=1, le=1_000_000)
+
+    @field_validator("name", "version")
+    @classmethod
+    def strip_required_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Value cannot be blank.")
+        return normalized
+
+
+class CibersortxRuntimeRead(BaseModel):
+    version: str = Field(min_length=1, max_length=100)
+    external_run_id: str = Field(min_length=1, max_length=200)
+    executed_at: datetime
+
+    @field_validator("version", "external_run_id")
+    @classmethod
+    def strip_required_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Value cannot be blank.")
+        return normalized
+
+    @field_validator("executed_at")
+    @classmethod
+    def validate_execution_time(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("External execution time must include a timezone.")
+        if value.astimezone(UTC) > datetime.now(UTC) + timedelta(minutes=5):
+            raise ValueError("External execution time cannot be in the future.")
+        return value
+
+
+class CibersortxImportRequest(BaseModel):
+    analysis_name: str = Field(
+        default="CIBERSORTx relative fractions", min_length=1, max_length=200
+    )
+    assay: str = Field(default="tpm", min_length=1, max_length=100)
+    mode: Literal["relative"]
+    fractions_declared: bool
+    batch_correction: Literal["none", "B-mode", "S-mode"] = "none"
+    permutations: int = Field(default=0, ge=0, le=1_000_000)
+    mixture_gene_count: int = Field(ge=1, le=10_000_000)
+    overlap_gene_count: int = Field(ge=1, le=1_000_000)
+    signature: CibersortxSignatureRead
+    runtime: CibersortxRuntimeRead
+
+    @field_validator("analysis_name", "assay")
+    @classmethod
+    def strip_required_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Value cannot be blank.")
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_external_declarations(self) -> "CibersortxImportRequest":
+        if not self.fractions_declared:
+            raise ValueError("CIBERSORTx values must be explicitly declared as relative fractions.")
+        if self.overlap_gene_count > self.signature.gene_count:
+            raise ValueError("Overlap gene count cannot exceed the signature gene count.")
+        if self.overlap_gene_count > self.mixture_gene_count:
+            raise ValueError("Overlap gene count cannot exceed the mixture gene count.")
+        return self
+
+
 class AnalysisCreate(BaseModel):
     name: str = Field(default="Principal component analysis", min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=4000)
@@ -230,12 +435,14 @@ class AnalysisCreate(BaseModel):
         AnalysisType.DIFFERENTIAL_EXPRESSION,
         AnalysisType.SIGNATURE,
         AnalysisType.DECONVOLUTION,
+        AnalysisType.CLASSIFIER,
     ] = AnalysisType.DIMENSION_REDUCTION
     method: (
         DimensionMethod
         | DifferentialExpressionMethod
         | SignatureScoringMethod
         | DeconvolutionMethod
+        | ClassifierMethod
     ) = "pca"
     assay: str = Field(default="log_expression", min_length=1, max_length=100)
     parameters: (
@@ -243,6 +450,7 @@ class AnalysisCreate(BaseModel):
         | DifferentialExpressionParameters
         | SignatureScoringParameters
         | DeconvolutionParameters
+        | ClassifierParameters
     ) = Field(default_factory=DimensionReductionParameters)
     random_seed: int = Field(default=42, ge=0, le=2_147_483_647)
 
@@ -272,6 +480,13 @@ class AnalysisCreate(BaseModel):
                 payload.get("parameters", {})
             )
             payload["name"] = payload.get("name", "Cell-type deconvolution")
+        elif analysis_type == AnalysisType.CLASSIFIER.value:
+            payload["method"] = payload.get("method", "elastic_net")
+            payload["assay"] = payload.get("assay", "log_expression")
+            payload["parameters"] = ClassifierParameters.model_validate(
+                payload.get("parameters", {})
+            )
+            payload["name"] = payload.get("name", "Elastic-net classifier")
         else:
             payload["parameters"] = DimensionReductionParameters.model_validate(
                 payload.get("parameters", {})
@@ -291,6 +506,7 @@ class AnalysisCreate(BaseModel):
             "ssgsea",
         }
         deconvolution_methods = {"epic", "quantiseq", "mcp_counter", "xcell"}
+        classifier_methods = {"elastic_net", "multinomial_elastic_net"}
         if self.analysis_type == AnalysisType.DIMENSION_REDUCTION:
             if self.method not in dimension_methods or not isinstance(
                 self.parameters, DimensionReductionParameters
@@ -311,6 +527,11 @@ class AnalysisCreate(BaseModel):
             or not isinstance(self.parameters, DeconvolutionParameters)
         ):
             raise ValueError("Deconvolution requires a registered native method.")
+        elif self.analysis_type == AnalysisType.CLASSIFIER and (
+            self.method not in classifier_methods
+            or not isinstance(self.parameters, ClassifierParameters)
+        ):
+            raise ValueError("Classifier development requires a supported classifier method.")
         return self
 
 
@@ -318,6 +539,49 @@ class DifferentialExpressionPreviewRequest(BaseModel):
     assay: str = Field(min_length=1, max_length=100)
     method: DifferentialExpressionMethod = "auto"
     parameters: DifferentialExpressionParameters
+
+
+class ClassifierPreviewRequest(BaseModel):
+    assay: Literal["log_expression"] = "log_expression"
+    method: ClassifierMethod = "elastic_net"
+    parameters: ClassifierParameters
+    random_seed: int = Field(default=42, ge=0, le=2_147_483_647)
+
+
+class ClassifierFoldRead(BaseModel):
+    repeat: int = Field(ge=1)
+    fold: int = Field(ge=1)
+    training_sample_count: int = Field(ge=1)
+    test_sample_count: int = Field(ge=1)
+    training_class_counts: dict[str, int]
+    test_class_counts: dict[str, int]
+    training_group_count: int = Field(ge=1)
+    test_group_count: int = Field(ge=1)
+    group_overlap_count: Literal[0]
+
+
+class ClassifierDesignValidationRead(BaseModel):
+    valid: bool
+    method: ClassifierMethod
+    assay: Literal["log_expression"]
+    outcome_column: str
+    negative_class: str | None
+    positive_class: str | None
+    class_labels: list[str]
+    eligible_sample_count: int = Field(ge=0)
+    class_counts: dict[str, int]
+    group_column: str | None
+    group_count: int = Field(ge=0)
+    cohort_column: str | None
+    outer_folds: int = Field(ge=2)
+    inner_folds: int = Field(ge=2)
+    repeats: int = Field(ge=1)
+    expected_oof_prediction_count: int = Field(ge=0)
+    preprocessing_scope: Literal["fit_inside_each_training_fold"]
+    tuning_scope: Literal["inner_training_folds_only"]
+    fold_plan: list[ClassifierFoldRead]
+    errors: list[str]
+    warnings: list[str]
 
 
 class MetadataVariableRead(BaseModel):

@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.dev/schemas/classifier-external-validation-protocol/1.0.0",
+  "title": "TranscriptForge Prospective Classifier External Validation Protocol",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_id",
+    "status",
+    "frozen_at",
+    "intended_use",
+    "development_cohort",
+    "external_cohort",
+    "endpoint",
+    "preprocessing",
+    "model_lock",
+    "evaluation",
+    "information_inspected_before_freeze",
+    "prohibited_actions",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "protocol_id": { "$ref": "#/$defs/nonempty" },
+    "status": { "enum": ["prospectively_frozen", "evaluated"] },
+    "frozen_at": { "type": "string", "format": "date-time" },
+    "intended_use": { "$ref": "#/$defs/nonempty" },
+    "development_cohort": { "$ref": "#/$defs/cohort" },
+    "external_cohort": {
+      "allOf": [
+        { "$ref": "#/$defs/cohort" },
+        {
+          "type": "object",
+          "required": ["eligible_sample_count", "class_counts", "independence_evidence"],
+          "properties": {
+            "eligible_sample_count": { "type": "integer", "minimum": 1 },
+            "class_counts": {
+              "type": "object",
+              "additionalProperties": { "type": "integer", "minimum": 1 },
+              "minProperties": 2
+            },
+            "independence_evidence": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/nonempty" }
+            }
+          }
+        }
+      ]
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "positive_class", "negative_class", "mapping_policy"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonempty" },
+        "positive_class": { "$ref": "#/$defs/nonempty" },
+        "negative_class": { "$ref": "#/$defs/nonempty" },
+        "mapping_policy": { "$ref": "#/$defs/nonempty" }
+      }
+    },
+    "preprocessing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assay", "normalization", "feature_namespace", "duplicate_policy", "outcome_blinding"],
+      "properties": {
+        "assay": { "const": "log_expression" },
+        "normalization": { "$ref": "#/$defs/nonempty" },
+        "feature_namespace": { "$ref": "#/$defs/nonempty" },
+        "duplicate_policy": { "$ref": "#/$defs/nonempty" },
+        "outcome_blinding": { "$ref": "#/$defs/nonempty" }
+      }
+    },
+    "model_lock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_artifacts", "allowed_post_lock_operations"],
+      "properties": {
+        "required_artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonempty" }
+        },
+        "allowed_post_lock_operations": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonempty" }
+        }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution_count", "primary_metric", "confidence_interval", "success_criteria", "secondary_metrics"],
+      "properties": {
+        "execution_count": { "const": 1 },
+        "primary_metric": { "const": "roc_auc" },
+        "confidence_interval": { "$ref": "#/$defs/nonempty" },
+        "success_criteria": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minimum_point_estimate", "minimum_lower_confidence_bound"],
+          "properties": {
+            "minimum_point_estimate": { "type": "number", "minimum": 0.5, "maximum": 1 },
+            "minimum_lower_confidence_bound": { "type": "number", "minimum": 0.5, "maximum": 1 }
+          }
+        },
+        "secondary_metrics": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "pr_auc",
+              "balanced_accuracy_at_locked_threshold",
+              "sensitivity_at_locked_threshold",
+              "specificity_at_locked_threshold",
+              "brier_score",
+              "calibration_intercept",
+              "calibration_slope"
+            ]
+          }
+        }
+      }
+    },
+    "information_inspected_before_freeze": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonempty" }
+    },
+    "prohibited_actions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonempty" }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_sources", "selection_notes"],
+      "properties": {
+        "primary_sources": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": { "type": "string", "format": "uri" }
+        },
+        "selection_notes": { "$ref": "#/$defs/nonempty" }
+      }
+    }
+  },
+  "$defs": {
+    "nonempty": { "type": "string", "minLength": 1 },
+    "cohort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accession", "role", "institution", "platform", "specimen", "treatment"],
+      "properties": {
+        "accession": { "type": "string", "pattern": "^GSE[0-9]+$" },
+        "role": { "enum": ["model_development", "external_validation"] },
+        "institution": { "$ref": "#/$defs/nonempty" },
+        "platform": { "type": "string", "pattern": "^GPL[0-9]+$" },
+        "specimen": { "$ref": "#/$defs/nonempty" },
+        "treatment": { "$ref": "#/$defs/nonempty" },
+        "eligible_sample_count": { "type": "integer", "minimum": 1 },
+        "class_counts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 1 },
+          "minProperties": 2
+        },
+        "independence_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/nonempty" }
+        }
+      }
+    }
+  }
+}

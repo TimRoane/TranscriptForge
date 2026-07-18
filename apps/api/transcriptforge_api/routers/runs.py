@@ -169,6 +169,11 @@ async def get_deconvolution_results(
     return await _json_artifact(session, storage, run_id, "deconvolution_results")
 
 
+@router.get("/runs/{run_id}/classifier-results")
+async def get_classifier_results(run_id: str, session: Session, storage: Storage) -> dict[str, Any]:
+    return await _json_artifact(session, storage, run_id, "classifier_results")
+
+
 @router.get("/runs/{run_id}/pca-plot")
 async def get_pca_plot(run_id: str, session: Session, storage: Storage) -> dict[str, Any]:
     return await _json_artifact(session, storage, run_id, "pca_plot")

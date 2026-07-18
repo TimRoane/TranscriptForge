@@ -11,7 +11,7 @@ judgment from the repository owner before they can be closed safely.
 ### TD-001 — Durable object deletion and retention
 
 - Type: Technical and operational
-- Status: Open
+- Status: Partially resolved
 - Manual decision: Choose retention periods, recovery expectations, and whether deletion is soft,
   delayed, or immediate.
 - Current state: Project deletion now cascades through its complete relational ownership graph,
@@ -246,14 +246,23 @@ judgment from the repository owner before they can be closed safely.
   the method record, exact assay descriptor, reference choice, and overlap threshold. Input checks
   enforce human gene-level data, explicit gene symbols, and method-specific assay scale/value types.
   A result schema requires overlap evidence and reference/request/bundle checksums, and it prevents
-  enrichment scores from carrying fraction units or composition summaries. quanTIseq 1.18.0/TIL10 is
-  now checksum-pinned and executable with exact symbol mapping, blank/duplicate audits, negative-value
-  rejection, effective-overlap evidence, sum-to-one checks, and deterministic synthetic-mixture
-  acceptance. EPIC 1.1.7 is explicitly `license_blocked`: its upstream agreement restricts ordinary
+  enrichment scores from carrying fraction units or composition summaries. quanTIseq 1.18.0/TIL10,
+  MCPcounter 1.2.0, and xCell 1.1.0 are checksum-pinned and executable with exact symbol mapping,
+  method-specific blank/duplicate/negative-value rules, effective-overlap evidence, and deterministic
+  synthetic-mixture acceptance. The MCP-counter CC0 marker file and xCell serialized reference object
+  are checked at runtime; source archives are checked during image construction. Compatible results
+  are now partitioned by result/assay/bundle semantics and compared only through exact shared
+  population identifiers and labels; a curated ontology crosswalk is intentionally not inferred.
+  The CIBERSORTx relative-mode adapter now rejects sample mismatches, non-finite/out-of-range values,
+  and non-compositional tables, then freezes the original export/checksum, bundle assay, declared
+  gene overlap, signature checksum, mode, batch correction, permutations, and external runtime/run
+  identity. It never executes CIBERSORTx or handles credentials. EPIC 1.1.7 remains explicitly
+  `license_blocked`: its upstream agreement restricts ordinary
   redistribution and network access, so TranscriptForge does not bundle or execute it by default.
 - Exit criteria: Obtain legal approval or retain the EPIC block; validate quanTIseq against at least
   one independent public cohort; empirically approve method-specific overlap thresholds and expected
-  fraction-sum tolerances; implement and validate MCP-counter/xCell and the external CIBERSORTx import.
+  fraction-sum tolerances and enrichment-score stability. The external CIBERSORTx import criterion is
+  complete; its user-declared upstream provenance still requires ordinary research review.
 
 ### TD-017 — Scientific worker Docker cache boundaries
 
@@ -267,6 +276,37 @@ judgment from the repository owner before they can be closed safely.
 - Exit criteria: Split dependency lock/runtime installation from application-source copying, retain
   checksum/version assertions, demonstrate that an R-runner-only edit reuses Bioconductor layers,
   and keep Compose plus dedicated scientific images behaviorally equivalent.
+
+### TD-018 — Classifier external validation and clinical-claim boundary
+
+- Type: Scientific content, product, and governance
+- Status: Open
+- Manual decision: Decide whether to approve or revise the frozen GSE140494-to-GSE32646 protocol
+  before model fitting; after fitting begins, cohort and thresholds must not change. Any intended use
+  beyond research-only exploratory modeling still requires separate domain, legal, and regulatory
+  review.
+- Current state: Binary elastic-net execution now uses deterministic group-aware repeated nested
+  cross-validation with fold-local filtering, scaling, tuning, calibration, and threshold selection.
+  The scientific runner reproduces the frozen split plan, emits complete repeated OOF predictions,
+  feature stability, per-repeat metrics, group-bootstrap uncertainty, ROC/PR/calibration/confusion
+  diagnostics, a learning curve, and full re-tuned label permutations, and passes a deliberate
+  leakage-scope trap. Random-forest and histogram-gradient-boosting comparisons use the same outer
+  test partitions and inner-only tuning. The final elastic-net preprocessing, coefficients,
+  calibration, threshold, model card, inference schema, and template are frozen after validation;
+  `PREDICT_WITH_MODEL` rejects incompatible bundles and publishes checksummed prediction provenance.
+  Multinomial elastic net now preserves the same grouped nested-CV boundary, emits macro/classwise
+  evidence, and locks reproducible multiclass inference. GSE140494 is prospectively designated for
+  development and the disjoint 115-sample Osaka University GSE32646 cohort for one-use external
+  validation. The schema-valid protocol freezes endpoint mapping, independent GPL570/RMA
+  preparation, a truth-label embargo, ROC-AUC and confidence-bound success gates, secondary metrics,
+  and prohibited post-hoc changes. The software does not yet include the required checksum-pinned
+  GPL570 adapter, and the biological model has not been fit or evaluated externally. Internal OOF
+  performance is not labeled as external, clinical, diagnostic, or deployment validation.
+- Exit criteria: Pass the synthetic leakage and known-signal fixtures; publish one OOF probability
+  per sample per repeat with uncertainty and feature-stability evidence; lock the model and decision
+  policy before touching an independent cohort; evaluate that cohort once; document dataset shift,
+  calibration, failure modes, and permitted claims; obtain domain/regulatory review before any
+  clinical-use language.
 
 ## Closed items
 

@@ -60,6 +60,9 @@ jobs:
       - run: >-
           docker compose run --rm --no-deps worker
           Rscript /app/analysis/r/tests/run_deconvolution_acceptance.R
+      - run: >-
+          docker compose run --rm --no-deps worker
+          Rscript /app/analysis/r/tests/run_deconvolution_enrichment_acceptance.R
 
   compose:
     runs-on: ubuntu-latest

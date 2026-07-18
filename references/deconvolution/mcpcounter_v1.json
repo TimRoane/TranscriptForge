@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0.0",
+  "id": "MCPcounter_v1",
+  "method": "mcp_counter",
+  "version": "MCPcounter-1.2.0-b6eac73",
+  "organism": "Homo sapiens",
+  "identifier_namespace": "gene_symbol",
+  "package": {
+    "name": "MCPcounter",
+    "version": "1.2.0",
+    "commit": "b6eac73e91c246fcff0bb1a5c68a816cd588fc48",
+    "source_url": "https://github.com/ebecht/MCPcounter/archive/b6eac73e91c246fcff0bb1a5c68a816cd588fc48.tar.gz",
+    "source_sha256": "fa97668e63b25765eea5bf136fac8ce9117e063a44a7e8f5d94387d7af10270d",
+    "license": "GPL-3; reference markers CC0-1.0"
+  },
+  "files": [
+    {
+      "runtime_path": "/opt/transcriptforge/deconvolution/MCPcounter_genes.txt",
+      "sha256": "408f6c5d02c8f9bd2f1599c598367881853520934f8ce398a4886a8b296922bb"
+    }
+  ],
+  "signature_gene_count": 111,
+  "cell_types": [
+    {"id": "T cells", "label": "T cells"},
+    {"id": "CD8 T cells", "label": "CD8 T cells"},
+    {"id": "Cytotoxic lymphocytes", "label": "Cytotoxic lymphocytes"},
+    {"id": "NK cells", "label": "NK cells"},
+    {"id": "B lineage", "label": "B lineage"},
+    {"id": "Monocytic lineage", "label": "Monocytic lineage"},
+    {"id": "Myeloid dendritic cells", "label": "Myeloid dendritic cells"},
+    {"id": "Neutrophils", "label": "Neutrophils"},
+    {"id": "Endothelial cells", "label": "Endothelial cells"},
+    {"id": "Fibroblasts", "label": "Fibroblasts"}
+  ]
+}

@@ -1,7 +1,7 @@
 process RUN_DECONVOLUTION {
-    tag 'deconvolution-quantiseq'
+    tag 'cell-population-analysis'
     label 'process_medium'
-    container 'transcriptforge/deconvolution:bioc-3.22'
+    container 'transcriptforge/deconvolution:bioc-3.22-enrichment'
 
     publishDir "${params.outdir}/analysis", mode: 'copy', overwrite: true
 

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "registry_version": "2026.07.1",
+  "registry_version": "2026.07.3",
   "methods": [
     {
       "id": "epic",
@@ -71,7 +71,7 @@
       "id": "mcp_counter",
       "display_name": "MCP-counter",
       "execution_mode": "native",
-      "implementation_status": "planned",
+      "implementation_status": "available",
       "result_type": "enrichment_score",
       "quantity_label": "Cell-population abundance score",
       "unit": "arbitrary_score",
@@ -103,7 +103,7 @@
       "id": "xcell",
       "display_name": "xCell",
       "execution_mode": "native",
-      "implementation_status": "planned",
+      "implementation_status": "available",
       "result_type": "enrichment_score",
       "quantity_label": "Cell-type enrichment score",
       "unit": "arbitrary_score",
@@ -135,7 +135,7 @@
       "id": "cibersortx_external",
       "display_name": "CIBERSORTx result import",
       "execution_mode": "external_import",
-      "implementation_status": "external_import_pending",
+      "implementation_status": "available",
       "result_type": "cell_fraction",
       "quantity_label": "Externally estimated relative fraction",
       "unit": "fraction",
@@ -146,13 +146,19 @@
         "organism": "Homo sapiens",
         "feature_level": "gene",
         "identifier_namespace": "gene_symbol",
-        "assay_options": [],
+        "assay_options": [
+          {
+            "name": "tpm",
+            "scales": ["linear"],
+            "value_types": ["nonnegative_continuous"]
+          }
+        ],
         "minimum_reference_overlap": 0.0,
         "negative_values_permitted": false
       },
       "references": [],
       "default_reference": null,
-      "interpretation": "TranscriptForge does not execute CIBERSORTx. A future adapter will import relative-fraction exports only when mode, signature matrix, source file checksum, and external runtime provenance are supplied.",
+      "interpretation": "TranscriptForge does not execute CIBERSORTx. The external adapter imports relative-fraction exports only when the exact input assay, mode, signature matrix checksum, source file checksum, gene overlap, and external runtime provenance are supplied.",
       "source_url": "https://cibersortx.stanford.edu/"
     }
   ]

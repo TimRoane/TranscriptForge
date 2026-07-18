@@ -7,6 +7,8 @@ include { RUN_DIFFERENTIAL_EXPRESSION } from './modules/local/run_differential_e
 include { RUN_SIGNATURE_SCORING } from './modules/local/run_signature_scoring/main'
 include { RUN_GSVA_SCORING } from './modules/local/run_gsva_scoring/main'
 include { RUN_DECONVOLUTION } from './modules/local/run_deconvolution/main'
+include { RUN_CLASSIFIER } from './modules/local/run_classifier/main'
+include { RUN_MODEL_PREDICTION } from './modules/local/predict_with_model/main'
 include { VERIFY_RAW_INPUTS } from './modules/local/verify_raw_inputs/main'
 include { MATERIALIZE_SALMON_REFERENCE } from './modules/local/materialize_salmon_reference/main'
 include { FASTQC_READS } from './modules/local/fastqc/main'
@@ -148,14 +150,22 @@ workflow RUN_ANALYSIS {
             RUN_SIGNATURE_SCORING(request_ch, bundle_ch, analysis_package_ch)
         }
     } else if (analysisRequest.analysis_type == 'deconvolution') {
-        if (analysisRequest.method != 'quantiseq') {
+        deconvolutionReferences = [
+            quantiseq: 'quantiseq_til10.json',
+            mcp_counter: 'mcpcounter_v1.json',
+            xcell: 'xcell_v1.json'
+        ]
+        referenceFilename = deconvolutionReferences[analysisRequest.method]
+        if (!referenceFilename) {
             error "Unsupported deconvolution method: ${analysisRequest.method}"
         }
         reference_manifest_ch = Channel.fromPath(
-            "${projectDir}/../references/deconvolution/quantiseq_til10.json",
+            "${projectDir}/../references/deconvolution/${referenceFilename}",
             checkIfExists: true
         )
         RUN_DECONVOLUTION(request_ch, bundle_ch, analysis_r_ch, reference_manifest_ch)
+    } else if (analysisRequest.analysis_type == 'classifier') {
+        RUN_CLASSIFIER(request_ch, bundle_ch, analysis_package_ch)
     } else {
         error "Unsupported analysis type: ${analysisRequest.analysis_type}"
     }
@@ -285,5 +295,20 @@ workflow RUN_DEMO {
 }
 
 workflow PREDICT_WITH_MODEL {
-    error 'PREDICT_WITH_MODEL is planned for classifier development.'
+    if (!params.model || !params.expression_bundle) {
+        error 'PREDICT_WITH_MODEL requires --model and --expression_bundle.'
+    }
+
+    model_ch = Channel.fromPath(params.model, checkIfExists: true)
+    bundle_ch = Channel.fromPath(params.expression_bundle, checkIfExists: true)
+    analysis_package_ch = Channel.fromPath(
+        "${projectDir}/../analysis/python/transcriptforge_analysis",
+        type: 'dir',
+        checkIfExists: true
+    )
+
+    RUN_MODEL_PREDICTION(model_ch, bundle_ch, analysis_package_ch)
+
+    emit:
+    results = RUN_MODEL_PREDICTION.out.results
 }

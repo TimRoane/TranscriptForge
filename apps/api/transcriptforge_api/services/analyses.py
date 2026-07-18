@@ -20,6 +20,8 @@ from transcriptforge_api.models.base import new_id
 from transcriptforge_api.models.enums import AnalysisType, RunState, RunType
 from transcriptforge_api.schemas.analyses import (
     AnalysisCreate,
+    ClassifierParameters,
+    ClassifierPreviewRequest,
     DeconvolutionParameters,
     DifferentialExpressionParameters,
     DifferentialExpressionPreviewRequest,
@@ -28,6 +30,7 @@ from transcriptforge_api.schemas.analyses import (
     PhenotypeAssociationParameters,
     SignatureScoringParameters,
 )
+from transcriptforge_api.services.classifier_design import validate_classifier_design
 from transcriptforge_api.services.deconvolution import (
     method_registry,
     validate_saved_configuration,
@@ -78,6 +81,13 @@ async def create_analysis(
         request.parameters, DeconvolutionParameters
     ):
         raise AnalysisInputError("Deconvolution parameters are invalid.")
+    elif request.analysis_type == AnalysisType.CLASSIFIER:
+        if not isinstance(request.parameters, ClassifierParameters):
+            raise AnalysisInputError("Classifier parameters are invalid.")
+        if request.assay != "log_expression":
+            raise AnalysisInputError(
+                "Binary classifier development currently requires the log_expression assay."
+            )
     dataset = await session.get(Dataset, prepared.dataset_id)
     if dataset is None:
         raise AnalysisInputError("The source dataset no longer exists.")
@@ -189,6 +199,28 @@ async def create_analysis(
         configuration["design_formula"] = preview.formula
         configuration["contrast_label"] = preview.contrast_label
         configuration["design_validation"] = preview.model_dump(mode="json")
+    if request.analysis_type == AnalysisType.CLASSIFIER:
+        assert isinstance(request.parameters, ClassifierParameters)
+        classifier_preview = validate_classifier_design(
+            prepared,
+            storage,
+            ClassifierPreviewRequest(
+                assay="log_expression",
+                method=request.method,
+                parameters=request.parameters,
+                random_seed=request.random_seed,
+            ),
+        )
+        if not classifier_preview.valid:
+            raise AnalysisInputError(" ".join(classifier_preview.errors))
+        configuration["design_validation"] = classifier_preview.model_dump(mode="json")
+        configuration["execution_available"] = True
+        configuration["leakage_policy"] = {
+            "preprocessing_scope": "fit_inside_each_training_fold",
+            "feature_selection_scope": "fit_inside_each_training_fold",
+            "hyperparameter_tuning_scope": "inner_training_folds_only",
+            "outer_test_fold_role": "evaluation_only",
+        }
     analysis = Analysis(
         project_id=dataset.project_id,
         prepared_dataset_id=prepared.id,
@@ -251,11 +283,15 @@ async def create_analysis_run(
         registry = method_registry()
         method_id = str(analysis.configuration_json.get("method", ""))
         method = next((item for item in registry.methods if item.id == method_id), None)
-        if method is None or method.implementation_status != "available":
+        if (
+            method is None
+            or method.implementation_status != "available"
+            or method.execution_mode != "native"
+        ):
             raise AnalysisInputError(
-                "This deconvolution design is saved, but its scientific runner is not available. "
-                "The selected method may require a future implementation or separate upstream "
-                "license acceptance and installation."
+                "This deconvolution analysis does not have a native scientific runner. The "
+                "selected method may be external-import-only or require a future implementation "
+                "or separate upstream license acceptance and installation."
             )
     active = await session.scalar(
         select(Run.id).where(
@@ -323,6 +359,11 @@ async def create_analysis_run(
             design_formula=configuration["design_formula"],
             contrast_label=configuration["contrast_label"],
             design_validation=configuration["design_validation"],
+        )
+    if analysis.analysis_type == AnalysisType.CLASSIFIER.value:
+        frozen.update(
+            design_validation=configuration["design_validation"],
+            leakage_policy=configuration["leakage_policy"],
         )
     payload = (json.dumps(frozen, indent=2, sort_keys=True) + "\n").encode()
     stored = storage.put(

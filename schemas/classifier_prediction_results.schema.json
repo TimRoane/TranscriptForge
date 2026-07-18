@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.dev/schemas/classifier-prediction-results/1.0.0",
+  "title": "TranscriptForge Locked Classifier Prediction Results",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "model_analysis_id", "model_prepared_dataset_id", "assay", "negative_class", "positive_class", "decision_threshold", "sample_count", "feature_overlap", "predictions", "provenance", "warnings"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "model_analysis_id": { "type": "string", "minLength": 1 },
+    "model_prepared_dataset_id": { "type": "string", "minLength": 1 },
+    "assay": { "const": "log_expression" },
+    "negative_class": { "type": "string", "minLength": 1 },
+    "positive_class": { "type": "string", "minLength": 1 },
+    "decision_threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+    "sample_count": { "type": "integer", "minimum": 1 },
+    "feature_overlap": {
+      "type": "object", "additionalProperties": false,
+      "required": ["required_feature_count", "matched_feature_count", "missing_feature_count", "bundle_feature_count", "overlap_fraction"],
+      "properties": {
+        "required_feature_count": { "type": "integer", "minimum": 1 },
+        "matched_feature_count": { "type": "integer", "minimum": 1 },
+        "missing_feature_count": { "const": 0 },
+        "bundle_feature_count": { "type": "integer", "minimum": 1 },
+        "overlap_fraction": { "const": 1.0 }
+      }
+    },
+    "predictions": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["sample_id", "positive_probability", "predicted_positive", "predicted_class"],
+        "properties": {
+          "sample_id": { "type": "string", "minLength": 1 },
+          "positive_probability": { "type": "number", "minimum": 0, "maximum": 1 },
+          "predicted_positive": { "type": "boolean" },
+          "predicted_class": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["model_sha256", "expression_bundle_sha256"],
+      "properties": {
+        "model_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "expression_bundle_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "warnings": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+  }
+}

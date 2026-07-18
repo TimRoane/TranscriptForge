@@ -55,17 +55,21 @@ same worker target and runs both harnesses independently of the Python and front
 
 ## Cell-type deconvolution
 
-`deconvolution/Dockerfile` pins Bioconductor 3.22 and installs the checksum-verified
-`quantiseqr` 1.18.0 source archive. TranscriptForge verifies the packaged TIL10 signature,
-mRNA-scaling, noisy-gene, and tumor-exclusion files against
-`references/deconvolution/quantiseq_til10.json` before every run.
+`deconvolution/Dockerfile` pins Bioconductor 3.22 and installs checksum-verified source archives for
+`quantiseqr` 1.18.0, MCPcounter 1.2.0, and xCell 1.1.0. TranscriptForge verifies the packaged TIL10
+files, the MCP-counter CC0 marker asset, and the serialized xCell reference object against their
+manifests under `references/deconvolution/` before every run.
 
 Build the portable runtime and run the deterministic recovery fixture with:
 
 ```bash
-docker build -t transcriptforge/deconvolution:bioc-3.22 containers/deconvolution
+docker build -t transcriptforge/deconvolution:bioc-3.22-enrichment containers/deconvolution
 make test-deconvolution-r
 ```
+
+The acceptance target checks known-mixture recovery and deterministic reruns for fraction and
+enrichment methods. Run Python checks through `.venv` and scientific/Node checks through the pinned
+containers; host package versions are not part of the supported toolchain.
 
 EPIC is not included in any image: its upstream academic license requires separate acceptance
 and restricts redistribution and network access. The machine-readable gate is recorded in

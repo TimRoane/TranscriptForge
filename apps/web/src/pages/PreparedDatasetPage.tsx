@@ -38,6 +38,7 @@ import {
   type DimensionReductionMethod,
 } from '../api/client'
 import { ErrorState, LoadingState } from '../components/ApiState'
+import { ClassifierSetupPanel } from '../components/ClassifierSetupPanel'
 import { DeconvolutionSetupPanel } from '../components/DeconvolutionSetupPanel'
 import { SignatureMappingPanel } from '../components/SignatureMappingPanel'
 
@@ -78,6 +79,7 @@ const ANALYSIS_TYPE_LABELS = {
   differential_expression: 'Differential expression',
   signature: 'Signature analysis',
   deconvolution: 'Cell-type deconvolution',
+  classifier: 'Classifier development',
 }
 
 function normalizedVariableName(name: string) {
@@ -761,6 +763,8 @@ export function PreparedDatasetPage() {
       )}
 
       <DeconvolutionSetupPanel preparedDatasetId={preparedDatasetId} />
+
+      <ClassifierSetupPanel preparedDatasetId={preparedDatasetId} />
 
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Stack spacing={2.5}>

@@ -12,7 +12,7 @@ from typing import Any
 from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 
 from transcriptforge_api.config import Settings, get_settings
-from transcriptforge_api.models import Artifact, Run
+from transcriptforge_api.models import Artifact, ModelRecord, Run
 from transcriptforge_api.models.enums import RunState, RunType
 from transcriptforge_api.storage import get_storage_backend
 from transcriptforge_api.storage.base import StorageBackend
@@ -153,8 +153,54 @@ def run_analysis_workflow(
                 "deconvolution_results.schema.json",
                 "Deconvolution results",
             )
+        classifier_results = result_manifest.parent / "classifier_results.json"
+        classifier_registry: dict[str, Any] | None = None
+        if frozen.get("analysis_type") == "classifier":
+            if not classifier_results.is_file():
+                raise RuntimeError("Classifier analysis did not publish classifier_results.json.")
+            classifier_payload = json.loads(classifier_results.read_text(encoding="utf-8"))
+            multiclass = frozen.get("method") == "multinomial_elastic_net"
+            _validate_json_contract(
+                classifier_payload,
+                "multiclass_classifier_results.schema.json"
+                if multiclass
+                else "classifier_results.schema.json",
+                "Classifier results",
+            )
+            locked_model = json.loads(
+                (classifier_results.parent / "model.json").read_text(encoding="utf-8")
+            )
+            _validate_json_contract(
+                locked_model,
+                "multiclass_classifier_model.schema.json"
+                if multiclass
+                else "classifier_model.schema.json",
+                "Locked model",
+            )
+            if multiclass:
+                model_name = (
+                    f"{classifier_payload['outcome']['column']} multinomial elastic-net classifier"
+                )
+                algorithm = "multinomial_elastic_net_logistic_regression"
+            else:
+                model_name = (
+                    f"{classifier_payload['outcome']['positive_class']} versus "
+                    f"{classifier_payload['outcome']['negative_class']} elastic-net classifier"
+                )
+                algorithm = "elastic_net_logistic_regression"
+            classifier_registry = {
+                "model_name": model_name,
+                "algorithm": algorithm,
+                "outcome_column": classifier_payload["outcome"]["column"],
+                "metrics_json": {
+                    "metrics": classifier_payload["metrics"],
+                    "confidence_intervals": classifier_payload["confidence_intervals"],
+                    "validation": "internal_grouped_repeated_nested_cross_validation",
+                },
+                "feature_count": len(locked_model["selected_feature_ids"]),
+            }
         artifacts = _store_artifacts(storage, run_id, _artifact_specs(run_root))
-        asyncio.run(_mark_succeeded(settings, snapshot, artifacts, session_id))
+        asyncio.run(_mark_succeeded(settings, snapshot, artifacts, session_id, classifier_registry))
         return {"run_id": run_id, "state": RunState.SUCCEEDED.value}
     except RunCancelled as error:
         asyncio.run(_mark_cancelled(settings, snapshot, error))
@@ -231,15 +277,85 @@ def _artifact_specs(run_root: Path) -> list[ArtifactSpec]:
     analysis = run_root / "output" / "analysis" / "results"
     candidates = [
         ArtifactSpec(
+            "classifier_results",
+            "Structured classifier results",
+            analysis / "classifier_results.json",
+            "application/json",
+            1,
+        ),
+        ArtifactSpec(
+            "classifier_oof_predictions",
+            "Out-of-fold predictions",
+            analysis / "oof_predictions.tsv",
+            "text/tab-separated-values",
+            2,
+        ),
+        ArtifactSpec(
+            "classifier_feature_stability",
+            "Feature stability across outer folds",
+            analysis / "feature_stability.tsv",
+            "text/tab-separated-values",
+            3,
+        ),
+        ArtifactSpec(
+            "classifier_diagnostics",
+            "Classifier diagnostics",
+            analysis / "classifier_diagnostics.json",
+            "application/json",
+            4,
+        ),
+        ArtifactSpec(
+            "classifier_diagnostics_svg",
+            "ROC, precision-recall, and learning curves",
+            analysis / "classifier_diagnostics.svg",
+            "image/svg+xml",
+            5,
+        ),
+        ArtifactSpec(
+            "classifier_model",
+            "Locked elastic-net model",
+            analysis / "model.json",
+            "application/json",
+            6,
+        ),
+        ArtifactSpec(
+            "classifier_model_card",
+            "Locked model card",
+            analysis / "model_card.json",
+            "application/json",
+            7,
+        ),
+        ArtifactSpec(
+            "classifier_model_card_markdown",
+            "Locked model card (Markdown)",
+            analysis / "model_card.md",
+            "text/markdown",
+            8,
+        ),
+        ArtifactSpec(
+            "classifier_inference_schema",
+            "Locked model inference schema",
+            analysis / "inference_schema.json",
+            "application/schema+json",
+            9,
+        ),
+        ArtifactSpec(
+            "classifier_inference_example",
+            "Locked model inference template",
+            analysis / "inference_example.tsv",
+            "text/tab-separated-values",
+            10,
+        ),
+        ArtifactSpec(
             "deconvolution_results",
-            "Structured cell-deconvolution results",
+            "Structured cell-population results",
             analysis / "deconvolution_results.json",
             "application/json",
             1,
         ),
         ArtifactSpec(
             "deconvolution_estimates",
-            "Long-format cell-fraction estimates",
+            "Long-format cell-population estimates",
             analysis / "deconvolution_estimates.tsv",
             "text/tab-separated-values",
             2,
@@ -255,6 +371,13 @@ def _artifact_specs(run_root: Path) -> list[ArtifactSpec]:
             "deconvolution_fractions_svg",
             "Estimated cell fractions (SVG)",
             analysis / "cell_fractions.svg",
+            "image/svg+xml",
+            4,
+        ),
+        ArtifactSpec(
+            "deconvolution_enrichment_svg",
+            "Cell-population enrichment patterns (SVG)",
+            analysis / "enrichment_scores.svg",
             "image/svg+xml",
             4,
         ),
@@ -633,6 +756,7 @@ async def _mark_succeeded(
     snapshot: AnalysisRunSnapshot,
     artifacts: list[dict[str, Any]],
     session_id: str | None,
+    classifier_registry: dict[str, Any] | None = None,
 ) -> None:
     async with _worker_session(settings) as session:
         run = await session.get(Run, snapshot.id)
@@ -642,6 +766,21 @@ async def _mark_succeeded(
             raise RunCancelled("Cancelled by user.")
         for item in artifacts:
             session.add(Artifact(run_id=run.id, metadata_json={}, **item))
+        if classifier_registry is not None:
+            artifact_by_type = {item["artifact_type"]: item for item in artifacts}
+            model_artifact = artifact_by_type.get("classifier_model")
+            card_artifact = artifact_by_type.get("classifier_model_card")
+            if model_artifact is None or card_artifact is None:
+                raise RuntimeError("Classifier completed without model registry artifacts.")
+            session.add(
+                ModelRecord(
+                    analysis_id=snapshot.analysis_id,
+                    run_id=run.id,
+                    model_uri=model_artifact["storage_uri"],
+                    model_card_uri=card_artifact["storage_uri"],
+                    **classifier_registry,
+                )
+            )
         run.state = RunState.SUCCEEDED.value
         run.exit_code = 0
         run.nextflow_session_id = session_id

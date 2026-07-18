@@ -21,6 +21,7 @@
     "design_formula": { "type": "string", "minLength": 3 },
     "contrast_label": { "type": "string", "minLength": 1 },
     "design_validation": { "type": "object" },
+    "leakage_policy": { "type": "object" },
     "signature_mapping": { "type": "object" },
     "method_registry_version": { "type": "string", "pattern": "^[0-9]{4}\\.[0-9]{2}\\.[0-9]+$" },
     "method_registry_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
@@ -70,6 +71,55 @@
       }
     },
     {
+      "if": { "properties": { "analysis_type": { "const": "classifier" } }, "required": ["analysis_type"] },
+      "then": {
+        "required": ["design_validation", "leakage_policy"],
+        "properties": {
+          "method": { "enum": ["elastic_net", "multinomial_elastic_net"] },
+          "assay": { "const": "log_expression" },
+          "parameters": { "$ref": "#/$defs/classifier_parameters" },
+          "design_validation": { "type": "object" },
+          "leakage_policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["preprocessing_scope", "feature_selection_scope", "hyperparameter_tuning_scope", "outer_test_fold_role"],
+            "properties": {
+              "preprocessing_scope": { "const": "fit_inside_each_training_fold" },
+              "feature_selection_scope": { "const": "fit_inside_each_training_fold" },
+              "hyperparameter_tuning_scope": { "const": "inner_training_folds_only" },
+              "outer_test_fold_role": { "const": "evaluation_only" }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "method": { "const": "elastic_net" } }, "required": ["method"] },
+            "then": {
+              "properties": {
+                "parameters": {
+                  "allOf": [
+                    { "properties": { "positive_class": { "type": "string", "minLength": 1 }, "primary_metric": { "enum": ["roc_auc", "pr_auc", "balanced_accuracy"] } } }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": { "properties": { "method": { "const": "multinomial_elastic_net" } }, "required": ["method"] },
+            "then": {
+              "properties": {
+                "parameters": {
+                  "allOf": [
+                    { "properties": { "positive_class": { "type": "null" }, "primary_metric": { "enum": ["macro_roc_auc", "macro_f1", "balanced_accuracy"] }, "probability_calibration": { "const": "none" }, "decision_threshold_strategy": { "const": "fixed_0_5" } } }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
       "if": { "properties": { "analysis_type": { "const": "deconvolution" } }, "required": ["analysis_type"] },
       "then": {
         "required": ["method_registry_version", "method_registry_sha256", "deconvolution_method", "input_assay_descriptor"],
@@ -93,6 +143,35 @@
     }
   ],
   "$defs": {
+    "classifier_parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome_column", "positive_class", "group_column", "cohort_column",
+        "validation_mode", "feature_filter", "top_variable_features", "class_weight",
+        "outer_folds", "inner_folds", "repeats", "primary_metric",
+        "probability_calibration", "decision_threshold_strategy", "bootstrap_iterations",
+        "permutation_count"
+      ],
+      "properties": {
+        "outcome_column": { "$ref": "#/$defs/variable_name" },
+        "positive_class": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 200 }, { "type": "null" }] },
+        "group_column": { "oneOf": [{ "$ref": "#/$defs/variable_name" }, { "type": "null" }] },
+        "cohort_column": { "oneOf": [{ "$ref": "#/$defs/variable_name" }, { "type": "null" }] },
+        "validation_mode": { "const": "repeated_nested_cross_validation" },
+        "feature_filter": { "const": "top_variance" },
+        "top_variable_features": { "type": "integer", "minimum": 10, "maximum": 20000 },
+        "class_weight": { "enum": ["none", "balanced"] },
+        "outer_folds": { "type": "integer", "minimum": 2, "maximum": 10 },
+        "inner_folds": { "type": "integer", "minimum": 2, "maximum": 10 },
+        "repeats": { "type": "integer", "minimum": 1, "maximum": 20 },
+        "primary_metric": { "enum": ["roc_auc", "pr_auc", "balanced_accuracy", "macro_roc_auc", "macro_f1"] },
+        "probability_calibration": { "enum": ["none", "sigmoid"] },
+        "decision_threshold_strategy": { "enum": ["fixed_0_5", "inner_cv_youden"] },
+        "bootstrap_iterations": { "type": "integer", "minimum": 200, "maximum": 5000 },
+        "permutation_count": { "type": "integer", "minimum": 0, "maximum": 1000 }
+      }
+    },
     "deconvolution_parameters": {
       "type": "object",
       "additionalProperties": false,

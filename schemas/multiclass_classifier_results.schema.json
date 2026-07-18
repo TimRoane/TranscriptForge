@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.dev/schemas/multiclass-classifier-results/1.0.0",
+  "title": "TranscriptForge Multiclass Classifier Results",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "analysis_id", "prepared_dataset_id", "method", "assay", "outcome", "validation", "sample_count", "input_feature_count", "top_variable_features", "oof_coverage", "metrics", "repeat_metrics", "confidence_intervals", "diagnostics", "permutation_control", "folds", "oof_predictions", "feature_stability", "leakage_audit", "provenance", "locked_model", "warnings", "software"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "analysis_id": { "type": "string", "minLength": 1 },
+    "prepared_dataset_id": { "type": "string", "minLength": 1 },
+    "method": { "const": "multinomial_elastic_net" },
+    "assay": { "const": "log_expression" },
+    "outcome": {
+      "type": "object", "additionalProperties": false,
+      "required": ["column", "classes", "class_counts"],
+      "properties": {
+        "column": { "type": "string", "minLength": 1 },
+        "classes": { "type": "array", "minItems": 3, "maxItems": 20, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "class_counts": { "type": "object", "minProperties": 3, "additionalProperties": { "type": "integer", "minimum": 1 } }
+      }
+    },
+    "validation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode", "group_column", "cohort_column", "outer_folds", "inner_folds", "repeats", "primary_metric", "prediction_rule"],
+      "properties": {
+        "mode": { "const": "repeated_nested_cross_validation" },
+        "group_column": { "type": ["string", "null"] },
+        "cohort_column": { "type": ["string", "null"] },
+        "outer_folds": { "type": "integer", "minimum": 2 },
+        "inner_folds": { "type": "integer", "minimum": 2 },
+        "repeats": { "type": "integer", "minimum": 1 },
+        "primary_metric": { "enum": ["macro_roc_auc", "macro_f1", "balanced_accuracy"] },
+        "prediction_rule": { "const": "maximum_class_probability" }
+      }
+    },
+    "sample_count": { "type": "integer", "minimum": 6 },
+    "input_feature_count": { "type": "integer", "minimum": 1 },
+    "top_variable_features": { "type": "integer", "minimum": 1 },
+    "oof_coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["expected_prediction_count", "observed_prediction_count", "one_prediction_per_sample_per_repeat"],
+      "properties": {
+        "expected_prediction_count": { "type": "integer", "minimum": 1 },
+        "observed_prediction_count": { "type": "integer", "minimum": 1 },
+        "one_prediction_per_sample_per_repeat": { "const": true }
+      }
+    },
+    "metrics": { "$ref": "#/$defs/metrics" },
+    "repeat_metrics": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": { "type": ["number", "integer"] },
+        "required": ["repeat", "macro_roc_auc", "macro_f1", "balanced_accuracy", "accuracy", "log_loss"]
+      }
+    },
+    "confidence_intervals": {
+      "type": "object", "additionalProperties": false,
+      "required": ["method", "iterations", "confidence_level", "intervals"],
+      "properties": {
+        "method": { "const": "experimental_unit_percentile_bootstrap" },
+        "iterations": { "type": "integer", "minimum": 1 },
+        "confidence_level": { "const": 0.95 },
+        "intervals": { "type": "object", "minProperties": 5, "additionalProperties": { "$ref": "#/$defs/interval" } }
+      }
+    },
+    "diagnostics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["one_vs_rest_roc_curves", "confusion_matrix", "class_order"],
+      "properties": {
+        "one_vs_rest_roc_curves": { "type": "object", "minProperties": 3, "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/roc_point" } } },
+        "confusion_matrix": { "type": "array", "minItems": 3, "items": { "type": "array", "minItems": 3, "items": { "type": "integer", "minimum": 0 } } },
+        "class_order": { "type": "array", "minItems": 3, "uniqueItems": true, "items": { "type": "string" } }
+      }
+    },
+    "permutation_control": {
+      "type": "object", "additionalProperties": false,
+      "required": ["method", "count", "macro_roc_auc_values", "mean_macro_roc_auc", "empirical_p_value"],
+      "properties": {
+        "method": { "const": "full_nested_cross_validation_label_permutation" },
+        "count": { "type": "integer", "minimum": 0 },
+        "macro_roc_auc_values": { "type": "array", "items": { "type": "number", "minimum": 0, "maximum": 1 } },
+        "mean_macro_roc_auc": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "empirical_p_value": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+      }
+    },
+    "folds": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/fold" } },
+    "oof_predictions": { "type": "array", "minItems": 6, "items": { "$ref": "#/$defs/prediction" } },
+    "feature_stability": { "type": "array", "items": { "$ref": "#/$defs/feature" } },
+    "leakage_audit": {
+      "type": "object", "additionalProperties": false,
+      "required": ["preprocessing_scope", "feature_selection_scope", "hyperparameter_tuning_scope", "outer_test_fold_role", "all_fold_scopes_disjoint"],
+      "properties": {
+        "preprocessing_scope": { "const": "fit_inside_each_training_fold" },
+        "feature_selection_scope": { "const": "fit_inside_each_training_fold" },
+        "hyperparameter_tuning_scope": { "const": "inner_training_folds_only" },
+        "outer_test_fold_role": { "const": "evaluation_only" },
+        "all_fold_scopes_disjoint": { "const": true }
+      }
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["expression_bundle_sha256", "random_seed"],
+      "properties": {
+        "expression_bundle_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "random_seed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "locked_model": { "$ref": "#/$defs/locked_model" },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "software": { "type": "object" }
+  },
+  "$defs": {
+    "metrics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["macro_roc_auc", "macro_f1", "balanced_accuracy", "accuracy", "log_loss"],
+      "properties": {
+        "macro_roc_auc": { "type": "number", "minimum": 0, "maximum": 1 },
+        "macro_f1": { "type": "number", "minimum": 0, "maximum": 1 },
+        "balanced_accuracy": { "type": "number", "minimum": 0, "maximum": 1 },
+        "accuracy": { "type": "number", "minimum": 0, "maximum": 1 },
+        "log_loss": { "type": "number", "minimum": 0 }
+      }
+    },
+    "interval": { "type": "object", "additionalProperties": false, "required": ["lower", "upper"], "properties": { "lower": { "type": "number" }, "upper": { "type": "number" } } },
+    "roc_point": { "type": "object", "additionalProperties": false, "required": ["false_positive_rate", "true_positive_rate"], "properties": { "false_positive_rate": { "type": "number", "minimum": 0, "maximum": 1 }, "true_positive_rate": { "type": "number", "minimum": 0, "maximum": 1 } } },
+    "fold": {
+      "type": "object", "additionalProperties": false,
+      "required": ["repeat", "fold", "training_sample_count", "test_sample_count", "training_class_counts", "test_class_counts", "training_group_count", "test_group_count", "group_overlap_count", "selected_feature_count", "nonzero_coefficient_count", "best_c", "best_l1_ratio", "preprocessing_fit_sample_ids_sha256", "outer_test_sample_ids_sha256"],
+      "properties": {
+        "repeat": { "type": "integer", "minimum": 1 }, "fold": { "type": "integer", "minimum": 1 },
+        "training_sample_count": { "type": "integer", "minimum": 3 }, "test_sample_count": { "type": "integer", "minimum": 3 },
+        "training_class_counts": { "type": "object", "minProperties": 3, "additionalProperties": { "type": "integer", "minimum": 1 } },
+        "test_class_counts": { "type": "object", "minProperties": 3, "additionalProperties": { "type": "integer", "minimum": 1 } },
+        "training_group_count": { "type": "integer", "minimum": 2 }, "test_group_count": { "type": "integer", "minimum": 1 },
+        "group_overlap_count": { "const": 0 }, "selected_feature_count": { "type": "integer", "minimum": 1 },
+        "nonzero_coefficient_count": { "type": "integer", "minimum": 0 }, "best_c": { "enum": [0.05, 0.5, 5.0] },
+        "best_l1_ratio": { "enum": [0.0, 0.5, 1.0] },
+        "preprocessing_fit_sample_ids_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "outer_test_sample_ids_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "prediction": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sample_id", "repeat", "fold", "observed_class", "predicted_class", "class_probabilities", "group", "cohort"],
+      "properties": {
+        "sample_id": { "type": "string", "minLength": 1 }, "repeat": { "type": "integer", "minimum": 1 }, "fold": { "type": "integer", "minimum": 1 },
+        "observed_class": { "type": "string", "minLength": 1 }, "predicted_class": { "type": "string", "minLength": 1 },
+        "class_probabilities": { "type": "object", "minProperties": 3, "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 } },
+        "group": { "type": ["string", "null"] }, "cohort": { "type": ["string", "null"] }
+      }
+    },
+    "feature": {
+      "type": "object", "additionalProperties": false,
+      "required": ["feature_id", "class_label", "selection_frequency", "nonzero_frequency", "mean_coefficient"],
+      "properties": {
+        "feature_id": { "type": "string", "minLength": 1 }, "class_label": { "type": "string", "minLength": 1 },
+        "selection_frequency": { "type": "number", "minimum": 0, "maximum": 1 }, "nonzero_frequency": { "type": "number", "minimum": 0, "maximum": 1 }, "mean_coefficient": { "type": "number" }
+      }
+    },
+    "locked_model": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "feature_schema_path", "model_card_path", "inference_example_path"],
+      "properties": {
+        "path": { "const": "model.json" }, "feature_schema_path": { "const": "inference_schema.json" },
+        "model_card_path": { "const": "model_card.json" }, "inference_example_path": { "const": "inference_example.tsv" }
+      }
+    }
+  }
+}

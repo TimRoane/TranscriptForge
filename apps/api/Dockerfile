@@ -32,6 +32,11 @@ ENV GSVA_VERSION=${GSVA_VERSION}
 ARG QUANTISEQR_VERSION=1.18.0
 ARG QUANTISEQR_SHA256=ac0cf7804b70d759237eb4c8fbc9e1b37b81384653fd6f97f109f57ade1ddd68
 ENV QUANTISEQR_VERSION=${QUANTISEQR_VERSION}
+ARG MCPCOUNTER_COMMIT=b6eac73e91c246fcff0bb1a5c68a816cd588fc48
+ARG MCPCOUNTER_SHA256=fa97668e63b25765eea5bf136fac8ce9117e063a44a7e8f5d94387d7af10270d
+ARG MCPCOUNTER_MARKERS_SHA256=408f6c5d02c8f9bd2f1599c598367881853520934f8ce398a4886a8b296922bb
+ARG XCELL_COMMIT=20e2919eefd37e15af35f29f4944e30697098a28
+ARG XCELL_SHA256=042780994eb8363cd673e598a5355e3bffc33cb51052722ca885657e63eaeb0e
 ARG SALMON_SHA256_AMD64=59dba764d579630a4ebbfaf7bb9575f1a72bbe215e76af3187d82b4665794833
 ARG SALMON_SHA256_ARM64=930cf75009a2f0a705a6acc6f4613d2add03f00961893333cd750570b6431198
 ENV NXF_VER=${NXF_VER}
@@ -62,6 +67,25 @@ RUN R -q -e 'BiocManager::install(c("Biobase", "preprocessCore", "SummarizedExpe
     && R CMD INSTALL /tmp/quantiseqr.tar.gz \
     && R -q -e 'stopifnot(as.character(packageVersion("quantiseqr")) == Sys.getenv("QUANTISEQR_VERSION"))' \
     && rm /tmp/quantiseqr.tar.gz
+RUN R -q -e 'BiocManager::install(c("curl", "digest", "pracma", "quadprog"), ask = FALSE, update = FALSE)' \
+    && curl --fail --silent --show-error --location \
+      "https://github.com/ebecht/MCPcounter/archive/${MCPCOUNTER_COMMIT}.tar.gz" \
+      --output /tmp/mcpcounter.tar.gz \
+    && echo "${MCPCOUNTER_SHA256}  /tmp/mcpcounter.tar.gz" | sha256sum --check \
+    && mkdir -p /tmp/mcpcounter /opt/transcriptforge/deconvolution \
+    && tar --extract --gzip --file /tmp/mcpcounter.tar.gz --directory /tmp/mcpcounter --strip-components=1 \
+    && echo "${MCPCOUNTER_MARKERS_SHA256}  /tmp/mcpcounter/Signatures/genes.txt" | sha256sum --check \
+    && install -m 0444 /tmp/mcpcounter/Signatures/genes.txt /opt/transcriptforge/deconvolution/MCPcounter_genes.txt \
+    && R CMD INSTALL /tmp/mcpcounter/Source \
+    && curl --fail --silent --show-error --location \
+      "https://github.com/dviraran/xCell/archive/${XCELL_COMMIT}.tar.gz" \
+      --output /tmp/xcell.tar.gz \
+    && echo "${XCELL_SHA256}  /tmp/xcell.tar.gz" | sha256sum --check \
+    && mkdir -p /tmp/xcell \
+    && tar --extract --gzip --file /tmp/xcell.tar.gz --directory /tmp/xcell --strip-components=1 \
+    && R CMD INSTALL /tmp/xcell \
+    && R -q -e 'stopifnot(as.character(packageVersion("MCPcounter")) == "1.2.0"); stopifnot(as.character(packageVersion("xCell")) == "1.1.0")' \
+    && rm -rf /tmp/mcpcounter /tmp/mcpcounter.tar.gz /tmp/xcell /tmp/xcell.tar.gz
 RUN pip install --no-cache-dir multiqc==1.32 \
     && architecture="$(dpkg --print-architecture)" \
     && if [ "${architecture}" = "arm64" ]; then aws_arch="aarch64"; else aws_arch="x86_64"; fi \

@@ -34,6 +34,8 @@ test-signature-r:
 test-deconvolution-r:
 	docker compose run --rm --no-deps worker \
 		Rscript /app/analysis/r/tests/run_deconvolution_acceptance.R
+	docker compose run --rm --no-deps worker \
+		Rscript /app/analysis/r/tests/run_deconvolution_enrichment_acceptance.R
 
 test-signature-cross-modality:
 	python3 -m pytest analysis/python/tests/test_cross_modality_signature.py

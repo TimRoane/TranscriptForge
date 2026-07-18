@@ -89,6 +89,26 @@ const deconvolutionCapabilities = {
     },
     compatible_assays: ['tpm'], configuration_available: true,
     execution_available: true, blocked_reasons: [],
+  }, {
+    method: {
+      id: 'cibersortx_external', display_name: 'CIBERSORTx result import',
+      execution_mode: 'external_import', implementation_status: 'available',
+      result_type: 'cell_fraction', quantity_label: 'Externally estimated relative fraction',
+      unit: 'fraction', composition_constraint: 'declared_by_import',
+      within_sample_cell_type_comparison: true, between_sample_comparison: true,
+      input: {
+        organism: 'Homo sapiens', feature_level: 'gene', identifier_namespace: 'gene_symbol',
+        assay_options: [{
+          name: 'tpm', scales: ['linear'], value_types: ['nonnegative_continuous'],
+        }],
+        minimum_reference_overlap: 0, negative_values_permitted: false,
+      },
+      references: [], default_reference: null,
+      interpretation: 'Externally estimated relative fractions with frozen provenance.',
+      source_url: 'https://cibersortx.stanford.edu/',
+    },
+    compatible_assays: ['tpm'], configuration_available: true,
+    execution_available: false, blocked_reasons: ['External import only.'],
   }],
 }
 
@@ -599,6 +619,9 @@ describe('App', () => {
     expect(screen.getByText('Cell fractions')).toBeInTheDocument()
     expect(screen.getByText('Runner available')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save deconvolution design' })).toBeEnabled()
+    expect(screen.getByRole('heading', { name: 'Import CIBERSORTx relative fractions' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Choose result table' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Validate and import result' })).toBeDisabled()
   })
 
   it('renders deterministic signature scores with mapping evidence and downloads', async () => {
@@ -713,6 +736,278 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: /Per-sample signature scores table/ })).toHaveAttribute(
       'href', expect.stringContaining('/artifacts/score-table/download'),
     )
+  })
+
+  it('shows classifier leakage evidence and completed OOF results', async () => {
+    const fold = {
+      repeat: 1, fold: 1, training_sample_count: 16, test_sample_count: 8,
+      training_class_counts: { control: 8, treated: 8 },
+      test_class_counts: { control: 4, treated: 4 },
+      training_group_count: 8, test_group_count: 4, group_overlap_count: 0,
+    }
+    const analysis = {
+      id: 'classifier-analysis-1', project_id: 'project-1', prepared_dataset_id: 'prepared-1',
+      analysis_type: 'classifier', name: 'Treated elastic-net classifier', description: null,
+      configuration_json: {
+        analysis_type: 'classifier', method: 'elastic_net', assay: 'log_expression',
+        parameters: {
+          outcome_column: 'condition', positive_class: 'treated', group_column: 'subject_id',
+          cohort_column: 'cohort', validation_mode: 'repeated_nested_cross_validation',
+          feature_filter: 'top_variance', top_variable_features: 500,
+          class_weight: 'balanced', outer_folds: 3, inner_folds: 2, repeats: 2,
+          primary_metric: 'roc_auc', probability_calibration: 'none',
+          decision_threshold_strategy: 'fixed_0_5', bootstrap_iterations: 1000,
+          permutation_count: 100,
+        },
+        random_seed: 20260717,
+        design_validation: {
+          valid: true, method: 'elastic_net', assay: 'log_expression',
+          outcome_column: 'condition', negative_class: 'control', positive_class: 'treated',
+          eligible_sample_count: 24, class_counts: { control: 12, treated: 12 },
+          group_column: 'subject_id', group_count: 12, cohort_column: 'cohort',
+          outer_folds: 3, inner_folds: 2, repeats: 2, expected_oof_prediction_count: 48,
+          preprocessing_scope: 'fit_inside_each_training_fold',
+          tuning_scope: 'inner_training_folds_only', fold_plan: [fold],
+          errors: [], warnings: ['Internal validation only.'],
+        },
+        execution_available: true,
+        leakage_policy: {
+          preprocessing_scope: 'fit_inside_each_training_fold',
+          feature_selection_scope: 'fit_inside_each_training_fold',
+          hyperparameter_tuning_scope: 'inner_training_folds_only',
+          outer_test_fold_role: 'evaluation_only',
+        },
+      },
+      created_at: '2026-07-18T00:00:00Z',
+    }
+    const run = {
+      ...completedRun, id: 'classifier-run-1', run_type: 'analysis', dataset_id: 'dataset-1',
+      prepared_dataset_id: 'prepared-1', analysis_id: analysis.id,
+    }
+    const results = {
+      schema_version: '1.0.0', analysis_id: analysis.id, prepared_dataset_id: 'prepared-1',
+      method: 'elastic_net', assay: 'log_expression',
+      outcome: {
+        column: 'condition', negative_class: 'control', positive_class: 'treated',
+        class_counts: { control: 12, treated: 12 },
+      },
+      validation: {
+        mode: 'repeated_nested_cross_validation', group_column: 'subject_id',
+        cohort_column: 'cohort', outer_folds: 3, inner_folds: 2, repeats: 2,
+        primary_metric: 'roc_auc', probability_calibration: 'none',
+        decision_threshold_strategy: 'fixed_0_5',
+      },
+      sample_count: 24, input_feature_count: 1000, top_variable_features: 500,
+      oof_coverage: {
+        expected_prediction_count: 48, observed_prediction_count: 48,
+        one_prediction_per_sample_per_repeat: true,
+      },
+      metrics: { roc_auc: 0.94, pr_auc: 0.92, balanced_accuracy: 0.88, brier_score: 0.12 },
+      repeat_metrics: [
+        { repeat: 1, roc_auc: 0.93, pr_auc: 0.91, balanced_accuracy: 0.87, brier_score: 0.13 },
+        { repeat: 2, roc_auc: 0.95, pr_auc: 0.93, balanced_accuracy: 0.89, brier_score: 0.11 },
+      ],
+      confidence_intervals: {
+        method: 'experimental_unit_percentile_bootstrap', iterations: 1000,
+        confidence_level: 0.95,
+        intervals: {
+          roc_auc: { lower: 0.88, upper: 0.98 },
+          pr_auc: { lower: 0.86, upper: 0.97 },
+          balanced_accuracy: { lower: 0.8, upper: 0.94 },
+          brier_score: { lower: 0.08, upper: 0.17 },
+        },
+      },
+      diagnostic_curves: {
+        roc_curve: [], precision_recall_curve: [], calibration_curve: [],
+        calibration_intercept: -0.04, calibration_slope: 0.97,
+        confusion_matrix: { true_negative: 21, false_positive: 3, false_negative: 3, true_positive: 21 },
+      },
+      permutation_control: {
+        method: 'full_nested_cross_validation_label_permutation', count: 100,
+        roc_auc_values: [], mean_roc_auc: 0.5, empirical_p_value: 0.0099,
+      },
+      learning_curve: [],
+      model_comparisons: [
+        { method: 'elastic_net', role: 'primary_locked_model', metrics: { roc_auc: 0.94, pr_auc: 0.92, balanced_accuracy: 0.88, brier_score: 0.12 }, tuning_scope: 'inner_training_folds_only' },
+        { method: 'random_forest', role: 'comparison_only_not_exported', metrics: { roc_auc: 0.9, pr_auc: 0.88, balanced_accuracy: 0.82, brier_score: 0.16 }, tuning_scope: 'inner_training_folds_only' },
+        { method: 'hist_gradient_boosting', role: 'comparison_only_not_exported', metrics: { roc_auc: 0.91, pr_auc: 0.89, balanced_accuracy: 0.83, brier_score: 0.15 }, tuning_scope: 'inner_training_folds_only' },
+      ],
+      folds: [{ ...fold, selected_feature_count: 500, nonzero_feature_count: 18,
+        best_c: 0.5, best_l1_ratio: 0.5, decision_threshold: 0.5 }],
+      feature_stability: [{
+        feature_id: 'ENSG000001', selection_frequency: 1, nonzero_frequency: 0.83,
+        mean_coefficient: 1.245,
+      }],
+      locked_model: {
+        path: 'model.json', feature_schema_path: 'inference_schema.json',
+        model_card_path: 'model_card.json', inference_example_path: 'inference_example.tsv',
+      },
+      leakage_audit: { all_fold_scopes_disjoint: true }, warnings: [],
+    }
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return jsonResponse(health)
+      if (url.endsWith('/analyses/classifier-analysis-1/runs')) return jsonResponse([run])
+      if (url.endsWith('/analyses/classifier-analysis-1')) return jsonResponse(analysis)
+      if (url.endsWith('/runs/classifier-run-1/classifier-results')) return jsonResponse(results)
+      if (url.endsWith('/runs/classifier-run-1/result-manifest')) {
+        return jsonResponse({
+          schema_version: '1.0.0', analysis_type: 'classifier', title: 'Classifier',
+          summary_metrics: [], sections: [], downloads: [], warnings: [],
+        })
+      }
+      if (url.endsWith('/runs/classifier-run-1/artifacts')) return jsonResponse([])
+      if (url.endsWith('/prepared-datasets/prepared-1')) {
+        return jsonResponse({
+          id: 'prepared-1', dataset_id: 'dataset-1', version: 1,
+          preparation_run_id: 'preparation-run-1', value_types_available: ['log_expression'],
+          sample_count: 24, feature_count: 1000, qc_status: 'PASS',
+          created_at: '2026-07-18T00:00:00Z',
+        })
+      }
+      return jsonResponse({ detail: 'Not found' }, 404)
+    })
+
+    renderApp('/analyses/classifier-analysis-1')
+
+    expect(await screen.findByRole('heading', {
+      name: 'Treated elastic-net classifier',
+    })).toBeInTheDocument()
+    expect(screen.getByText('48')).toBeInTheDocument()
+    expect(screen.getByText('inner training folds only')).toBeInTheDocument()
+    expect(screen.getByRole('table', {
+      name: 'Saved classifier outer-fold audit',
+    })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Run again' })).toBeEnabled()
+    expect(await screen.findByRole('heading', {
+      name: 'Internal validation results',
+    })).toBeInTheDocument()
+    expect(screen.getByText('0.940')).toBeInTheDocument()
+    expect(screen.getByText(/48 of 48 planned OOF predictions/)).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Classifier metrics by repeat' })).toBeInTheDocument()
+    expect(screen.getByText(/empirical p = 0.0099/)).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Classifier feature stability' })).toBeInTheDocument()
+    expect(screen.getByText('ENSG000001')).toBeInTheDocument()
+  })
+
+  it('renders multinomial OOF metrics, confusion matrix, and class coefficients', async () => {
+    const fold = {
+      repeat: 1, fold: 1, training_sample_count: 24, test_sample_count: 12,
+      training_class_counts: { basal: 8, immune: 8, luminal: 8 },
+      test_class_counts: { basal: 4, immune: 4, luminal: 4 },
+      training_group_count: 8, test_group_count: 4, group_overlap_count: 0,
+    }
+    const analysis = {
+      id: 'multiclass-analysis-1', project_id: 'project-1', prepared_dataset_id: 'prepared-1',
+      analysis_type: 'classifier', name: 'Tumor subtype classifier', description: null,
+      configuration_json: {
+        analysis_type: 'classifier', method: 'multinomial_elastic_net', assay: 'log_expression',
+        parameters: {
+          outcome_column: 'subtype', positive_class: null, group_column: 'subject_id',
+          cohort_column: 'cohort', validation_mode: 'repeated_nested_cross_validation',
+          feature_filter: 'top_variance', top_variable_features: 500, class_weight: 'balanced',
+          outer_folds: 3, inner_folds: 2, repeats: 2, primary_metric: 'macro_roc_auc',
+          probability_calibration: 'none', decision_threshold_strategy: 'fixed_0_5',
+          bootstrap_iterations: 1000, permutation_count: 100,
+        },
+        random_seed: 20260718,
+        design_validation: {
+          valid: true, method: 'multinomial_elastic_net', assay: 'log_expression',
+          outcome_column: 'subtype', negative_class: null, positive_class: null,
+          class_labels: ['basal', 'immune', 'luminal'], eligible_sample_count: 36,
+          class_counts: { basal: 12, immune: 12, luminal: 12 }, group_column: 'subject_id',
+          group_count: 12, cohort_column: 'cohort', outer_folds: 3, inner_folds: 2, repeats: 2,
+          expected_oof_prediction_count: 72, preprocessing_scope: 'fit_inside_each_training_fold',
+          tuning_scope: 'inner_training_folds_only', fold_plan: [fold], errors: [], warnings: [],
+        },
+        execution_available: true,
+        leakage_policy: {
+          preprocessing_scope: 'fit_inside_each_training_fold',
+          feature_selection_scope: 'fit_inside_each_training_fold',
+          hyperparameter_tuning_scope: 'inner_training_folds_only',
+          outer_test_fold_role: 'evaluation_only',
+        },
+      },
+      created_at: '2026-07-18T00:00:00Z',
+    }
+    const run = {
+      ...completedRun, id: 'multiclass-run-1', run_type: 'analysis', dataset_id: 'dataset-1',
+      prepared_dataset_id: 'prepared-1', analysis_id: analysis.id,
+    }
+    const results = {
+      schema_version: '1.0.0', analysis_id: analysis.id, prepared_dataset_id: 'prepared-1',
+      method: 'multinomial_elastic_net', assay: 'log_expression',
+      outcome: {
+        column: 'subtype', classes: ['basal', 'immune', 'luminal'],
+        class_counts: { basal: 12, immune: 12, luminal: 12 },
+      },
+      validation: {
+        mode: 'repeated_nested_cross_validation', group_column: 'subject_id',
+        cohort_column: 'cohort', outer_folds: 3, inner_folds: 2, repeats: 2,
+        primary_metric: 'macro_roc_auc', prediction_rule: 'maximum_class_probability',
+      },
+      sample_count: 36, input_feature_count: 1000, top_variable_features: 500,
+      oof_coverage: {
+        expected_prediction_count: 72, observed_prediction_count: 72,
+        one_prediction_per_sample_per_repeat: true,
+      },
+      metrics: {
+        macro_roc_auc: 0.96, macro_f1: 0.9, balanced_accuracy: 0.91,
+        accuracy: 0.91, log_loss: 0.22,
+      },
+      repeat_metrics: [],
+      confidence_intervals: {
+        method: 'experimental_unit_percentile_bootstrap', iterations: 1000,
+        confidence_level: 0.95, intervals: { macro_roc_auc: { lower: 0.9, upper: 0.99 } },
+      },
+      diagnostics: {
+        one_vs_rest_roc_curves: {}, class_order: ['basal', 'immune', 'luminal'],
+        confusion_matrix: [[22, 1, 1], [1, 22, 1], [0, 2, 22]],
+      },
+      permutation_control: {
+        method: 'full_nested_cross_validation_label_permutation', count: 100,
+        macro_roc_auc_values: [], mean_macro_roc_auc: 0.5, empirical_p_value: 0.0099,
+      },
+      folds: [],
+      feature_stability: [{
+        feature_id: 'ESR1', class_label: 'luminal', selection_frequency: 1,
+        nonzero_frequency: 0.9, mean_coefficient: 1.2,
+      }],
+      leakage_audit: { all_fold_scopes_disjoint: true },
+      locked_model: {
+        path: 'model.json', feature_schema_path: 'inference_schema.json',
+        model_card_path: 'model_card.json', inference_example_path: 'inference_example.tsv',
+      },
+      warnings: [],
+    }
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return jsonResponse(health)
+      if (url.endsWith('/analyses/multiclass-analysis-1/runs')) return jsonResponse([run])
+      if (url.endsWith('/analyses/multiclass-analysis-1')) return jsonResponse(analysis)
+      if (url.endsWith('/runs/multiclass-run-1/classifier-results')) return jsonResponse(results)
+      if (url.endsWith('/runs/multiclass-run-1/result-manifest')) return jsonResponse({
+        schema_version: '1.0.0', analysis_type: 'classifier', title: 'Classifier',
+        summary_metrics: [], sections: [], downloads: [], warnings: [],
+      })
+      if (url.endsWith('/runs/multiclass-run-1/artifacts')) return jsonResponse([])
+      if (url.endsWith('/prepared-datasets/prepared-1')) return jsonResponse({
+        id: 'prepared-1', dataset_id: 'dataset-1', version: 1,
+        preparation_run_id: 'preparation-run-1', value_types_available: ['log_expression'],
+        sample_count: 36, feature_count: 1000, qc_status: 'PASS',
+        created_at: '2026-07-18T00:00:00Z',
+      })
+      return jsonResponse({ detail: 'Not found' }, 404)
+    })
+
+    renderApp('/analyses/multiclass-analysis-1')
+    expect(await screen.findByRole('heading', {
+      name: 'Internal multiclass validation results',
+    })).toBeInTheDocument()
+    expect(screen.getByText('0.960 (0.900–0.990)')).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Multiclass confusion matrix' })).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Multiclass feature stability' })).toBeInTheDocument()
+    expect(screen.getByText('ESR1')).toBeInTheDocument()
   })
 
   it('keeps saved deconvolution semantics visible while its runner is pending', async () => {
@@ -831,6 +1126,13 @@ describe('App', () => {
         return jsonResponse({ schema_version: '1.0.0', analysis_type: 'deconvolution', title: 'quanTIseq', summary_metrics: [], sections: [], downloads: [], warnings: [] })
       }
       if (url.endsWith(`/runs/${run.id}/artifacts`)) return jsonResponse([artifact])
+      if (url.endsWith('/prepared-datasets/prepared-1/deconvolution/comparison')) {
+        return jsonResponse({
+          schema_version: '1.0.0', prepared_dataset_id: 'prepared-1',
+          latest_successful_run_count: 1, sections: [], exclusions: [],
+          interpretation: 'Only semantically compatible deconvolution outputs are grouped.',
+        })
+      }
       if (url.endsWith('/prepared-datasets/prepared-1')) {
         return jsonResponse({
           id: 'prepared-1', dataset_id: 'dataset-1', version: 1,
@@ -846,13 +1148,285 @@ describe('App', () => {
 
     expect(await screen.findByRole('heading', { name: 'Estimated cell fractions' })).toBeInTheDocument()
     expect(screen.getByText('98.7%')).toBeInTheDocument()
-    expect(screen.getByRole('table', { name: 'quanTIseq cell-fraction estimates' })).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'quantiseq cell-population estimates' })).toBeInTheDocument()
     expect(screen.getByText('70.0%')).toBeInTheDocument()
     expect(screen.getByText(/quantiseqr 1.18.0/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Long-format cell-fraction estimates/ })).toHaveAttribute(
       'href', expect.stringContaining('/artifacts/fraction-table/download'),
     )
     expect(screen.getByRole('button', { name: 'Run again' })).toBeEnabled()
+  })
+
+  it('renders an imported CIBERSORTx result with external provenance', async () => {
+    const method = deconvolutionCapabilities.methods[2].method
+    const externalImport = {
+      source_filename: 'CIBERSORTx_Results.txt', source_sha256: 'e'.repeat(64),
+      source_size_bytes: 512, mode: 'relative', values_declared_as: 'relative_fraction',
+      batch_correction: 'B-mode', permutations: 100,
+      signature: { name: 'LM22', version: 'custom-2026-07', sha256: 'd'.repeat(64), gene_count: 547 },
+      runtime: {
+        platform: 'CIBERSORTx', version: 'CIBERSORTx-2026-05',
+        external_run_id: 'stanford-job-123', executed_at: '2026-07-17T20:30:00Z',
+      },
+    }
+    const analysis = {
+      id: 'cibersortx-analysis-1', project_id: 'project-1', prepared_dataset_id: 'prepared-1',
+      analysis_type: 'deconvolution', name: 'Imported CIBERSORTx immune fractions', description: null,
+      configuration_json: {
+        analysis_type: 'deconvolution', method: 'cibersortx_external', assay: 'tpm',
+        parameters: { reference_profile: 'LM22', minimum_gene_overlap: 500 / 547, tumor_mode: false, scale_mrna: false },
+        random_seed: 0, method_registry_version: '2026.07.3',
+        method_registry_sha256: 'f'.repeat(64), method_spec: method,
+        input_assay_descriptor: {
+          name: 'tpm', scale: 'linear', value_type: 'nonnegative_continuous',
+          feature_level: 'gene', sha256: 'c'.repeat(64),
+        },
+        result_type: 'cell_fraction', execution_available: false, external_import: externalImport,
+      },
+      created_at: '2026-07-18T00:00:00Z',
+    }
+    const run = {
+      ...completedRun, id: 'cibersortx-run-1', run_type: 'analysis', profile: 'external_import',
+      prepared_dataset_id: 'prepared-1', analysis_id: analysis.id,
+    }
+    const result = {
+      schema_version: '1.0.0', analysis_id: analysis.id, prepared_dataset_id: 'prepared-1',
+      method: 'cibersortx_external', method_registry_version: '2026.07.3',
+      method_registry_sha256: 'f'.repeat(64), result_type: 'cell_fraction',
+      quantity_label: 'Externally estimated relative fraction', unit: 'fraction',
+      composition_constraint: 'declared_by_import',
+      input_validation: {
+        assay: 'tpm', scale: 'linear', value_type: 'nonnegative_continuous',
+        feature_level: 'gene', identifier_namespace: 'gene_symbol', input_feature_count: 18000,
+        mapped_feature_count: 18000, blank_symbol_count: 0, duplicate_symbol_count: 0,
+        reference_gene_count: 547, overlap_gene_count: 500, overlap_fraction: 500 / 547,
+        minimum_overlap_fraction: 0, passed: true,
+      },
+      reference: { id: 'LM22', version: 'custom-2026-07', sha256: 'd'.repeat(64), cell_type_count: 2 },
+      cell_types: [{ id: 'B cells', label: 'B cells' }, { id: 'CD8 T cells', label: 'CD8 T cells' }],
+      sample_ids: ['sample_A', 'sample_B'],
+      estimates: [
+        { sample_id: 'sample_A', cell_type_id: 'B cells', value: 0.7 },
+        { sample_id: 'sample_A', cell_type_id: 'CD8 T cells', value: 0.3 },
+        { sample_id: 'sample_B', cell_type_id: 'B cells', value: 0.4 },
+        { sample_id: 'sample_B', cell_type_id: 'CD8 T cells', value: 0.6 },
+      ],
+      composition_summaries: [
+        { sample_id: 'sample_A', reported_sum: 1, residual_fraction: 0, within_tolerance: true },
+        { sample_id: 'sample_B', reported_sum: 1, residual_fraction: 0, within_tolerance: true },
+      ],
+      warnings: ['Imported external CIBERSORTx result.'],
+      software: {
+        language: 'external service', language_version: 'CIBERSORTx-2026-05',
+        packages: { CIBERSORTx: 'CIBERSORTx-2026-05' },
+      },
+      provenance: {
+        expression_bundle_sha256: 'a'.repeat(64), analysis_request_sha256: 'b'.repeat(64),
+        reference_sha256: 'd'.repeat(64), external_source_sha256: 'e'.repeat(64),
+      },
+      external_import: externalImport,
+    }
+    const artifact = {
+      id: 'cibersortx-source', run_id: run.id, artifact_type: 'cibersortx_source',
+      title: 'Original CIBERSORTx export', relative_path: 'cibersortx_source.tsv',
+      mime_type: 'text/tab-separated-values', size_bytes: 512, sha256: 'e'.repeat(64),
+      display_order: 3, metadata_json: { external_import: true },
+    }
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return jsonResponse(health)
+      if (url.endsWith(`/analyses/${analysis.id}/runs`)) return jsonResponse([run])
+      if (url.endsWith(`/analyses/${analysis.id}`)) return jsonResponse(analysis)
+      if (url.endsWith(`/runs/${run.id}/deconvolution-results`)) return jsonResponse(result)
+      if (url.endsWith(`/runs/${run.id}/result-manifest`)) {
+        return jsonResponse({ schema_version: '1.0.0', analysis_type: 'deconvolution', title: 'CIBERSORTx', summary_metrics: [], sections: [], downloads: [], warnings: [] })
+      }
+      if (url.endsWith(`/runs/${run.id}/artifacts`)) return jsonResponse([artifact])
+      if (url.endsWith('/prepared-datasets/prepared-1/deconvolution/comparison')) {
+        return jsonResponse({
+          schema_version: '1.0.0', prepared_dataset_id: 'prepared-1',
+          latest_successful_run_count: 1, sections: [], exclusions: [],
+          interpretation: 'Only compatible results are grouped.',
+        })
+      }
+      if (url.endsWith('/prepared-datasets/prepared-1')) {
+        return jsonResponse({
+          id: 'prepared-1', dataset_id: 'dataset-1', version: 1,
+          preparation_run_id: 'preparation-run-1', value_types_available: ['tpm'],
+          sample_count: 2, feature_count: 18000, qc_status: 'PASS',
+          created_at: '2026-07-18T00:00:00Z',
+        })
+      }
+      return jsonResponse({ detail: 'Not found' }, 404)
+    })
+
+    renderApp(`/analyses/${analysis.id}`)
+
+    expect(await screen.findByRole('heading', { name: 'Imported relative cell fractions' })).toBeInTheDocument()
+    expect(screen.getByText('External import')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'External execution provenance' })).toBeInTheDocument()
+    expect(screen.getByText(/stanford-job-123/)).toBeInTheDocument()
+    expect(screen.getByText(/TranscriptForge did not receive credentials/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Original CIBERSORTx export/ })).toHaveAttribute(
+      'href', expect.stringContaining('/artifacts/cibersortx-source/download'),
+    )
+    expect(screen.queryByRole('button', { name: 'Runner unavailable' })).not.toBeInTheDocument()
+  })
+
+  it('renders completed MCP-counter scores without fraction semantics', async () => {
+    const method = {
+      ...deconvolutionCapabilities.methods[1].method,
+      id: 'mcp_counter', display_name: 'MCP-counter', result_type: 'enrichment_score',
+      quantity_label: 'Cell-population abundance score', unit: 'arbitrary_score',
+      composition_constraint: 'not_compositional', within_sample_cell_type_comparison: false,
+      input: {
+        ...deconvolutionCapabilities.methods[1].method.input,
+        assay_options: [{ name: 'log_expression', scales: ['log2'], value_types: ['continuous'] }],
+        negative_values_permitted: true,
+      },
+      references: [{ id: 'MCPcounter_v1', label: 'MCP-counter transcriptomic markers' }],
+      default_reference: 'MCPcounter_v1',
+      interpretation: 'Scores compare a population between samples and are not fractions.',
+    }
+    const analysis = {
+      id: 'mcp-analysis-1', project_id: 'project-1', prepared_dataset_id: 'prepared-1',
+      analysis_type: 'deconvolution', name: 'MCP-counter cell enrichment', description: null,
+      configuration_json: {
+        analysis_type: 'deconvolution', method: 'mcp_counter', assay: 'log_expression',
+        parameters: { reference_profile: 'MCPcounter_v1', minimum_gene_overlap: 0.5, tumor_mode: false, scale_mrna: true },
+        random_seed: 0, method_registry_version: '2026.07.2',
+        method_registry_sha256: 'f'.repeat(64), method_spec: method,
+        input_assay_descriptor: {
+          name: 'log_expression', scale: 'log2', value_type: 'continuous',
+          feature_level: 'gene', sha256: 'c'.repeat(64),
+        },
+        result_type: 'enrichment_score', execution_available: true,
+      },
+      created_at: '2026-07-18T00:00:00Z',
+    }
+    const run = {
+      ...completedRun, id: 'mcp-run-1', run_type: 'analysis',
+      prepared_dataset_id: 'prepared-1', analysis_id: analysis.id,
+    }
+    const result = {
+      schema_version: '1.0.0', analysis_id: analysis.id, prepared_dataset_id: 'prepared-1',
+      method: 'mcp_counter', method_registry_version: '2026.07.2', method_registry_sha256: 'f'.repeat(64),
+      result_type: 'enrichment_score', quantity_label: 'Cell-population abundance score',
+      unit: 'arbitrary_score', composition_constraint: 'not_compositional',
+      input_validation: {
+        assay: 'log_expression', scale: 'log2', value_type: 'continuous', feature_level: 'gene',
+        identifier_namespace: 'gene_symbol', input_feature_count: 20000, mapped_feature_count: 19800,
+        blank_symbol_count: 200, duplicate_symbol_count: 0, reference_gene_count: 111,
+        overlap_gene_count: 108, overlap_fraction: 108 / 111, minimum_overlap_fraction: 0.5, passed: true,
+      },
+      reference: { id: 'MCPcounter_v1', version: 'MCPcounter-1.2.0-b6eac73', sha256: 'd'.repeat(64), cell_type_count: 2 },
+      cell_types: [{ id: 'B lineage', label: 'B lineage' }, { id: 'Fibroblasts', label: 'Fibroblasts' }],
+      sample_ids: ['control_1', 'treated_1'],
+      estimates: [
+        { sample_id: 'control_1', cell_type_id: 'B lineage', value: -0.25 },
+        { sample_id: 'control_1', cell_type_id: 'Fibroblasts', value: 1.5 },
+        { sample_id: 'treated_1', cell_type_id: 'B lineage', value: 2.75 },
+        { sample_id: 'treated_1', cell_type_id: 'Fibroblasts', value: 0.5 },
+      ],
+      warnings: ['Scores are not percentages.'],
+      software: { language: 'R', language_version: '4.5.0', packages: { MCPcounter: '1.2.0' } },
+      provenance: {
+        expression_bundle_sha256: 'a'.repeat(64), analysis_request_sha256: 'b'.repeat(64),
+        reference_sha256: 'd'.repeat(64),
+      },
+    }
+    const artifact = {
+      id: 'enrichment-plot', run_id: run.id, artifact_type: 'deconvolution_enrichment_svg',
+      title: 'Cell-population enrichment patterns (SVG)', relative_path: 'enrichment_scores.svg',
+      mime_type: 'image/svg+xml', size_bytes: 123, sha256: 'e'.repeat(64),
+      display_order: 4, metadata_json: {},
+    }
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return jsonResponse(health)
+      if (url.endsWith(`/analyses/${analysis.id}/runs`)) return jsonResponse([run])
+      if (url.endsWith(`/analyses/${analysis.id}`)) return jsonResponse(analysis)
+      if (url.endsWith(`/runs/${run.id}/deconvolution-results`)) return jsonResponse(result)
+      if (url.endsWith(`/runs/${run.id}/result-manifest`)) {
+        return jsonResponse({ schema_version: '1.0.0', analysis_type: 'deconvolution', title: 'MCP-counter', summary_metrics: [], sections: [], downloads: [], warnings: [] })
+      }
+      if (url.endsWith(`/runs/${run.id}/artifacts`)) return jsonResponse([artifact])
+      if (url.endsWith('/prepared-datasets/prepared-1/deconvolution/comparison')) {
+        const comparisonRun = (overrides: Record<string, unknown>) => ({
+          analysis_id: analysis.id, analysis_name: analysis.name, run_id: run.id,
+          method: 'mcp_counter', display_name: 'MCP-counter',
+          result_type: 'enrichment_score', quantity_label: 'Cell-population abundance score',
+          unit: 'arbitrary_score', composition_constraint: 'not_compositional',
+          assay: {
+            name: 'log_expression', scale: 'log2', value_type: 'continuous',
+            feature_level: 'gene', identifier_namespace: 'gene_symbol',
+          },
+          reference: { id: 'MCPcounter_v1', version: 'MCPcounter-1.2.0-b6eac73', sha256: 'd'.repeat(64) },
+          reference_overlap_fraction: 108 / 111,
+          sample_ids: ['control_1', 'treated_1', 'treated_2'],
+          cell_types: [{ id: 'Fibroblasts', label: 'Fibroblasts' }],
+          estimates: [], result_sha256: 'e'.repeat(64), method_registry_version: '2026.07.2',
+          method_registry_sha256: 'f'.repeat(64), ...overrides,
+        })
+        return jsonResponse({
+          schema_version: '1.0.0', prepared_dataset_id: 'prepared-1',
+          latest_successful_run_count: 2,
+          sections: [{
+            id: 'enrichment-score-log-expression', result_type: 'enrichment_score',
+            unit: 'arbitrary_score', composition_constraints: ['not_compositional'],
+            comparison_mode: 'within_population_pattern',
+            assay: {
+              name: 'log_expression', scale: 'log2', value_type: 'continuous',
+              feature_level: 'gene', identifier_namespace: 'gene_symbol',
+            },
+            sample_ids: ['control_1', 'treated_1', 'treated_2'],
+            shared_cell_types: [{ id: 'Fibroblasts', label: 'Fibroblasts' }],
+            reference_mode: 'method_specific_exact_population_intersection',
+            runs: [
+              comparisonRun({}),
+              comparisonRun({
+                analysis_id: 'xcell-analysis-1', analysis_name: 'xCell enrichment',
+                run_id: 'xcell-run-1', method: 'xcell', display_name: 'xCell',
+                reference: { id: 'xCell64', version: 'xCell-1.1.0-a6f61a4', sha256: 'a'.repeat(64) },
+              }),
+            ],
+            correlations: [{
+              left_run_id: run.id, right_run_id: 'xcell-run-1',
+              left_method: 'mcp_counter', right_method: 'xcell',
+              cell_type_id: 'Fibroblasts', cell_type_label: 'Fibroblasts',
+              sample_count: 3, pearson_correlation: 1,
+            }],
+            warnings: [
+              'References remain method-specific; only exact shared population labels are compared.',
+            ],
+          }],
+          exclusions: [],
+          interpretation: 'Enrichment methods are compared only as within-population patterns across the same samples.',
+        })
+      }
+      if (url.endsWith('/prepared-datasets/prepared-1')) {
+        return jsonResponse({
+          id: 'prepared-1', dataset_id: 'dataset-1', version: 1,
+          preparation_run_id: 'preparation-run-1', value_types_available: ['log_expression'],
+          sample_count: 2, feature_count: 20000, qc_status: 'PASS', created_at: '2026-07-18T00:00:00Z',
+        })
+      }
+      return jsonResponse({ detail: 'Not found' }, 404)
+    })
+
+    renderApp(`/analyses/${analysis.id}`)
+
+    expect(await screen.findByRole('heading', { name: 'Cell-population enrichment patterns' })).toBeInTheDocument()
+    expect(screen.getByText(/scores are not percentages and do not sum to one/i)).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'mcp_counter enrichment scores' })).toBeInTheDocument()
+    expect(screen.getAllByText('-0.2500')).toHaveLength(2)
+    expect(screen.getByText(/MCPcounter 1.2.0/)).toBeInTheDocument()
+    expect(screen.queryByText('Estimated cell fractions')).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Cross-method comparison' })).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'enrichment_score cross-method concordance' })).toBeInTheDocument()
+    expect(screen.getByText('mcp_counter ↔ xcell')).toBeInTheDocument()
+    expect(screen.getByText('1.000')).toBeInTheDocument()
+    expect(screen.getByText(/references remain method-specific/i)).toBeInTheDocument()
   })
 
   it('renders microarray-specific QC without count-library assumptions', async () => {

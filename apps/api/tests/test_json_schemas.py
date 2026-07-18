@@ -21,6 +21,13 @@ def load_json(path: Path) -> dict[str, Any]:
     "schema_name",
     [
         "dataset_manifest.schema.json",
+        "classifier_results.schema.json",
+        "classifier_model.schema.json",
+        "classifier_prediction_results.schema.json",
+        "classifier_external_validation_protocol.schema.json",
+        "multiclass_classifier_model.schema.json",
+        "multiclass_classifier_prediction_results.schema.json",
+        "multiclass_classifier_results.schema.json",
         "deconvolution_method_registry.schema.json",
         "deconvolution_reference.schema.json",
         "deconvolution_results.schema.json",
@@ -51,6 +58,19 @@ def test_demo_count_manifest_is_valid() -> None:
     Draft202012Validator(schema).validate(manifest)
 
 
+def test_classifier_external_validation_protocol_is_prospectively_frozen() -> None:
+    schema = load_json(SCHEMAS / "classifier_external_validation_protocol.schema.json")
+    protocol = load_json(
+        ROOT / "demo/classifier_external_validation/gse32646_protocol.json"
+    )
+    Draft202012Validator(schema, format_checker=Draft202012Validator.FORMAT_CHECKER).validate(
+        protocol
+    )
+    assert protocol["status"] == "prospectively_frozen"
+    assert protocol["evaluation"]["execution_count"] == 1
+    assert protocol["external_cohort"]["class_counts"] == {"pCR": 27, "nCR": 88}
+
+
 def test_deconvolution_registry_is_valid_and_semantically_distinct() -> None:
     schema = load_json(SCHEMAS / "deconvolution_method_registry.schema.json")
     registry = load_json(ROOT / "apps/api/transcriptforge_api/resources/deconvolution_methods.json")
@@ -60,14 +80,28 @@ def test_deconvolution_registry_is_valid_and_semantically_distinct() -> None:
     assert methods["quantiseq"]["unit"] == "fraction"
     assert methods["mcp_counter"]["result_type"] == "enrichment_score"
     assert methods["xcell"]["composition_constraint"] == "not_compositional"
+    assert methods["cibersortx_external"]["execution_mode"] == "external_import"
+    assert methods["cibersortx_external"]["implementation_status"] == "available"
+    assert methods["cibersortx_external"]["input"]["assay_options"][0]["name"] == "tpm"
 
 
-def test_quantiseq_reference_manifest_is_valid() -> None:
+@pytest.mark.parametrize(
+    ("filename", "method", "version"),
+    [
+        ("quantiseq_til10.json", "quantiseq", "1.18.0"),
+        ("mcpcounter_v1.json", "mcp_counter", "1.2.0"),
+        ("xcell_v1.json", "xcell", "1.1.0"),
+    ],
+)
+def test_deconvolution_reference_manifest_is_valid(
+    filename: str, method: str, version: str
+) -> None:
     schema = load_json(SCHEMAS / "deconvolution_reference.schema.json")
-    reference = load_json(ROOT / "references/deconvolution/quantiseq_til10.json")
+    reference = load_json(ROOT / "references/deconvolution" / filename)
     Draft202012Validator(schema).validate(reference)
-    assert reference["package"]["version"] == "1.18.0"
-    assert reference["signature_gene_count"] == 170
+    assert reference["method"] == method
+    assert reference["package"]["version"] == version
+    assert reference["signature_gene_count"] > 0
 
 
 def test_deconvolution_analysis_request_and_result_type_contracts() -> None:
@@ -160,6 +194,154 @@ def test_deconvolution_analysis_request_and_result_type_contracts() -> None:
     result["result_type"] = "enrichment_score"
     with pytest.raises(ValidationError):
         Draft202012Validator(result_schema).validate(result)
+
+    result["method"] = "mcp_counter"
+    result["result_type"] = "enrichment_score"
+    result["quantity_label"] = "Cell-population abundance score"
+    result["unit"] = "arbitrary_score"
+    result["composition_constraint"] = "not_compositional"
+    result["estimates"][0]["value"] = -0.25
+    result.pop("composition_summaries")
+    Draft202012Validator(result_schema).validate(result)
+
+    result["result_type"] = "cell_fraction"
+    result["unit"] = "fraction"
+    result["composition_constraint"] = "bounded_sum"
+    result["composition_summaries"] = []
+    with pytest.raises(ValidationError):
+        Draft202012Validator(result_schema).validate(result)
+
+
+def test_cibersortx_external_result_requires_import_provenance() -> None:
+    schema = load_json(SCHEMAS / "deconvolution_results.schema.json")
+    result = {
+        "schema_version": "1.0.0",
+        "analysis_id": "analysis-1",
+        "prepared_dataset_id": "prepared-1",
+        "method": "cibersortx_external",
+        "method_registry_version": "2026.07.3",
+        "method_registry_sha256": "a" * 64,
+        "result_type": "cell_fraction",
+        "quantity_label": "Externally estimated relative fraction",
+        "unit": "fraction",
+        "composition_constraint": "declared_by_import",
+        "input_validation": {
+            "assay": "tpm",
+            "scale": "linear",
+            "value_type": "nonnegative_continuous",
+            "feature_level": "gene",
+            "identifier_namespace": "gene_symbol",
+            "input_feature_count": 18_000,
+            "mapped_feature_count": 18_000,
+            "blank_symbol_count": 0,
+            "duplicate_symbol_count": 0,
+            "reference_gene_count": 547,
+            "overlap_gene_count": 500,
+            "overlap_fraction": 500 / 547,
+            "minimum_overlap_fraction": 0,
+            "passed": True,
+        },
+        "reference": {
+            "id": "LM22",
+            "version": "custom-1",
+            "sha256": "b" * 64,
+            "cell_type_count": 1,
+        },
+        "cell_types": [{"id": "B cells", "label": "B cells"}],
+        "sample_ids": ["sample_1"],
+        "estimates": [{"sample_id": "sample_1", "cell_type_id": "B cells", "value": 1}],
+        "composition_summaries": [
+            {
+                "sample_id": "sample_1",
+                "reported_sum": 1,
+                "residual_fraction": 0,
+                "within_tolerance": True,
+            }
+        ],
+        "warnings": ["Externally executed."],
+        "software": {"packages": {"CIBERSORTx": "2026-05"}},
+        "provenance": {
+            "expression_bundle_sha256": "c" * 64,
+            "analysis_request_sha256": "d" * 64,
+            "reference_sha256": "b" * 64,
+            "external_source_sha256": "e" * 64,
+        },
+        "external_import": {
+            "source_filename": "CIBERSORTx_Results.txt",
+            "source_sha256": "e" * 64,
+            "source_size_bytes": 100,
+            "mode": "relative",
+            "values_declared_as": "relative_fraction",
+            "batch_correction": "B-mode",
+            "permutations": 100,
+            "signature": {
+                "name": "LM22",
+                "version": "custom-1",
+                "sha256": "b" * 64,
+                "gene_count": 547,
+            },
+            "runtime": {
+                "platform": "CIBERSORTx",
+                "version": "2026-05",
+                "external_run_id": "job-123",
+                "executed_at": "2026-07-17T20:30:00Z",
+            },
+        },
+    }
+    Draft202012Validator(schema).validate(result)
+    result.pop("external_import")
+    with pytest.raises(ValidationError):
+        Draft202012Validator(schema).validate(result)
+
+
+def test_binary_classifier_request_requires_nested_cv_contract() -> None:
+    schema = load_json(SCHEMAS / "analysis_request.schema.json")
+    request = {
+        "schema_version": "1.0.0",
+        "analysis_id": "classifier-1",
+        "prepared_dataset_id": "prepared-1",
+        "analysis_type": "classifier",
+        "method": "elastic_net",
+        "assay": "log_expression",
+        "parameters": {
+            "outcome_column": "condition",
+            "positive_class": "treated",
+            "group_column": "subject_id",
+            "cohort_column": "site",
+            "validation_mode": "repeated_nested_cross_validation",
+            "feature_filter": "top_variance",
+            "top_variable_features": 500,
+            "class_weight": "balanced",
+            "outer_folds": 5,
+            "inner_folds": 4,
+            "repeats": 3,
+            "primary_metric": "roc_auc",
+            "probability_calibration": "none",
+            "decision_threshold_strategy": "fixed_0_5",
+            "bootstrap_iterations": 1000,
+            "permutation_count": 100,
+        },
+        "random_seed": 20260717,
+        "design_validation": {
+            "valid": True,
+            "preprocessing_scope": "fit_inside_each_training_fold",
+            "tuning_scope": "inner_training_folds_only",
+        },
+        "leakage_policy": {
+            "preprocessing_scope": "fit_inside_each_training_fold",
+            "feature_selection_scope": "fit_inside_each_training_fold",
+            "hyperparameter_tuning_scope": "inner_training_folds_only",
+            "outer_test_fold_role": "evaluation_only",
+        },
+    }
+    Draft202012Validator(schema).validate(request)
+    request["method"] = "random_forest"
+    with pytest.raises(ValidationError):
+        Draft202012Validator(schema).validate(request)
+    request["method"] = "elastic_net"
+    request["parameters"]["validation_mode"] = "ordinary_cross_validation"
+    with pytest.raises(ValidationError):
+        Draft202012Validator(schema).validate(request)
 
 
 def test_pinned_human_reference_bundle_is_valid() -> None:

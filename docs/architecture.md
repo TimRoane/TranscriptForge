@@ -116,17 +116,55 @@ identifier namespace, assay name/scale/value type, minimum reference overlap, an
 The API evaluates those declarations against the assay and feature-metadata records inside the
 immutable Expression Bundle; a prepared-dataset capability response never infers suitability from an
 assay name alone. Saved designs freeze the complete method entry, registry checksum, exact assay
-descriptor, reference choice, and overlap threshold. quanTIseq is the first executable slice: its
-Bioconductor source and packaged TIL10 assets are checksum-pinned, every run audits effective overlap
-after gene-symbol mapping/exclusions, and the worker validates structured fraction results before
-indexing artifacts. Other contract-ready methods remain unlaunchable until their pinned runtime,
-checksum-frozen reference, overlap report, license terms, and acceptance fixture pass.
+descriptor, reference choice, and overlap threshold. quanTIseq, MCP-counter, and xCell are executable
+through the same audited boundary. Their exact upstream sources and reference assets/objects are
+checksum-pinned; every run audits effective overlap after gene-symbol mapping and method-specific
+duplicate handling, and the worker validates structured results before indexing artifacts. EPIC
+remains unlaunchable until its separate license workflow and acceptance fixture pass.
 
 The result contract preserves this distinction downstream: EPIC and quanTIseq emit cell fractions
 with per-sample composition summaries, while MCP-counter and xCell emit non-compositional enrichment
-scores in arbitrary units. The UI must never show enrichment scores as percentages or renormalize
-them to sum to one. CIBERSORTx is registered only as a future external relative-fraction import; it
-will not become an automatic local or cloud dependency.
+scores in arbitrary units. Enrichment visualization uses within-population z-scores only for color
+while preserving raw values, and the UI never shows those scores as percentages or renormalizes them
+to sum to one. Cross-method sections require identical result type/unit, assay semantics, sample
+order, and Expression Bundle checksum. References remain method-specific: only exact population
+identifier-and-label intersections are compared, and Pearson correlation describes a population's
+sample pattern rather than equivalence of raw method scales. Malformed or incomplete result artifacts
+are excluded with an explicit reason. CIBERSORTx remains external-only and never becomes a local or
+cloud dependency: the adapter accepts relative-mode exports only, validates exact bundle samples and
+fraction composition, and freezes the original file/checksum, selected TPM assay, declared gene
+overlap, signature identity/version/checksum, mode, batch correction, permutations, and external
+runtime/run identity. TranscriptForge never handles CIBERSORTx credentials or claims to reproduce
+the external computation.
+
+Classifier development starts with a server-side split audit rather than model fitting. A saved
+binary or multinomial elastic-net design names the outcome, repeated experimental-unit boundary,
+optional cohort label, fold dimensions, metric, and all preprocessing choices; binary designs also
+freeze the positive class, calibration, and threshold policy. The API deterministically constructs
+every repeated outer split, proves that groups never overlap, verifies that every outer and inner
+partition contains all expected classes, and freezes that plan with the analysis. Its leakage
+policy requires variance filtering, standardization, feature selection, calibration, threshold
+selection, and hyperparameter tuning to be fitted only from the applicable training partitions;
+outer test data is evaluation-only. The scientific worker independently rebuilds the frozen split
+plan, rejects any disagreement or group overlap, and publishes exactly one OOF probability vector
+per sample per repeat. Structured results preserve fold-specific hyperparameters, fit-scope hashes,
+core metrics, feature stability, and bundle/software provenance. An adversarial acceptance test fails
+an intentionally test-aware preprocessing scope and passes the production implementation. Published
+binary results add group-bootstrap uncertainty, ROC/PR/calibration/confusion diagnostics, fully
+re-tuned label permutations, learning curves, and random-forest/boosted-tree comparisons evaluated on
+the same outer partitions. Multinomial results add macro ROC-AUC/F1, balanced accuracy, one-vs-rest
+ROC coordinates, classwise confusion and feature stability, and full nested label permutations.
+Only elastic net is locked: its features, scaling, coefficients and intercepts—and, for binary runs,
+calibration and threshold—are stored with a research-only model card and inference schema after
+internal validation is complete. The separate `PREDICT_WITH_MODEL` workflow consumes that immutable
+model and a new Expression Bundle, requires every frozen feature, reproduces the locked recipe, and
+publishes class probabilities plus exact model/bundle checksums.
+
+The first real classifier transportability study is separately frozen in a schema-valid prospective
+protocol: GSE140494 is development-only and GSE32646 is the one-use external cohort. The protocol
+allows outcome-blind external preparation before model lock, but forbids joining response truth,
+refitting, recalibration, threshold changes, or cohort replacement until checksummed predictions
+exist. This boundary enables external testing but does not itself make an external-validation claim.
 
 ## Service boundaries
 

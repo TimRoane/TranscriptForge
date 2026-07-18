@@ -46,9 +46,11 @@ import {
   fetchAnalysis,
   fetchAnalysisRuns,
   fetchCorrelationHeatmap,
+  fetchClassifierResults,
   fetchDendrogramPlot,
   fetchDifferentialExpressionFeature,
   fetchDifferentialExpressionResults,
+  fetchDeconvolutionComparison,
   fetchDeconvolutionResults,
   fetchEmbeddingPlot,
   fetchEnrichmentSummary,
@@ -72,6 +74,7 @@ import {
   type DifferentialExpressionPlot,
   type DifferentialExpressionResultQuery,
   type DifferentialExpressionSort,
+  type DeconvolutionComparison,
   type DeconvolutionResults,
   type EmbeddingPlot,
   type EnrichmentResult,
@@ -180,6 +183,23 @@ export function AnalysisPage() {
     queryFn: ({ signal }) => fetchDeconvolutionResults(latest!.id, signal),
     enabled: succeeded && analysis.data?.analysis_type === 'deconvolution',
   })
+  const classifierResults = useQuery({
+    queryKey: ['classifier-results', latest?.id],
+    queryFn: ({ signal }) => fetchClassifierResults(latest!.id, signal),
+    enabled: succeeded && analysis.data?.analysis_type === 'classifier',
+  })
+  const deconvolutionComparison = useQuery({
+    queryKey: [
+      'deconvolution-comparison',
+      analysis.data?.prepared_dataset_id,
+      latest?.id,
+    ],
+    queryFn: ({ signal }) => fetchDeconvolutionComparison(
+      analysis.data!.prepared_dataset_id,
+      signal,
+    ),
+    enabled: succeeded && analysis.data?.analysis_type === 'deconvolution',
+  })
   const manifest = useQuery({
     queryKey: ['result-manifest', latest?.id],
     queryFn: ({ signal }) => fetchResultManifest(latest!.id, signal),
@@ -209,8 +229,337 @@ export function AnalysisPage() {
   if (runs.isError) return <ErrorState error={runs.error} />
 
   const configuration = analysis.data.configuration_json
+  if (configuration.analysis_type === 'classifier') {
+    const validation = configuration.design_validation
+    const active = Boolean(latest && activeStates.has(latest.state))
+    const classifierDiagnosticImage = artifacts.data?.find(
+      (artifact) => artifact.artifact_type === 'classifier_diagnostics_svg',
+    )
+    const multiclassDiagnostics = classifierResults.data?.method === 'multinomial_elastic_net'
+      ? classifierResults.data.diagnostics
+      : null
+    return (
+      <Stack spacing={3}>
+        <Link
+          component={RouterLink}
+          to={`/prepared-datasets/${analysis.data.prepared_dataset_id}`}
+          underline="hover"
+          sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, width: 'fit-content' }}
+        >
+          <ArrowBackRoundedIcon fontSize="small" /> Expression Bundle v{prepared.data?.version ?? '…'}
+        </Link>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={2}>
+          <Box>
+            <Typography variant="overline" color="secondary.main" fontWeight={750}>
+              Classifier development · saved validation design
+            </Typography>
+            <Typography variant="h3" fontWeight={750}>{analysis.data.name}</Typography>
+            <Typography color="text.secondary" mt={1}>
+              {configuration.method === 'multinomial_elastic_net'
+                ? `Multinomial elastic-net logistic regression · ${configuration.assay} · ${validation.class_labels.length} classes`
+                : `Binary elastic-net logistic regression · ${configuration.assay} · positive class ${configuration.parameters.positive_class}`}
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1} alignItems="center">
+            {latest && <RunStateChip run={latest} />}
+            {active && latest ? (
+              <CancelRunButton run={latest} pending={cancel.isPending} onCancel={cancel.mutate} />
+            ) : (
+              <Button
+                variant={latest ? 'outlined' : 'contained'}
+                startIcon={latest ? <ReplayRoundedIcon /> : <PlayArrowRoundedIcon />}
+                onClick={() => rerun.mutate()}
+                disabled={rerun.isPending}
+              >
+                {rerun.isPending ? 'Queueing…' : latest ? 'Run again' : 'Run classifier'}
+              </Button>
+            )}
+          </Stack>
+        </Stack>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          {[
+            ['Eligible samples', validation.eligible_sample_count.toLocaleString()],
+            ['Experimental units', validation.group_count.toLocaleString()],
+            ['Validation', `${validation.outer_folds}-fold × ${validation.repeats} repeats`],
+            ['Planned OOF predictions', validation.expected_oof_prediction_count.toLocaleString()],
+          ].map(([label, value]) => (
+            <Paper key={label} variant="outlined" sx={{ p: 2, flex: 1 }}>
+              <Typography variant="overline" color="text.secondary">{label}</Typography>
+              <Typography variant="h6" fontWeight={700}>{value}</Typography>
+            </Paper>
+          ))}
+        </Stack>
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Stack spacing={2}>
+            <div>
+              <Typography variant="h5" fontWeight={700}>Outcome and validation</Typography>
+              <Typography color="text.secondary" mt={0.5}>
+                {configuration.parameters.outcome_column}: {validation.negative_class} versus{' '}
+                {validation.positive_class}
+                {configuration.parameters.group_column
+                  ? `, grouped by ${configuration.parameters.group_column}`
+                  : ', with independent samples'}.
+              </Typography>
+            </div>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {Object.entries(validation.class_counts).map(([level, count]) => (
+                <Chip key={level} label={`${level}: ${count} samples`} />
+              ))}
+              <Chip label={`${validation.inner_folds}-fold inner tuning`} />
+              <Chip label={`${configuration.parameters.top_variable_features} variable genes`} />
+              <Chip label={`${configuration.parameters.primary_metric.replaceAll('_', ' ')} primary metric`} />
+            </Stack>
+          </Stack>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Typography variant="h5" fontWeight={700}>Leakage controls</Typography>
+          <Typography color="text.secondary" mt={0.75} mb={2}>
+            The complete preprocessing and tuning path is frozen with the design. Test-fold data
+            may only be used once for outer-fold evaluation.
+          </Typography>
+          <Stack spacing={1}>
+            {[
+              ['Preprocessing', configuration.leakage_policy.preprocessing_scope],
+              ['Feature selection', configuration.leakage_policy.feature_selection_scope],
+              ['Hyperparameter tuning', configuration.leakage_policy.hyperparameter_tuning_scope],
+              ['Outer test folds', configuration.leakage_policy.outer_test_fold_role],
+            ].map(([label, value]) => (
+              <Stack key={label} direction={{ xs: 'column', sm: 'row' }} gap={0.5}>
+                <Typography fontWeight={700} sx={{ minWidth: 190 }}>{label}</Typography>
+                <Typography color="text.secondary">{value.replaceAll('_', ' ')}</Typography>
+              </Stack>
+            ))}
+          </Stack>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Typography variant="h5" fontWeight={700}>Outer-fold audit</Typography>
+          <Typography color="text.secondary" mt={0.5} mb={2}>
+            Every planned split contains both classes and keeps related experimental units apart.
+          </Typography>
+          <TableContainer sx={{ maxHeight: 360 }}>
+            <Table size="small" stickyHeader aria-label="Saved classifier outer-fold audit">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Repeat / fold</TableCell>
+                  <TableCell align="right">Train</TableCell>
+                  <TableCell align="right">Test</TableCell>
+                  <TableCell align="right">Train groups</TableCell>
+                  <TableCell align="right">Test groups</TableCell>
+                  <TableCell align="right">Overlap</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {validation.fold_plan.map((fold) => (
+                  <TableRow key={`${fold.repeat}-${fold.fold}`}>
+                    <TableCell>{fold.repeat} / {fold.fold}</TableCell>
+                    <TableCell align="right">{fold.training_sample_count}</TableCell>
+                    <TableCell align="right">{fold.test_sample_count}</TableCell>
+                    <TableCell align="right">{fold.training_group_count}</TableCell>
+                    <TableCell align="right">{fold.test_group_count}</TableCell>
+                    <TableCell align="right">{fold.group_overlap_count}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+        {validation.warnings.map((message) => (
+          <Alert key={message} severity="warning">{message}</Alert>
+        ))}
+        {!latest && (
+          <Alert severity="info">
+            This validated design is ready to run through grouped repeated nested cross-validation.
+          </Alert>
+        )}
+        {active && (
+          <Paper variant="outlined" sx={{ p: 4 }}>
+            <LoadingState label={`Classifier ${latest!.state.toLowerCase()}…`} />
+            <Typography textAlign="center" color="text.secondary">
+              Feature selection, tuning, calibration, and threshold selection are being fitted
+              independently inside the applicable training folds.
+            </Typography>
+          </Paper>
+        )}
+        {latest?.state === 'FAILED' && (
+          <Alert severity="error">{latest.error_summary ?? 'The classifier workflow failed.'}</Alert>
+        )}
+        {(rerun.isError || cancel.isError) && (
+          <Alert severity="error">{(rerun.error ?? cancel.error)?.message}</Alert>
+        )}
+        {classifierResults.isPending && succeeded && (
+          <LoadingState label="Loading out-of-fold classifier results…" />
+        )}
+        {classifierResults.isError && <ErrorState error={classifierResults.error} />}
+        {classifierResults.data?.method === 'multinomial_elastic_net' && (
+          <Paper variant="outlined" sx={{ p: 3 }}>
+            <Typography variant="h5" fontWeight={700}>Internal multiclass validation results</Typography>
+            <Typography color="text.secondary" mt={0.5}>
+              Macro metrics use repeated outer-fold predictions across all classes. Probabilities
+              are uncalibrated, predictions use maximum class probability, and these estimates are
+              not external or clinical validation.
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={2}>
+              {[
+                [
+                  'Macro ROC-AUC',
+                  `${classifierResults.data.metrics.macro_roc_auc.toFixed(3)} (${classifierResults.data.confidence_intervals.intervals.macro_roc_auc.lower.toFixed(3)}–${classifierResults.data.confidence_intervals.intervals.macro_roc_auc.upper.toFixed(3)})`,
+                ],
+                ['Macro F1', classifierResults.data.metrics.macro_f1.toFixed(3)],
+                ['Balanced accuracy', classifierResults.data.metrics.balanced_accuracy.toFixed(3)],
+                ['Log loss', classifierResults.data.metrics.log_loss.toFixed(3)],
+              ].map(([label, value]) => (
+                <Paper key={label} variant="outlined" sx={{ p: 2, flex: 1 }}>
+                  <Typography variant="overline" color="text.secondary">{label}</Typography>
+                  <Typography variant="h5" fontWeight={700}>{value}</Typography>
+                </Paper>
+              ))}
+            </Stack>
+            <Alert severity="success" sx={{ mt: 2 }}>
+              {classifierResults.data.oof_coverage.observed_prediction_count} of{' '}
+              {classifierResults.data.oof_coverage.expected_prediction_count} planned OOF
+              predictions are present exactly once per sample per repeat, with zero audited
+              experimental-unit overlap.
+            </Alert>
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Full nested-CV label-permutation control ({classifierResults.data.permutation_control.count}{' '}
+              permutations): empirical p ={' '}
+              {classifierResults.data.permutation_control.empirical_p_value?.toFixed(4) ?? 'not run'}.
+            </Alert>
+            <Typography variant="h6" fontWeight={700} mt={3}>Confusion matrix</Typography>
+            <TableContainer sx={{ mt: 1 }}>
+              <Table size="small" aria-label="Multiclass confusion matrix">
+                <TableHead><TableRow><TableCell>Observed \ Predicted</TableCell>{classifierResults.data.diagnostics.class_order.map((label) => <TableCell key={label} align="right">{label}</TableCell>)}</TableRow></TableHead>
+                <TableBody>{multiclassDiagnostics?.confusion_matrix.map((row, rowIndex) => (
+                  <TableRow key={multiclassDiagnostics.class_order[rowIndex]}><TableCell>{multiclassDiagnostics.class_order[rowIndex]}</TableCell>{row.map((value, columnIndex) => <TableCell key={multiclassDiagnostics.class_order[columnIndex]} align="right">{value}</TableCell>)}</TableRow>
+                ))}</TableBody>
+              </Table>
+            </TableContainer>
+            <Typography variant="h6" fontWeight={700} mt={3}>Most stable class coefficients</Typography>
+            <TableContainer sx={{ maxHeight: 320, mt: 1 }}>
+              <Table size="small" stickyHeader aria-label="Multiclass feature stability">
+                <TableHead><TableRow><TableCell>Feature</TableCell><TableCell>Class</TableCell><TableCell align="right">Selected</TableCell><TableCell align="right">Nonzero</TableCell><TableCell align="right">Mean coefficient</TableCell></TableRow></TableHead>
+                <TableBody>{classifierResults.data.feature_stability.slice(0, 30).map((feature) => (
+                  <TableRow key={`${feature.feature_id}-${feature.class_label}`}><TableCell>{feature.feature_id}</TableCell><TableCell>{feature.class_label}</TableCell><TableCell align="right">{(feature.selection_frequency * 100).toFixed(0)}%</TableCell><TableCell align="right">{(feature.nonzero_frequency * 100).toFixed(0)}%</TableCell><TableCell align="right">{feature.mean_coefficient.toFixed(4)}</TableCell></TableRow>
+                ))}</TableBody>
+              </Table>
+            </TableContainer>
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              The locked multinomial model and inference schema are research artifacts. Evaluate
+              them on a compatible untouched cohort before making any generalization claim.
+            </Alert>
+            {artifacts.data && (
+              <Stack direction="row" spacing={2} mt={2} flexWrap="wrap" useFlexGap>
+                {artifacts.data.filter((artifact) => artifact.artifact_type.startsWith('classifier_') || ['analysis_report', 'analysis_report_source'].includes(artifact.artifact_type)).map((artifact) => (
+                  <Link key={artifact.id} href={artifactDownloadUrl(artifact.id)} underline="hover">
+                    <DownloadRoundedIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />{artifact.title}
+                  </Link>
+                ))}
+              </Stack>
+            )}
+          </Paper>
+        )}
+        {classifierResults.data?.method === 'elastic_net' && (
+          <Paper variant="outlined" sx={{ p: 3 }}>
+            <Typography variant="h5" fontWeight={700}>Internal validation results</Typography>
+            <Typography color="text.secondary" mt={0.5}>
+              Metrics use only repeated outer-fold predictions. They are internal validation and
+              are not external or clinical performance estimates.
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={2}>
+              {[
+                [
+                  'ROC-AUC',
+                  `${classifierResults.data.metrics.roc_auc.toFixed(3)} (${classifierResults.data.confidence_intervals.intervals.roc_auc.lower.toFixed(3)}–${classifierResults.data.confidence_intervals.intervals.roc_auc.upper.toFixed(3)})`,
+                ],
+                [
+                  'PR-AUC',
+                  `${classifierResults.data.metrics.pr_auc.toFixed(3)} (${classifierResults.data.confidence_intervals.intervals.pr_auc.lower.toFixed(3)}–${classifierResults.data.confidence_intervals.intervals.pr_auc.upper.toFixed(3)})`,
+                ],
+                [
+                  'Balanced accuracy',
+                  classifierResults.data.metrics.balanced_accuracy.toFixed(3),
+                ],
+                ['Brier score', classifierResults.data.metrics.brier_score.toFixed(3)],
+              ].map(([label, value]) => (
+                <Paper key={label} variant="outlined" sx={{ p: 2, flex: 1 }}>
+                  <Typography variant="overline" color="text.secondary">{label}</Typography>
+                  <Typography variant="h5" fontWeight={700}>{value}</Typography>
+                </Paper>
+              ))}
+            </Stack>
+            <Alert severity="success" sx={{ mt: 2 }}>
+              {classifierResults.data.oof_coverage.observed_prediction_count} of{' '}
+              {classifierResults.data.oof_coverage.expected_prediction_count} planned OOF
+              predictions are present, exactly once per sample per repeat. Every audited fold has
+              zero experimental-unit overlap.
+            </Alert>
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Full nested-CV label-permutation control ({classifierResults.data.permutation_control.count}{' '}
+              permutations): empirical p ={' '}
+              {classifierResults.data.permutation_control.empirical_p_value?.toFixed(4) ?? 'not run'}.
+              Calibration slope is {classifierResults.data.diagnostic_curves.calibration_slope.toFixed(3)}.
+            </Alert>
+            {classifierDiagnosticImage && (
+              <Box
+                component="img"
+                src={artifactDownloadUrl(classifierDiagnosticImage.id)}
+                alt="ROC, precision-recall, and learning curves"
+                sx={{ display: 'block', width: '100%', maxWidth: 960, mt: 3 }}
+              />
+            )}
+            <Typography variant="h6" fontWeight={700} mt={3}>Algorithm comparison</Typography>
+            <Typography color="text.secondary" mt={0.5}>
+              Random forest and histogram gradient boosting use the same outer folds and tune only
+              within inner training folds. Elastic net remains the exported primary model.
+            </Typography>
+            <TableContainer sx={{ mt: 1 }}>
+              <Table size="small" aria-label="Classifier algorithm comparison">
+                <TableHead><TableRow><TableCell>Algorithm</TableCell><TableCell>Role</TableCell><TableCell align="right">ROC-AUC</TableCell><TableCell align="right">PR-AUC</TableCell><TableCell align="right">Balanced accuracy</TableCell><TableCell align="right">Brier score</TableCell></TableRow></TableHead>
+                <TableBody>{classifierResults.data.model_comparisons.map((comparison) => (
+                  <TableRow key={comparison.method}><TableCell>{comparison.method.replaceAll('_', ' ')}</TableCell><TableCell>{comparison.role === 'primary_locked_model' ? 'Primary locked model' : 'Comparison only'}</TableCell><TableCell align="right">{comparison.metrics.roc_auc.toFixed(3)}</TableCell><TableCell align="right">{comparison.metrics.pr_auc.toFixed(3)}</TableCell><TableCell align="right">{comparison.metrics.balanced_accuracy.toFixed(3)}</TableCell><TableCell align="right">{comparison.metrics.brier_score.toFixed(3)}</TableCell></TableRow>
+                ))}</TableBody>
+              </Table>
+            </TableContainer>
+            <Typography variant="h6" fontWeight={700} mt={3}>Performance by repeat</Typography>
+            <TableContainer sx={{ mt: 1 }}>
+              <Table size="small" aria-label="Classifier metrics by repeat">
+                <TableHead><TableRow><TableCell>Repeat</TableCell><TableCell align="right">ROC-AUC</TableCell><TableCell align="right">PR-AUC</TableCell><TableCell align="right">Balanced accuracy</TableCell><TableCell align="right">Brier score</TableCell></TableRow></TableHead>
+                <TableBody>{classifierResults.data.repeat_metrics.map((repeat) => (
+                  <TableRow key={repeat.repeat}><TableCell>{repeat.repeat}</TableCell><TableCell align="right">{repeat.roc_auc.toFixed(3)}</TableCell><TableCell align="right">{repeat.pr_auc.toFixed(3)}</TableCell><TableCell align="right">{repeat.balanced_accuracy.toFixed(3)}</TableCell><TableCell align="right">{repeat.brier_score.toFixed(3)}</TableCell></TableRow>
+                ))}</TableBody>
+              </Table>
+            </TableContainer>
+            <Typography variant="h6" fontWeight={700} mt={3}>Most stable coefficients</Typography>
+            <TableContainer sx={{ maxHeight: 320, mt: 1 }}>
+              <Table size="small" stickyHeader aria-label="Classifier feature stability">
+                <TableHead><TableRow><TableCell>Feature</TableCell><TableCell align="right">Selected</TableCell><TableCell align="right">Nonzero</TableCell><TableCell align="right">Mean coefficient</TableCell></TableRow></TableHead>
+                <TableBody>{classifierResults.data.feature_stability.slice(0, 25).map((feature) => (
+                  <TableRow key={feature.feature_id}><TableCell>{feature.feature_id}</TableCell><TableCell align="right">{(feature.selection_frequency * 100).toFixed(0)}%</TableCell><TableCell align="right">{(feature.nonzero_frequency * 100).toFixed(0)}%</TableCell><TableCell align="right">{feature.mean_coefficient.toFixed(4)}</TableCell></TableRow>
+                ))}</TableBody>
+              </Table>
+            </TableContainer>
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              A locked research model, model card, inference schema, and prediction template are
+              available below. This lock occurs only after internal validation; performance still
+              requires an untouched compatible external cohort.
+            </Alert>
+            {artifacts.data && (
+              <Stack direction="row" spacing={2} mt={2} flexWrap="wrap" useFlexGap>
+                {artifacts.data.filter((artifact) => artifact.artifact_type.startsWith('classifier_') || ['analysis_report', 'analysis_report_source'].includes(artifact.artifact_type)).map((artifact) => (
+                  <Link key={artifact.id} href={artifactDownloadUrl(artifact.id)} underline="hover">
+                    <DownloadRoundedIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />{artifact.title}
+                  </Link>
+                ))}
+              </Stack>
+            )}
+          </Paper>
+        )}
+      </Stack>
+    )
+  }
   if (configuration.analysis_type === 'deconvolution') {
     const active = Boolean(latest && activeStates.has(latest.state))
+    const isExternalImport = configuration.method === 'cibersortx_external'
     const canRun = configuration.execution_available && !active && !rerun.isPending
     return (
       <Stack spacing={3}>
@@ -225,7 +574,9 @@ export function AnalysisPage() {
         <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={2}>
           <Box>
             <Typography variant="overline" color="secondary.main" fontWeight={750}>
-              Cell-type deconvolution · validated input contract
+              {isExternalImport
+                ? 'Cell-type deconvolution · audited external result'
+                : 'Cell-type deconvolution · validated input contract'}
             </Typography>
             <Typography variant="h3" fontWeight={750}>{analysis.data.name}</Typography>
             <Typography color="text.secondary" mt={1}>
@@ -233,7 +584,9 @@ export function AnalysisPage() {
               {configuration.parameters.reference_profile}
             </Typography>
           </Box>
-          {active && latest ? (
+          {isExternalImport ? (
+            <Chip label="External import" color="info" />
+          ) : active && latest ? (
             <Button
               variant="outlined"
               color="error"
@@ -251,7 +604,7 @@ export function AnalysisPage() {
               disabled={!canRun}
             >
               {configuration.execution_available
-                ? (rerun.isPending ? 'Queueing…' : latest ? 'Run again' : 'Run quanTIseq')
+                ? (rerun.isPending ? 'Queueing…' : latest ? 'Run again' : `Run ${configuration.method_spec.display_name}`)
                 : 'Runner unavailable'}
             </Button>
           )}
@@ -297,10 +650,16 @@ export function AnalysisPage() {
             </Link>
           </Stack>
         </Paper>
-        {configuration.execution_available ? (
+        {isExternalImport ? (
           <Alert severity="success">
-            This design can run in the pinned quanTIseq container. Every run verifies the TIL10
-            reference checksum and the effective gene overlap before estimating fractions.
+            This result was imported rather than executed by TranscriptForge. Its original source,
+            source checksum, signature checksum, external runtime, mode, and input-assay link are
+            frozen with the result.
+          </Alert>
+        ) : configuration.execution_available ? (
+          <Alert severity="success">
+            This design can run in the pinned scientific container. Every run verifies the package,
+            reference checksum, assay contract, and effective gene overlap before estimating results.
           </Alert>
         ) : (
           <Alert severity="info">
@@ -317,12 +676,22 @@ export function AnalysisPage() {
         {(rerun.isError || cancel.isError) && (
           <Alert severity="error">{(rerun.error ?? cancel.error)?.message}</Alert>
         )}
-        {deconvolutionResults.isPending && succeeded && <LoadingState label="Loading cell fractions…" />}
+        {deconvolutionResults.isPending && succeeded && <LoadingState label="Loading cell-population results…" />}
         {deconvolutionResults.isError && <ErrorState error={deconvolutionResults.error} />}
         {deconvolutionResults.data && (
           <DeconvolutionResultPanel
             result={deconvolutionResults.data}
             artifacts={artifacts.data ?? []}
+          />
+        )}
+        {deconvolutionComparison.isPending && succeeded && (
+          <LoadingState label="Finding compatible deconvolution results…" />
+        )}
+        {deconvolutionComparison.isError && <ErrorState error={deconvolutionComparison.error} />}
+        {deconvolutionComparison.data && (
+          <DeconvolutionComparisonPanel
+            comparison={deconvolutionComparison.data}
+            currentRunId={latest?.id}
           />
         )}
         <Alert severity="warning">
@@ -703,11 +1072,28 @@ function DeconvolutionResultPanel({
   const values = new Map(
     result.estimates.map((item) => [`${item.sample_id}\u0000${item.cell_type_id}`, item.value]),
   )
-  const fractionArtifacts = artifacts.filter((artifact) => [
+  const isFraction = result.result_type === 'cell_fraction'
+  const variablePopulations = result.cell_types
+    .map((cellType) => {
+      const populationValues = result.sample_ids.map(
+        (sampleId) => values.get(`${sampleId}\u0000${cellType.id}`) ?? 0,
+      )
+      const mean = populationValues.reduce((sum, value) => sum + value, 0) / populationValues.length
+      const variance = populationValues.length > 1
+        ? populationValues.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (populationValues.length - 1)
+        : 0
+      return { ...cellType, values: populationValues, mean, deviation: Math.sqrt(variance), variance }
+    })
+    .sort((left, right) => right.variance - left.variance)
+    .slice(0, 20)
+  const resultArtifacts = artifacts.filter((artifact) => [
     'deconvolution_results',
     'deconvolution_estimates',
     'deconvolution_reference_overlap',
     'deconvolution_fractions_svg',
+    'deconvolution_enrichment_svg',
+    'cibersortx_source',
+    'external_import_provenance',
     'analysis_report',
     'analysis_report_source',
     'r_session_info',
@@ -729,47 +1115,104 @@ function DeconvolutionResultPanel({
           </Paper>
         ))}
       </Stack>
-      <Paper variant="outlined" sx={{ p: 3 }}>
-        <Typography variant="h5" fontWeight={700}>Estimated cell fractions</Typography>
-        <Typography color="text.secondary" mt={0.5} mb={2.5}>
-          Each bar sums to one and includes the method’s Other / uncharacterized compartment.
-        </Typography>
-        <Stack spacing={2}>
-          {result.sample_ids.map((sampleId) => (
-            <Box key={sampleId}>
-              <Typography variant="body2" fontWeight={700} mb={0.5}>{sampleId}</Typography>
-              <Stack
-                direction="row"
-                sx={{ height: 26, borderRadius: 1, overflow: 'hidden', bgcolor: 'action.hover' }}
-                aria-label={`${sampleId} cell fractions`}
-              >
-                {result.cell_types.map((cellType, index) => {
-                  const value = values.get(`${sampleId}\u0000${cellType.id}`) ?? 0
-                  return (
-                    <Box
-                      key={cellType.id}
-                      title={`${cellType.label}: ${(value * 100).toFixed(1)}%`}
-                      sx={{ width: `${value * 100}%`, bgcolor: colors[index % colors.length], minWidth: value > 0 ? 1 : 0 }}
-                    />
-                  )
-                })}
-              </Stack>
-            </Box>
-          ))}
-          <Stack direction="row" gap={1.5} flexWrap="wrap">
-            {result.cell_types.map((cellType, index) => (
-              <Stack key={cellType.id} direction="row" spacing={0.5} alignItems="center">
-                <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: colors[index % colors.length] }} />
-                <Typography variant="caption">{cellType.label}</Typography>
-              </Stack>
+      {isFraction ? (
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Typography variant="h5" fontWeight={700}>
+            {result.method === 'cibersortx_external'
+              ? 'Imported relative cell fractions'
+              : 'Estimated cell fractions'}
+          </Typography>
+          <Typography color="text.secondary" mt={0.5} mb={2.5}>
+            {result.method === 'cibersortx_external'
+              ? 'Each bar is an externally estimated CIBERSORTx relative-mode composition. TranscriptForge validated the table but did not reproduce the computation.'
+              : 'Each bar sums to one and includes the method’s Other / uncharacterized compartment.'}
+          </Typography>
+          <Stack spacing={2}>
+            {result.sample_ids.map((sampleId) => (
+              <Box key={sampleId}>
+                <Typography variant="body2" fontWeight={700} mb={0.5}>{sampleId}</Typography>
+                <Stack
+                  direction="row"
+                  sx={{ height: 26, borderRadius: 1, overflow: 'hidden', bgcolor: 'action.hover' }}
+                  aria-label={`${sampleId} cell fractions`}
+                >
+                  {result.cell_types.map((cellType, index) => {
+                    const value = values.get(`${sampleId}\u0000${cellType.id}`) ?? 0
+                    return (
+                      <Box
+                        key={cellType.id}
+                        title={`${cellType.label}: ${(value * 100).toFixed(1)}%`}
+                        sx={{ width: `${value * 100}%`, bgcolor: colors[index % colors.length], minWidth: value > 0 ? 1 : 0 }}
+                      />
+                    )
+                  })}
+                </Stack>
+              </Box>
             ))}
+            <Stack direction="row" gap={1.5} flexWrap="wrap">
+              {result.cell_types.map((cellType, index) => (
+                <Stack key={cellType.id} direction="row" spacing={0.5} alignItems="center">
+                  <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: colors[index % colors.length] }} />
+                  <Typography variant="caption">{cellType.label}</Typography>
+                </Stack>
+              ))}
+            </Stack>
           </Stack>
-        </Stack>
-      </Paper>
+        </Paper>
+      ) : (
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Typography variant="h5" fontWeight={700}>Cell-population enrichment patterns</Typography>
+          <Typography color="text.secondary" mt={0.5} mb={2.5}>
+            The 20 most variable populations are shown. Color is a within-population z-score used
+            only to reveal between-sample patterns; every cell also shows the untransformed score.
+          </Typography>
+          <TableContainer sx={{ maxHeight: 720 }}>
+            <Table size="small" stickyHeader aria-label={`${result.method} enrichment scores`}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Population</TableCell>
+                  {result.sample_ids.map((sampleId) => <TableCell key={sampleId} align="right">{sampleId}</TableCell>)}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {variablePopulations.map((population) => (
+                  <TableRow key={population.id}>
+                    <TableCell component="th" scope="row" sx={{ minWidth: 180 }}>{population.label}</TableCell>
+                    {population.values.map((value, index) => {
+                      const zScore = population.deviation > 0 ? (value - population.mean) / population.deviation : 0
+                      const strength = Math.min(0.78, 0.12 + Math.abs(zScore) * 0.22)
+                      return (
+                        <TableCell
+                          key={result.sample_ids[index]}
+                          align="right"
+                          title={`Within-population z-score: ${zScore.toFixed(2)}`}
+                          sx={{
+                            bgcolor: zScore >= 0
+                              ? `rgba(105, 65, 198, ${strength})`
+                              : `rgba(30, 138, 146, ${strength})`,
+                            color: Math.abs(zScore) > 1.25 ? 'common.white' : 'text.primary',
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {value.toFixed(4)}
+                        </TableCell>
+                      )
+                    })}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Scores are not percentages and do not sum to one. Compare a population across samples;
+            do not compare score magnitude between different populations within one sample.
+          </Alert>
+        </Paper>
+      )}
       <Paper variant="outlined" sx={{ p: 3 }}>
-        <Typography variant="h5" fontWeight={700}>Fraction table</Typography>
+        <Typography variant="h5" fontWeight={700}>{isFraction ? 'Fraction table' : 'Complete enrichment-score table'}</Typography>
         <TableContainer sx={{ mt: 2 }}>
-          <Table size="small" aria-label="quanTIseq cell-fraction estimates">
+          <Table size="small" aria-label={`${result.method} cell-population estimates`}>
             <TableHead>
               <TableRow>
                 <TableCell>Sample</TableCell>
@@ -784,7 +1227,9 @@ function DeconvolutionResultPanel({
                   <TableCell component="th" scope="row">{sampleId}</TableCell>
                   {result.cell_types.map((cellType) => (
                     <TableCell key={cellType.id} align="right">
-                      {((values.get(`${sampleId}\u0000${cellType.id}`) ?? 0) * 100).toFixed(1)}%
+                      {isFraction
+                        ? `${((values.get(`${sampleId}\u0000${cellType.id}`) ?? 0) * 100).toFixed(1)}%`
+                        : (values.get(`${sampleId}\u0000${cellType.id}`) ?? 0).toFixed(4)}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -793,13 +1238,40 @@ function DeconvolutionResultPanel({
           </Table>
         </TableContainer>
       </Paper>
+      {result.external_import && (
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Typography variant="h5" fontWeight={700}>External execution provenance</Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap mt={1.5}>
+            <Chip label={`Mode: ${result.external_import.mode}`} />
+            <Chip label={`Batch correction: ${result.external_import.batch_correction}`} />
+            <Chip label={`${result.external_import.permutations} permutations`} />
+            <Chip label={`Runtime: ${result.external_import.runtime.version}`} />
+          </Stack>
+          <Typography variant="body2" mt={2} sx={{ overflowWrap: 'anywhere' }}>
+            <strong>Signature:</strong> {result.external_import.signature.name}{' '}
+            {result.external_import.signature.version} · {result.external_import.signature.gene_count}{' '}
+            genes<br />
+            <strong>External run:</strong> {result.external_import.runtime.external_run_id} ·{' '}
+            {new Date(result.external_import.runtime.executed_at).toLocaleString()}<br />
+            <strong>Source:</strong> {result.external_import.source_filename} · SHA-256{' '}
+            <code>{result.external_import.source_sha256}</code><br />
+            <strong>Signature SHA-256:</strong>{' '}
+            <code>{result.external_import.signature.sha256}</code>
+          </Typography>
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Provenance is user-declared and checksum-frozen. TranscriptForge did not receive
+            credentials, execute CIBERSORTx, or independently verify the external runtime.
+          </Alert>
+        </Paper>
+      )}
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Typography variant="h5" fontWeight={700}>Results and provenance</Typography>
         <Typography variant="body2" color="text.secondary" mt={0.75} sx={{ overflowWrap: 'anywhere' }}>
-          quantiseqr {result.software.packages.quantiseqr} · reference SHA-256 {result.reference.sha256}
+          {Object.entries(result.software.packages).map(([name, version]) => `${name} ${version}`).join(' · ')}
+          {' '}· reference SHA-256 {result.reference.sha256}
         </Typography>
         <Stack direction="row" spacing={2} mt={2} flexWrap="wrap">
-          {fractionArtifacts.map((artifact) => (
+          {resultArtifacts.map((artifact) => (
             <Link key={artifact.id} href={artifactDownloadUrl(artifact.id)} underline="hover" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
               <DownloadRoundedIcon fontSize="small" /> {artifact.title}
             </Link>
@@ -808,6 +1280,131 @@ function DeconvolutionResultPanel({
       </Paper>
       {result.warnings.map((warning) => <Alert key={warning} severity="warning">{warning}</Alert>)}
     </Stack>
+  )
+}
+
+function DeconvolutionComparisonPanel({
+  comparison,
+  currentRunId,
+}: {
+  comparison: DeconvolutionComparison
+  currentRunId?: string
+}) {
+  const sectionTitle = (resultType: 'cell_fraction' | 'enrichment_score') =>
+    resultType === 'cell_fraction' ? 'Fraction-estimate comparison' : 'Enrichment-pattern comparison'
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
+      <Stack spacing={2.5}>
+        <Box>
+          <Typography variant="overline" color="secondary.main" fontWeight={750}>
+            Same expression bundle
+          </Typography>
+          <Typography variant="h5" fontWeight={700}>Cross-method comparison</Typography>
+          <Typography color="text.secondary" mt={0.5}>{comparison.interpretation}</Typography>
+        </Box>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Chip label={`${comparison.latest_successful_run_count} latest successful runs`} />
+          <Chip label={`${comparison.sections.length} compatible result groups`} />
+          {comparison.exclusions.length > 0 && (
+            <Chip color="warning" label={`${comparison.exclusions.length} excluded`} />
+          )}
+        </Stack>
+        {comparison.sections.length === 0 && (
+          <Alert severity="info">
+            Run another deconvolution method on this expression bundle to create a compatible
+            comparison. Fraction estimates and enrichment scores remain deliberately separate.
+          </Alert>
+        )}
+        {comparison.sections.map((section) => (
+          <Paper key={section.id} variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, bgcolor: 'background.default' }}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="h6" fontWeight={700}>{sectionTitle(section.result_type)}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {section.result_type === 'cell_fraction'
+                    ? 'Compare the same named population across samples; composition constraints remain visible.'
+                    : 'Pearson correlations compare within-population sample patterns. Raw score magnitudes are not compared across methods.'}
+                </Typography>
+              </Box>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Chip size="small" label={`${section.runs.length} methods`} />
+                <Chip size="small" label={`${section.sample_ids.length} shared samples`} />
+                <Chip size="small" label={`${section.shared_cell_types.length} exact shared populations`} />
+                <Chip size="small" label={`${section.assay.name} · ${section.assay.scale}`} />
+              </Stack>
+              <TableContainer>
+                <Table size="small" aria-label={`${section.result_type} compatible method runs`}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Method and analysis</TableCell>
+                      <TableCell>Reference</TableCell>
+                      <TableCell>Composition</TableCell>
+                      <TableCell align="right">Reference overlap</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {section.runs.map((run) => (
+                      <TableRow key={run.run_id}>
+                        <TableCell>
+                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                            <Link component={RouterLink} to={`/analyses/${run.analysis_id}`} underline="hover">
+                              {run.display_name} · {run.analysis_name}
+                            </Link>
+                            {run.run_id === currentRunId && <Chip size="small" color="primary" label="Current" />}
+                          </Stack>
+                        </TableCell>
+                        <TableCell>{run.reference.id} · {run.reference.version}</TableCell>
+                        <TableCell>{run.composition_constraint.replaceAll('_', ' ')}</TableCell>
+                        <TableCell align="right">{(run.reference_overlap_fraction * 100).toFixed(1)}%</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              {section.correlations.length > 0 ? (
+                <TableContainer>
+                  <Table size="small" aria-label={`${section.result_type} cross-method concordance`}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Exact shared population</TableCell>
+                        <TableCell>Method pair</TableCell>
+                        <TableCell align="right">Samples</TableCell>
+                        <TableCell align="right">Pearson r</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {section.correlations.map((correlation) => (
+                        <TableRow key={`${correlation.left_run_id}-${correlation.right_run_id}-${correlation.cell_type_id}`}>
+                          <TableCell>{correlation.cell_type_label}</TableCell>
+                          <TableCell>{correlation.left_method} ↔ {correlation.right_method}</TableCell>
+                          <TableCell align="right">{correlation.sample_count}</TableCell>
+                          <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
+                            {correlation.pearson_correlation.toFixed(3)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : (
+                <Alert severity="info">
+                  At least two compatible methods, three samples, and a variable exact-match
+                  population are required for a correlation.
+                </Alert>
+              )}
+              {section.warnings.map((warning) => (
+                <Alert key={warning} severity="warning">{warning}</Alert>
+              ))}
+            </Stack>
+          </Paper>
+        ))}
+        {comparison.exclusions.map((exclusion) => (
+          <Alert key={`${exclusion.analysis_id}-${exclusion.run_id}`} severity="warning">
+            <strong>{exclusion.analysis_name}</strong> was excluded: {exclusion.reason}
+          </Alert>
+        ))}
+      </Stack>
+    </Paper>
   )
 }
 

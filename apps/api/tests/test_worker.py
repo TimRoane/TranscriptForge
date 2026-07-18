@@ -78,3 +78,33 @@ def test_signature_outputs_are_indexed_as_analysis_artifacts(tmp_path: Path) -> 
     assert artifacts["signature_scores_table"].mime_type == "text/tab-separated-values"
     assert artifacts["signature_scored_features"].title == "Final scored signature features"
     assert artifacts["signature_scores_svg"].mime_type == "image/svg+xml"
+
+
+def test_classifier_outputs_are_indexed_as_analysis_artifacts(tmp_path: Path) -> None:
+    results = tmp_path / "output" / "analysis" / "results"
+    results.mkdir(parents=True)
+    for name in (
+        "classifier_results.json",
+        "oof_predictions.tsv",
+        "feature_stability.tsv",
+        "classifier_diagnostics.json",
+        "classifier_diagnostics.svg",
+        "model.json",
+        "model_card.json",
+        "model_card.md",
+        "inference_schema.json",
+        "inference_example.tsv",
+    ):
+        (results / name).write_text("test\n", encoding="utf-8")
+
+    artifacts = {item.artifact_type: item for item in _artifact_specs(tmp_path)}
+
+    assert artifacts["classifier_results"].mime_type == "application/json"
+    assert artifacts["classifier_oof_predictions"].mime_type == "text/tab-separated-values"
+    assert artifacts["classifier_feature_stability"].title == (
+        "Feature stability across outer folds"
+    )
+    assert artifacts["classifier_diagnostics_svg"].mime_type == "image/svg+xml"
+    assert artifacts["classifier_model"].title == "Locked elastic-net model"
+    assert artifacts["classifier_model_card_markdown"].mime_type == "text/markdown"
+    assert artifacts["classifier_inference_schema"].mime_type == "application/schema+json"
