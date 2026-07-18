@@ -152,7 +152,10 @@ core metrics, feature stability, and bundle/software provenance. An adversarial 
 an intentionally test-aware preprocessing scope and passes the production implementation. Published
 binary results add group-bootstrap uncertainty, ROC/PR/calibration/confusion diagnostics, fully
 re-tuned label permutations, learning curves, and random-forest/boosted-tree comparisons evaluated on
-the same outer partitions. Multinomial results add macro ROC-AUC/F1, balanced accuracy, one-vs-rest
+the same outer partitions. Independent binary permutations use index-derived seeds and a bounded
+process pool whose worker count comes from the Nextflow CPU allocation; arrays are memory-mapped,
+native math threads are capped at one per worker, completion progress is streamed, and results are
+restored to permutation-index order. Multinomial results add macro ROC-AUC/F1, balanced accuracy, one-vs-rest
 ROC coordinates, classwise confusion and feature stability, and full nested label permutations.
 Only elastic net is locked: its features, scaling, coefficients and intercepts—and, for binary runs,
 calibration and threshold—are stored with a research-only model card and inference schema after
@@ -164,7 +167,9 @@ The first real classifier transportability study is separately frozen in a schem
 protocol: GSE140494 is development-only and GSE32646 is the one-use external cohort. The protocol
 allows outcome-blind external preparation before model lock, but forbids joining response truth,
 refitting, recalibration, threshold changes, or cohort replacement until checksummed predictions
-exist. This boundary enables external testing but does not itself make an external-validation claim.
+exist. The protocol was executed once: external ROC-AUC was 0.619 (95% bootstrap 0.503–0.726), so
+the lower-bound criterion passed but the frozen 0.65 point-estimate criterion did not. This honest
+negative primary result permits no post-hoc refit or successful external-validation claim.
 
 ## Service boundaries
 

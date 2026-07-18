@@ -1,0 +1,72 @@
+{
+  "class_counts": {
+    "negative": 88,
+    "positive": 27
+  },
+  "confidence_intervals": {
+    "iterations": 2000,
+    "method": "stratified_experimental_unit_percentile_bootstrap",
+    "metrics": {
+      "balanced_accuracy": {
+        "lower": 0.49095117845117847,
+        "upper": 0.6774358164983162
+      },
+      "brier_score": {
+        "lower": 0.16518987900397036,
+        "upper": 0.19055552828291314
+      },
+      "pr_auc": {
+        "lower": 0.24667821090302836,
+        "upper": 0.46171345142717374
+      },
+      "roc_auc": {
+        "lower": 0.5029250841750842,
+        "upper": 0.725620791245791
+      },
+      "sensitivity": {
+        "lower": 0.6296296296296297,
+        "upper": 0.9259259259259259
+      },
+      "specificity": {
+        "lower": 0.29545454545454547,
+        "upper": 0.5
+      }
+    },
+    "random_seed": 20260717
+  },
+  "metrics": {
+    "balanced_accuracy": 0.5877525252525253,
+    "brier_score": 0.17764676522207506,
+    "calibration_intercept": -0.3344043293257471,
+    "calibration_slope": 0.9267055600863033,
+    "pr_auc": 0.3120156105209825,
+    "prevalence": 0.23478260869565218,
+    "roc_auc": 0.6191077441077442,
+    "sensitivity": 0.7777777777777778,
+    "specificity": 0.3977272727272727
+  },
+  "model_analysis_id": "breast-pcr-gse140494-v1",
+  "protocol_id": "breast-pcr-gse140494-to-gse32646-v1",
+  "provenance": {
+    "expression_bundle_sha256": "824fb6154278d6e02315ab92b4b3b88de96c88fa63b60a607a8295901fdde7d1",
+    "model_sha256": "d1bc4cb4276bef48182ddc0f5307d4d9a82f637942e07a8d038a121c38e48df2",
+    "prediction_results_sha256": "91159fda073ba05d24037865be769061027c3f0613f2a7720b3ec521aabe8f8c",
+    "protocol_sha256": "6a7dd10fd108c333476ffc0afad87be2de420fe90ec9bd28baf362af11f76c8d",
+    "truth_sha256": "7a4a9e0d69167ea3f4fafe356c09ce9ff31fcf7f569295d2ecd25451f86703ab"
+  },
+  "sample_count": 115,
+  "schema_version": "1.0.0",
+  "status": "SUCCESS_CRITERIA_NOT_MET",
+  "success": {
+    "lower_bound_passed": true,
+    "minimum_lower_confidence_bound": 0.5,
+    "minimum_point_estimate": 0.65,
+    "passed": false,
+    "point_estimate_passed": false,
+    "primary_metric": "roc_auc"
+  },
+  "warnings": [
+    "This is one prespecified research external validation, not clinical validation.",
+    "Performance transport includes institution, biopsy, recruitment, and regimen shift."
+  ]
+}

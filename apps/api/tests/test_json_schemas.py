@@ -72,6 +72,23 @@ def test_classifier_external_validation_protocol_is_prospectively_frozen() -> No
     assert protocol["external_cohort"]["class_counts"] == {"pCR": 27, "nCR": 88}
 
 
+def test_observed_classifier_external_validation_result_is_frozen_and_valid() -> None:
+    schema = load_json(SCHEMAS / "classifier_external_validation_results.schema.json")
+    result_path = (
+        ROOT
+        / "demo/classifier_external_validation/gse32646_external_validation_result.json"
+    )
+    result = load_json(result_path)
+    Draft202012Validator(schema).validate(result)
+    assert result["status"] == "SUCCESS_CRITERIA_NOT_MET"
+    assert result["success"]["lower_bound_passed"] is True
+    assert result["success"]["point_estimate_passed"] is False
+    protocol_path = ROOT / "demo/classifier_external_validation/gse32646_protocol.json"
+    assert result["provenance"]["protocol_sha256"] == hashlib.sha256(
+        protocol_path.read_bytes()
+    ).hexdigest()
+
+
 def test_deconvolution_registry_is_valid_and_semantically_distinct() -> None:
     schema = load_json(SCHEMAS / "deconvolution_method_registry.schema.json")
     registry = load_json(ROOT / "apps/api/transcriptforge_api/resources/deconvolution_methods.json")

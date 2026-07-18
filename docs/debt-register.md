@@ -281,8 +281,9 @@ judgment from the repository owner before they can be closed safely.
 
 - Type: Scientific content, product, and governance
 - Status: Open
-- Manual decision: The GSE140494-to-GSE32646 protocol is frozen and fitting has begun, so its cohort,
-  endpoint, preprocessing, and success thresholds must not change. Any intended use beyond
+- Manual decision: The GSE140494-to-GSE32646 protocol is complete and immutable, so its cohort,
+  endpoint, preprocessing, success thresholds, predictions, and evaluation must not change. Any
+  intended use beyond
   research-only exploratory modeling still requires separate domain, legal, and regulatory review.
 - Current state: Binary elastic-net execution now uses deterministic group-aware repeated nested
   cross-validation with fold-local filtering, scaling, tuning, calibration, and threshold selection.
@@ -300,32 +301,39 @@ judgment from the repository owner before they can be closed safely.
   preparation, a truth-label embargo, ROC-AUC and confidence-bound success gates, secondary metrics,
   and prohibited post-hoc changes. The checksum-pinned GPL570 adapter now independently prepared
   exact-compatible 91-sample development and 115-sample external Expression Bundles; external
-  outcomes remain outside the bundle. The first development run was cleanly cancelled during its
-  serial 100-permutation stage to address TD-019 and emitted no locked model or result. GSE32646 has
-  not been predicted or evaluated. Internal OOF performance is not labeled as external, clinical,
+  outcomes remain outside the bundle. The unchanged GSE140494 request subsequently completed with
+  a locked 500-feature model: repeated-OOF ROC-AUC was 0.623 (95% bootstrap 0.512–0.778), with a
+  fully re-tuned permutation p-value of 0.0297. `PREDICT_WITH_MODEL` then ran exactly once on all 115
+  GSE32646 samples with 500/500 feature overlap before truth was joined. External ROC-AUC was 0.619
+  (95% stratified bootstrap 0.503–0.726), below the frozen 0.65 point-estimate requirement even
+  though the lower bound exceeded 0.50; status is `SUCCESS_CRITERIA_NOT_MET`. Sensitivity was 0.778,
+  specificity 0.398, PR-AUC 0.312, and calibration slope 0.927. No refit, recalibration, threshold
+  adjustment, cohort replacement, or repeat prediction is permitted. The locked threshold predicted
+  74/115 samples positive despite 27 observed positives; low specificity and calibration intercept
+  -0.334 identify probability/threshold transport as an important failure mode alongside the
+  institution, biopsy workflow, recruitment, and regimen shift. Internal OOF performance and
+  the weak above-chance external result are not labeled as successful transportability, clinical,
   diagnostic, or deployment validation.
-- Exit criteria: Pass the synthetic leakage and known-signal fixtures; publish one OOF probability
-  per sample per repeat with uncertainty and feature-stability evidence; lock the model and decision
-  policy before touching an independent cohort; evaluate that cohort once; document dataset shift,
-  calibration, failure modes, and permitted claims; obtain domain/regulatory review before any
-  clinical-use language.
-
-### TD-019 — Parallel classifier permutation execution
-
-- Type: Scientific-compute performance and developer experience
-- Status: Open
-- Manual decision: Choose a safe default worker limit for local and AWS Batch execution; the limit
-  must respect memory as well as advertised CPUs.
-- Current state: Full re-tuned label permutations are deterministic and leakage-safe, but execute
-  serially. On a 32-logical-core development host, the 100-permutation GSE140494 run used roughly
-  one CPU core, leaving independent permutation work unable to use the remaining capacity. This is
-  a throughput limitation only and does not weaken the frozen analysis or its statistical result.
-- Exit criteria: Give every permutation an index-derived deterministic seed, execute independent
-  permutations through a bounded worker pool, preserve result ordering, expose the CPU allocation
-  through the local/Nextflow/AWS resource contract, and prove identical structured results between
-  one-worker and multi-worker executions.
+- Exit criteria: The software, leakage, model-lock, one-shot evaluation, failure-mode, and permitted-
+  claim criteria are complete. Keep this governance item open until a domain reviewer accepts the
+  failure interpretation and research-only claim boundary. Any subsequent model or cohort requires
+  a newly versioned prospective protocol; clinical-use language additionally requires regulatory
+  review.
 
 ## Closed items
 
 Move resolved items here with the closing date, pull request/commit, and evidence. Do not delete debt
 history; it explains deliberate tradeoffs and scientific provenance decisions.
+
+### TD-019 — Parallel classifier permutation execution
+
+- Type: Scientific-compute performance and developer experience
+- Status: Closed 2026-07-18
+- Resolution: Binary full-retuning permutations now derive seeds from the frozen analysis seed plus
+  permutation index, execute through a bounded joblib/loky process pool, memory-map shared arrays,
+  cap native math to one thread per worker, stream completion progress, and restore index order. The
+  CLI accepts an explicit worker count or environment default, while Nextflow passes its dedicated
+  classifier CPU allocation under local and AWS Batch profiles.
+- Evidence: The complete known-signal classifier fixture is byte-identical with one and two workers.
+  On the real 32-logical-core host, all 32 workers sustained roughly one core each and completed the
+  unchanged 100-permutation GSE140494 request without retries or scientific-result drift.

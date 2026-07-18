@@ -6,10 +6,10 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 
 ## Current position
 
-- Active roadmap phase: Phase 9 — classifier development and validation
-- Active milestone: Phase 9 external-validation inputs complete; development execution paused for permutation parallelization
-- Current task: Parallelize the deterministic full-retuning permutation control, prove serial/multicore equivalence, then restart the unchanged frozen GSE140494 request
-- Overall milestone status: Binary and multiclass design, nested-CV execution, model export, inference, API/UI, GPL570 preparation, outcome-separated real cohorts, and the frozen external evaluator are complete. The first GSE140494 fit was cleanly cancelled during its serial permutation control because it used roughly one of 32 logical cores; it emitted no model/result artifact, and GSE32646 has never been predicted or evaluated.
+- Active roadmap phase: Phase 10 — cloud, security, and polish
+- Active milestone: Phase 9 implementation and one-shot prospective external validation complete
+- Current task: Reconcile the remaining Phase 10 acceptance criteria while retaining the failed frozen external-classifier gate as an immutable research result
+- Overall milestone status: Phase 9 is complete. Binary and multiclass software, deterministic multicore permutation execution, locked inference, outcome-separated GPL570 cohorts, and the one-use external protocol all executed successfully. The GSE32646 result did not meet the frozen primary success gate (ROC-AUC 0.619; 95% bootstrap 0.503–0.726; required point estimate at least 0.65), so no successful transportability or clinical claim is permitted.
 
 ## Completed
 
@@ -275,6 +275,9 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 - [x] Added checksum-pinned, archive-safe GSE140494/GSE32646 cohort materialization using the repository `.venv` and pinned Bioconductor container. Independently normalized 91 development and 115 external arrays into exactly compatible 23,963-gene Expression Bundles; external bundle metadata contains no outcome, and its truth remains in a separate sealed table.
 - [x] Froze the GSE140494 grouped repeated-nested-CV request and added a schema-valid external evaluator that enforces exact sample/class/threshold integrity, computes the prespecified metrics and deterministic 2,000-resample intervals, records a non-adjustable success decision, and checksums protocol, predictions, truth, model, and bundle provenance.
 - [x] Cleanly cancelled the first real GSE140494 execution during its serial 100-permutation control after confirming that it used only about one of 32 logical cores. No partial model/result artifact survived, no external prediction was run, and the performance work is tracked under TD-019.
+- [x] Parallelized independent binary-classifier permutations with index-derived seeds, a bounded joblib/loky process pool, memory-mapped arrays, one native math thread per worker, stable permutation-index output order, completion progress, CLI/environment controls, and a dedicated Nextflow CPU/resource contract shared by local and AWS Batch profiles.
+- [x] Proved byte-identical complete classifier artifacts between one-worker and two-worker execution, then completed the unchanged GSE140494 request with 32 active workers and all 100 fully re-tuned permutations. The locked 500-feature model achieved repeated-OOF ROC-AUC 0.623 (95% experimental-unit bootstrap 0.512–0.778), PR-AUC 0.336, and permutation p=0.0297.
+- [x] Verified exact 500/500 locked-feature compatibility and absence of outcomes in the 115-sample GSE32646 Expression Bundle, executed `PREDICT_WITH_MODEL` exactly once, then joined the separately sealed truth for the prespecified 2,000-resample evaluation. External ROC-AUC was 0.619 (95% 0.503–0.726), PR-AUC 0.312, balanced accuracy 0.588, sensitivity 0.778, specificity 0.398, and calibration slope 0.927. The lower-bound criterion passed, the required 0.65 point estimate failed, and the immutable status is `SUCCESS_CRITERIA_NOT_MET`.
 - [x] Reworked the root README as a hiring-manager-facing product overview with real RNA-seq and public-microarray user-flow screenshots, architecture, verification evidence, local setup, repository map, and explicit constraints.
 - [x] Materialized a live eight-array GSE39795 project through the public API, published its 23,702-gene/257,430-probe-set RMA Expression Bundle, and ran a full-rank paired `~ donor + zone` limma analysis for the portfolio walkthrough.
 - [x] Corrected server design preview so numeric-looking declared block identifiers are encoded categorically, matching the independent R scientific boundary and preserving paired-design semantics.
@@ -566,14 +569,24 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
   signature-scoring, quanTIseq, MCP-counter, and xCell containerized R acceptance suites also passed;
   Docker Compose validation and `git diff --check` passed. The existing Vite chunk-size warning
   remains tracked under TD-006.
+- Phase 9 multicore and real external-validation completion: 129 Python tests passed with Ruff and
+  strict mypy across 70 source files. The end-to-end fixture produced byte-identical serial and
+  multicore classifier artifacts; Nextflow configuration/preview and the complete pipeline smoke
+  suite passed. The unchanged GSE140494 request completed all 100 fully re-tuned permutations on 32
+  workers, and its result/model schemas passed. One direct `PREDICT_WITH_MODEL` run produced 115
+  schema-valid GSE32646 predictions with 500/500 feature overlap. The separately sealed evaluation
+  result passed its schema and provenance checks but honestly records `SUCCESS_CRITERIA_NOT_MET`.
+  Model SHA-256 is `d1bc4cb4276bef48182ddc0f5307d4d9a82f637942e07a8d038a121c38e48df2`;
+  prediction SHA-256 is `91159fda073ba05d24037865be769061027c3f0613f2a7720b3ec521aabe8f8c`;
+  evaluation SHA-256 is `56cdaa03f676d05750b27ac595ba3a8fbb5de1504ce8a1115288c08254ea55df`.
 
 The development stack remains running. The large-study project is at `http://localhost:5173/projects/0694625c-23e1-4847-9622-e508ad95b895`, its prepared bundle at `http://localhost:5173/prepared-datasets/ac5bbe72-ec4e-40ec-9258-f9eae3679209`, and live results are available for PCA (`74cfc4a8-bdea-49b5-ab94-69d8534c52d6`), clustering (`2af084ac-6e90-4beb-b07c-4eabd214f066`), UMAP (`e94db15b-ab8a-4fee-ab6f-9d8e3a2ef63c`), t-SNE (`1dac23c8-5621-46bd-bb71-ddc38640647e`), DESeq2 (`e033fb5c-0516-4a74-9bf8-8e0b77d1eeaa`), limma (`2a13c140-0f8a-4617-bb59-e17b386469f9`), edgeR QL (`c31e8833-39a1-4aa8-a33b-ca87b5df90d4`), limma-voom (`339a7348-f43b-402e-be0a-555c69a0267c`), and edgeR QL with enrichment (`53509cd4-532c-4173-b505-a65e43101b6b`). The polished raw RNA-seq ingestion dashboard is at `http://localhost:5173/projects/e9574d9b-dc8f-480d-b844-64e5be0bdf31`. The public microarray project is at `http://localhost:5173/projects/32eb730d-7bda-43c1-a930-a37d91789e44`, its prepared bundle at `http://localhost:5173/prepared-datasets/75deff90-236b-4055-9c1b-e74c2ba9ec67`, and its paired limma result at `http://localhost:5173/analyses/0a800b33-6940-4b55-8928-c6c491ebe53d`.
 
 ## Next tasks
 
-1. Parallelize independent binary-classifier permutations with index-derived seeds, bounded workers, stable output ordering, progress reporting, and a serial-versus-multicore equivalence test; retain one-worker behavior as the reference implementation.
-2. Restart the unchanged GSE140494 request, validate and lock its model, run `PREDICT_WITH_MODEL` on GSE32646 exactly once, then evaluate the frozen primary and secondary metrics without refitting; document dataset shift and close or retain TD-018 according to the result.
-3. Select an independent public deconvolution validation cohort and empirically approve method-specific overlap floors; enable EPIC only after legal review and an explicit user-supplied installation/acceptance workflow.
+1. Audit Phase 10 against what is already implemented, then close the highest-value remaining local security/polish gap without requiring deferred AWS provisioning.
+2. Select an independent public deconvolution validation cohort and empirically approve method-specific overlap floors; enable EPIC only after legal review and an explicit user-supplied installation/acceptance workflow.
+3. Treat any future classifier revision or validation cohort as a new prospectively versioned study; do not tune or rerun the completed GSE140494-to-GSE32646 protocol.
 
 ## Decisions and constraints
 

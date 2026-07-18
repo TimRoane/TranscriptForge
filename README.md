@@ -125,13 +125,13 @@ result visible rather than weakening the threshold or altering public data for a
 | --- | --- |
 | Matrix ingestion | Count or normalized-expression TSV; both orientations; exact metadata matching; bounded actionable findings |
 | Raw RNA-seq | Paired or single end; multiple lanes; FastQC, fastp, Salmon, tximport, MultiQC; gene and transcript abundance; checksum-keyed reference reuse |
-| Affymetrix | Human Gene 1.0 ST CEL validation; `oligo` RMA; probe and gene assays; highest-MAD, median, or mean aggregation; array QC |
+| Affymetrix | Human Gene 1.0 ST and HG-U133 Plus 2.0 CEL validation; checksum-pinned `oligo`/`affy` RMA adapters; probe and gene assays; deterministic aggregation and array QC |
 | Exploration | PCA, hierarchical clustering, UMAP, and t-SNE with interactive and static outputs |
 | Differential expression | DESeq2, edgeR QL, limma-voom, and limma with design preview, contrast validation, result tables, plots, feature drill-down, and reports |
 | Enrichment | Seeded ranked-list and over-representation analysis against checksum-versioned GMT collections |
 | Gene signatures | Immutable weighted TSV/GMT definitions; Ensembl/symbol/Entrez mapping evidence; six scoring methods; adjusted phenotype association; an 80% recommended mapping threshold; public-corpus and cross-modality acceptance without raw-scale equivalence claims |
 | Cell composition | Executable checksum-pinned quanTIseq fractions plus MCP-counter/xCell enrichment scores; compatibility-aware comparisons; provenance-required CIBERSORTx relative-result import; license-gated EPIC |
-| Classifier development | Binary and multinomial elastic net with grouped repeated nested CV, complete OOF probabilities, uncertainty and diagnostic curves, full label permutations, feature stability, locked model/card/schema export, and feature-gated external prediction; binary runs also include tree-model comparisons |
+| Classifier development | Binary and multinomial elastic net with grouped repeated nested CV, complete OOF probabilities, uncertainty and diagnostic curves, deterministic multicore label permutations, feature stability, locked model/card/schema export, and feature-gated external prediction; binary runs also include tree-model comparisons |
 | Operations | Durable run state, in-app cancellation, retries through the workflow layer, artifact indexing, local/S3-compatible storage, and opt-in AWS Batch infrastructure |
 
 ## Architecture
@@ -269,11 +269,12 @@ The output includes per-sample probabilities/classes, exact feature overlap, mod
 checksums, and a Result Manifest. It remains research-only until evaluated on a prospectively chosen
 independent cohort.
 
-The first biological validation is frozen prospectively rather than selected after seeing model
-performance: [GSE140494 is the development cohort and GSE32646 is the one-use independent cohort](demo/classifier_external_validation/README.md).
-The protocol fixes endpoint mapping, independent RMA preparation, the truth-label embargo, a
-ROC-AUC success gate, secondary metrics, and prohibited post-hoc changes. It is currently a protocol,
-not a completed external-validation claim.
+The first biological validation was frozen prospectively rather than selected after seeing model
+performance: [GSE140494 was the development cohort and GSE32646 the one-use independent cohort](demo/classifier_external_validation/README.md).
+The protocol fixed endpoint mapping, independent RMA preparation, the truth-label embargo, a
+ROC-AUC success gate, secondary metrics, and prohibited post-hoc changes. Its one-shot external
+ROC-AUC was 0.619 (95% bootstrap 0.503–0.726), below the required 0.65 point estimate. TranscriptForge
+retains this negative primary result rather than tuning the model, threshold, or cohort after review.
 
 The raw RNA-seq and public microarray acceptances are intentionally heavier than unit tests. See
 [`demo/raw_rnaseq/`](demo/raw_rnaseq/), [`demo/microarray/`](demo/microarray/), and

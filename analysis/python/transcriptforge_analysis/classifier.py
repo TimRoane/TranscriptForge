@@ -6,8 +6,10 @@ import csv
 import hashlib
 import json
 import platform
+import sys
 import warnings
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from itertools import pairwise
 from pathlib import Path
@@ -15,6 +17,7 @@ from typing import Any, Literal, cast
 
 import numpy as np
 import sklearn  # type: ignore[import-untyped]
+from joblib import Parallel, delayed, parallel_config  # type: ignore[import-untyped]
 from numpy.typing import NDArray
 from sklearn.ensemble import (  # type: ignore[import-untyped]
     HistGradientBoostingClassifier,
@@ -125,7 +128,11 @@ class FittedFoldModel:
 
 
 def run_classifier(
-    bundle_archive: Path, config: ClassifierConfig, output_dir: Path
+    bundle_archive: Path,
+    config: ClassifierConfig,
+    output_dir: Path,
+    *,
+    permutation_workers: int = 1,
 ) -> dict[str, Any]:
     """Fit repeated grouped nested CV and publish complete OOF predictions."""
     bundle = load_bundle_assay(bundle_archive, config.assay)
@@ -277,6 +284,7 @@ def run_classifier(
         config,
         feature_count,
         float(metrics["roc_auc"]),
+        workers=permutation_workers,
     )
     learning_curve = _learning_curve(matrix, y, groups, folds, config, feature_count)
     model_comparisons = _comparison_models(matrix, y, groups, config, feature_count, metrics)
@@ -722,6 +730,8 @@ def _permutation_control(
     config: ClassifierConfig,
     feature_count: int,
     observed_auc: float,
+    *,
+    workers: int = 1,
 ) -> dict[str, Any]:
     if config.permutation_count == 0:
         return {
@@ -730,55 +740,40 @@ def _permutation_control(
             "roc_auc_values": [],
             "empirical_p_value": None,
         }
-    rng = np.random.default_rng(config.random_seed + 80_000)
-    values = []
-    for permutation in range(config.permutation_count):
-        permuted = _permuted_labels(y, groups, rng)
-        probabilities = np.zeros(len(y) * config.repeats, dtype=np.float64)
-        observed = np.zeros(len(y) * config.repeats, dtype=np.int64)
-        cursor = 0
-        for repeat in range(config.repeats):
-            splits = _split(y, groups, config.outer_folds, config.random_seed + repeat)
-            for fold_index, (training, test) in enumerate(splits):
-                inner_seed = (
-                    config.random_seed
-                    + 90_000
-                    + permutation * 10_000
-                    + repeat * config.outer_folds
-                    + fold_index
+    if workers < 1:
+        raise ValueError("Classifier permutation workers must be at least one.")
+    worker_count = min(workers, config.permutation_count)
+    print(
+        f"Classifier permutation control: 0/{config.permutation_count} complete "
+        f"using {worker_count} worker(s).",
+        file=sys.stderr,
+        flush=True,
+    )
+    if worker_count == 1:
+        completed = (
+            _permutation_auc(permutation, matrix, y, groups, config, feature_count)
+            for permutation in range(config.permutation_count)
+        )
+        indexed_values = _collect_permutation_values(completed, config.permutation_count)
+    else:
+        with parallel_config(backend="loky", inner_max_num_threads=1):
+            completed = Parallel(
+                n_jobs=worker_count,
+                batch_size=1,
+                max_nbytes="1M",
+                mmap_mode="r",
+                pre_dispatch=worker_count,
+                return_as="generator_unordered",
+            )(
+                delayed(_permutation_auc)(
+                    permutation, matrix, y, groups, config, feature_count
                 )
-                inner_splits = _split(
-                    permuted[training],
-                    groups[training] if groups is not None else None,
-                    config.inner_folds,
-                    inner_seed,
-                )
-                best, inner_decisions = _tune(
-                    matrix[training],
-                    permuted[training],
-                    groups[training] if groups is not None else None,
-                    inner_splits,
-                    feature_count,
-                    config,
-                    inner_seed,
-                )
-                calibrator = _fit_calibrator(inner_decisions, permuted[training], config)
-                fitted = _fit_fold_model(
-                    matrix[training],
-                    permuted[training],
-                    feature_count,
-                    best[0],
-                    best[1],
-                    config,
-                    inner_seed + 5_000,
-                )
-                count = len(test)
-                probabilities[cursor : cursor + count] = _calibrate(
-                    fitted.decision_function(matrix[test]), calibrator
-                )
-                observed[cursor : cursor + count] = permuted[test]
-                cursor += count
-        values.append(float(roc_auc_score(observed, probabilities)))
+                for permutation in range(config.permutation_count)
+            )
+            indexed_values = _collect_permutation_values(
+                completed, config.permutation_count
+            )
+    values = [indexed_values[index] for index in range(config.permutation_count)]
     return {
         "method": "full_nested_cross_validation_label_permutation",
         "count": config.permutation_count,
@@ -789,8 +784,80 @@ def _permutation_control(
         "note": "Permutation respects the experimental-unit exchangeability structure: labels "
         "are shuffled between homogeneous units or within repeated-condition units. Feature "
         "selection, preprocessing, hyperparameter tuning, calibration, and fitting are repeated "
-        "inside each permitted training scope.",
+        "inside each permitted training scope. Seeds are derived from the frozen random seed and "
+        "permutation index; result order is permutation-index order regardless of worker count.",
     }
+
+
+def _collect_permutation_values(
+    completed: Iterable[tuple[int, float]], total: int
+) -> dict[int, float]:
+    indexed_values: dict[int, float] = {}
+    for completed_count, (permutation, value) in enumerate(completed, 1):
+        indexed_values[permutation] = value
+        print(
+            f"Classifier permutation control: {completed_count}/{total} complete.",
+            file=sys.stderr,
+            flush=True,
+        )
+    return indexed_values
+
+
+def _permutation_auc(
+    permutation: int,
+    matrix: NDArray[np.float64],
+    y: NDArray[np.int64],
+    groups: NDArray[np.str_] | None,
+    config: ClassifierConfig,
+    feature_count: int,
+) -> tuple[int, float]:
+    rng = np.random.default_rng(config.random_seed + 80_000 + permutation)
+    permuted = _permuted_labels(y, groups, rng)
+    probabilities = np.zeros(len(y) * config.repeats, dtype=np.float64)
+    observed = np.zeros(len(y) * config.repeats, dtype=np.int64)
+    cursor = 0
+    for repeat in range(config.repeats):
+        splits = _split(y, groups, config.outer_folds, config.random_seed + repeat)
+        for fold_index, (training, test) in enumerate(splits):
+            inner_seed = (
+                config.random_seed
+                + 90_000
+                + permutation * 10_000
+                + repeat * config.outer_folds
+                + fold_index
+            )
+            inner_splits = _split(
+                permuted[training],
+                groups[training] if groups is not None else None,
+                config.inner_folds,
+                inner_seed,
+            )
+            best, inner_decisions = _tune(
+                matrix[training],
+                permuted[training],
+                groups[training] if groups is not None else None,
+                inner_splits,
+                feature_count,
+                config,
+                inner_seed,
+            )
+            calibrator = _fit_calibrator(inner_decisions, permuted[training], config)
+            fitted = _fit_fold_model(
+                matrix[training],
+                permuted[training],
+                feature_count,
+                best[0],
+                best[1],
+                config,
+                inner_seed + 5_000,
+            )
+            count = len(test)
+            probabilities[cursor : cursor + count] = _calibrate(
+                fitted.decision_function(matrix[test]), calibrator
+            )
+            observed[cursor : cursor + count] = permuted[test]
+            cursor += count
+    return permutation, float(roc_auc_score(observed, probabilities))
 
 
 def _learning_curve(

@@ -147,8 +147,8 @@ def test_grouped_nested_classifier_emits_complete_deterministic_oof_results(
     config = ClassifierConfig.from_json(request)
     first = tmp_path / "first"
     second = tmp_path / "second"
-    result = run_classifier(archive, config, first)
-    run_classifier(archive, config, second)
+    result = run_classifier(archive, config, first, permutation_workers=1)
+    run_classifier(archive, config, second, permutation_workers=2)
 
     assert result["oof_coverage"] == {
         "expected_prediction_count": 48,
