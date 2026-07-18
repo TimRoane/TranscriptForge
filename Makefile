@@ -1,4 +1,4 @@
-.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-deconvolution-r test-signature-cross-modality test-signature-public-benchmark test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo seed-classifier-validation terraform-check aws-batch-preflight aws-batch-acceptance
+.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-deconvolution-r test-signature-cross-modality test-signature-public-benchmark test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo seed-classifier-validation build-demo-video validate-release terraform-check aws-batch-preflight aws-batch-acceptance
 
 PUBLIC_SIGNATURE_BUNDLE ?=
 PUBLIC_SIGNATURE_BENCHMARK_OUT ?= .public-signature-benchmark
@@ -81,6 +81,12 @@ seed-classifier-validation:
 
 generate-large-demo:
 	.venv/bin/python demo/large_experiment/generate.py
+
+build-demo-video:
+	scripts/build_demo_video.sh
+
+validate-release:
+	.venv/bin/python scripts/validate_release.py
 
 terraform-check:
 	docker run --rm --user "$(shell id -u):$(shell id -g)" -v "$(CURDIR)/infra/aws/terraform:/workspace" -w /workspace hashicorp/terraform:1.13 fmt -check

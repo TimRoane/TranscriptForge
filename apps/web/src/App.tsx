@@ -56,6 +56,9 @@ export function App() {
           <Button component={RouterLink} to="/" color="inherit" sx={{ display: { xs: 'none', sm: 'inline-flex' }, mr: 0.5 }}>Overview</Button>
           <Button component={RouterLink} to="/projects" color="inherit" sx={{ mr: 1.5 }}>Projects</Button>
           {health.data && <CheckCircleRoundedIcon aria-label="API connected" sx={{ mr: 1, fontSize: 18 }} />}
+          {health.data?.deployment_mode === 'single_user_local' && (
+            <Chip label="Local single-user" size="small" sx={{ mr: 1, display: { xs: 'none', md: 'inline-flex' } }} />
+          )}
           <Chip label="Research use only" color="secondary" size="small" />
         </Toolbar>
       </AppBar>

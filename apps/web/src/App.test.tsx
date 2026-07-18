@@ -5,7 +5,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from './App'
 
-const health = { status: 'ok', service: 'transcriptforge-api', version: '0.1.0', environment: 'test' }
+const health = {
+  status: 'ok', service: 'transcriptforge-api', version: '0.1.0', environment: 'test',
+  deployment_mode: 'single_user_local',
+}
 const project = {
   id: 'project-1',
   name: 'Airway study',
@@ -203,6 +206,7 @@ describe('App', () => {
     renderApp()
 
     expect(screen.getByText('Research use only')).toBeInTheDocument()
+    expect(await screen.findByText('Local single-user')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'From expression data to auditable results.' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open workspace' })).toHaveAttribute('href', '/projects')
     expect(await screen.findByText('Airway study')).toBeInTheDocument()

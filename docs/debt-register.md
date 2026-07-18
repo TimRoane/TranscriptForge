@@ -18,17 +18,22 @@ judgment from the repository owner before they can be closed safely.
   including datasets, prepared bundles, analyses, runs, artifact indexes, models, and signatures.
   It does not yet enqueue deletion of every corresponding stored object, so immutable uploaded
   inputs, run artifacts, and imported external-validation source artifacts can remain in storage.
+  Local API startup now safely removes only abandoned unpublished atomic-write temporary files older
+  than the configured retention window; it never age-deletes published objects.
 - Exit criteria: Define retention policy; add an outbox/cleanup worker; make cleanup idempotent;
   audit storage versus database ownership; test partial-failure recovery.
 
 ### TD-002 — Authentication and multi-user authorization
 
 - Type: Product security
-- Status: Open
+- Status: Single-user roadmap boundary complete; multi-user work open
 - Manual decision: Select the identity provider, deployment trust model, roles, and project-sharing
   rules.
-- Current state: Development records use the fixed owner `local-user`. This is appropriate only for
-  local development and demonstration.
+- Current state: Development records use the fixed owner `local-user`. The only supported deployment
+  mode is now explicitly `single_user_local`; API/system metadata and the product header expose that
+  boundary, Compose binds product ports to loopback, and the security guide prohibits public or
+  untrusted-network exposure. This completes the implementation-plan alternative to authentication,
+  but it does not provide multi-user security.
 - Exit criteria: Authenticate every request, enforce project/object ownership at service boundaries,
   add audit events, and complete a deployment-focused security review.
 

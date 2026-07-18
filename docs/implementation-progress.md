@@ -6,10 +6,10 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 
 ## Current position
 
-- Active roadmap phase: Phase 10 — cloud, security, and polish
-- Active milestone: Phase 9 implementation and one-shot prospective external validation complete
-- Current task: Reconcile the remaining Phase 10 acceptance criteria while retaining the failed frozen external-classifier gate as an immutable research result
-- Overall milestone status: Phase 9 is complete. Binary and multiclass software, deterministic multicore permutation execution, locked inference, outcome-separated GPL570 cohorts, and the one-use external protocol all executed successfully. The GSE32646 result did not meet the frozen primary success gate (ROC-AUC 0.619; 95% bootstrap 0.503–0.726; required point estimate at least 0.65), so no successful transportability or clinical claim is permitted.
+- Active roadmap phase: Base implementation plan complete through Phase 10; additive assay-development amendment not started
+- Active milestone: Local/cloud-portable product, scientific workflows, security boundary, portfolio media, and release automation complete
+- Current task: Maintenance and owner-gated operational acceptance only
+- Overall milestone status: Every locally actionable task in the authoritative base plan's Phases 0–10 is complete. The separate `TranscriptForge_Assay_Development_Validation_Amendment_REVISED.md` defines a substantial new G0–G7 product expansion and has not been represented as base-plan completion. The application remains an explicit loopback-bound single-user research workbench. Live AWS provisioning/parity, the first pushed release tag, multi-user identity, legal review, retention policy, and additional biological validation require owner authority or external decisions and are retained in the debt register rather than represented as completed evidence.
 
 ## Completed
 
@@ -280,6 +280,12 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 - [x] Verified exact 500/500 locked-feature compatibility and absence of outcomes in the 115-sample GSE32646 Expression Bundle, executed `PREDICT_WITH_MODEL` exactly once, then joined the separately sealed truth for the prespecified 2,000-resample evaluation. External ROC-AUC was 0.619 (95% 0.503–0.726), PR-AUC 0.312, balanced accuracy 0.588, sensitivity 0.778, specificity 0.398, and calibration slope 0.927. The lower-bound criterion passed, the required 0.65 point estimate failed, and the immutable status is `SUCCESS_CRITERIA_NOT_MET`.
 - [x] Added project-owned persistence and a provenance-validating multipart import for completed one-shot classifier validations. The API verifies versioned schemas, protocol/model/prediction checksums, analysis IDs, cohort sizes/classes, and development metrics before retaining immutable source artifacts; list, detail, and allowlisted download routes never expose storage URIs.
 - [x] Added a project entry card and dedicated external-validation dashboard with development-to-external ROC comparison, confidence bounds, prespecified gate decisions, secondary/calibration metrics, locked prediction counts, frozen-protocol context, artifact downloads, and no rerun/tuning controls. An idempotent `.venv` seeder imported the real GSE140494/GSE32646 record and all five provenance artifacts into the live GUI.
+- [x] Completed the local Phase 10 security boundary: the sole supported mode is visibly `single_user_local`, Compose publishes API/web/object endpoints only on loopback, deployment documentation explicitly rejects untrusted/public exposure, and the public-data policy excludes sensitive or controlled human data.
+- [x] Added configurable direct-upload and project dataset-input budgets with pre-publication rejection, retained the stricter method-specific import/row limits, and regression-tested both per-file and cumulative project quotas.
+- [x] Added liveness/readiness separation, database readiness, safe `X-Request-ID` propagation, structured completion events, and low-cardinality Prometheus request/status/duration/active counters that never record research payloads or query strings.
+- [x] Added bounded local housekeeping that removes only abandoned unpublished atomic-write temporary files older than 24 hours, while preserving published immutable objects and retaining owner-controlled durable deletion/retention under TD-001.
+- [x] Added a tag-only release workflow that validates synchronized semantic versions, builds API/web/scientific-worker production images, publishes version and commit tags, records immutable registry digests, emits SBOM/provenance attestations, and attaches a deployment manifest to a generated GitHub release.
+- [x] Added the complete hiring-manager polish set: updated classifier dashboard capture, reproducible 34-second walkthrough video, timed five-minute live-demo script, benchmark/runtime interpretation, AWS cost-driver notes, release guide, production nginx safety headers, and README links.
 - [x] Reworked the root README as a hiring-manager-facing product overview with real RNA-seq and public-microarray user-flow screenshots, architecture, verification evidence, local setup, repository map, and explicit constraints.
 - [x] Materialized a live eight-array GSE39795 project through the public API, published its 23,702-gene/257,430-probe-set RMA Expression Bundle, and ran a full-rank paired `~ donor + zone` limma analysis for the portfolio walkthrough.
 - [x] Corrected server design preview so numeric-looking declared block identifiers are encoded categorically, matching the independent R scientific boundary and preserving paired-design semantics.
@@ -586,14 +592,20 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
   TypeScript/Vite production build passed. API coverage proves import/list/detail/download behavior,
   duplicate-protocol rejection, hidden storage locations, and checksum mismatch rejection. The live
   seeder then passed the stricter five-artifact provenance path and created the immutable dashboard.
+- Phase 10 completion regression: 135 combined Python tests and 25 frontend integration tests passed.
+  Ruff, strict mypy, ESLint, the Node.js 22 TypeScript/Vite build, Docker Compose validation,
+  production API/web image builds, worker Dockerfile build checks, nginx configuration, release-tag
+  identity validation, both GitHub workflow files via actionlint, Terraform validation, live
+  liveness/readiness/system/metrics checks, and `git diff --check` passed. The compact walkthrough
+  was generated reproducibly from the README's real 1440-pixel application captures.
 
 The development stack remains running. The frozen GSE140494/GSE32646 validation dashboard is at `http://localhost:5173/classifier-external-validations/9959f1ce-cacc-4329-9daf-732f2c7d115d` in project `http://localhost:5173/projects/99c6225f-3c44-4d75-a55f-2d4cce93b631`. The large-study project is at `http://localhost:5173/projects/0694625c-23e1-4847-9622-e508ad95b895`, its prepared bundle at `http://localhost:5173/prepared-datasets/ac5bbe72-ec4e-40ec-9258-f9eae3679209`, and live results are available for PCA (`74cfc4a8-bdea-49b5-ab94-69d8534c52d6`), clustering (`2af084ac-6e90-4beb-b07c-4eabd214f066`), UMAP (`e94db15b-ab8a-4fee-ab6f-9d8e3a2ef63c`), t-SNE (`1dac23c8-5621-46bd-bb71-ddc38640647e`), DESeq2 (`e033fb5c-0516-4a74-9bf8-8e0b77d1eeaa`), limma (`2a13c140-0f8a-4617-bb59-e17b386469f9`), edgeR QL (`c31e8833-39a1-4aa8-a33b-ca87b5df90d4`), limma-voom (`339a7348-f43b-402e-be0a-555c69a0267c`), and edgeR QL with enrichment (`53509cd4-532c-4173-b505-a65e43101b6b`). The polished raw RNA-seq ingestion dashboard is at `http://localhost:5173/projects/e9574d9b-dc8f-480d-b844-64e5be0bdf31`. The public microarray project is at `http://localhost:5173/projects/32eb730d-7bda-43c1-a930-a37d91789e44`, its prepared bundle at `http://localhost:5173/prepared-datasets/75deff90-236b-4055-9c1b-e74c2ba9ec67`, and its paired limma result at `http://localhost:5173/analyses/0a800b33-6940-4b55-8928-c6c491ebe53d`.
 
 ## Next tasks
 
-1. Audit Phase 10 against what is already implemented, then close the highest-value remaining local security/polish gap without requiring deferred AWS provisioning.
-2. Select an independent public deconvolution validation cohort and empirically approve method-specific overlap floors; enable EPIC only after legal review and an explicit user-supplied installation/acceptance workflow.
-3. Treat any future classifier revision or validation cohort as a new prospectively versioned study; do not tune or rerun the completed GSE140494-to-GSE32646 protocol.
+1. Decide whether to adopt the separate guided assay-development amendment; if adopted, begin its G0 contracts/scaffolding and immediate guided feasibility vertical slice as a new roadmap.
+2. When the owner is ready, push a version-matching annotated tag to exercise the external GHCR/GitHub release publication workflow; with an approved AWS account/VPC/budget, separately run the cost-incurring cloud parity acceptance.
+3. Resolve the manual scientific, legal, identity, and retention decisions in `docs/debt-register.md`; any future classifier revision or validation cohort must be a new prospectively versioned study.
 
 ## Decisions and constraints
 
@@ -620,4 +632,4 @@ The development stack remains running. The frozen GSE140494/GSE32646 validation 
 
 ## Continue prompt
 
-Ask Codex: **Continue implementing TranscriptForge from `docs/implementation-progress.md`.**
+Ask Codex: **Continue TranscriptForge maintenance from `docs/implementation-progress.md` and only act on owner-approved debt items.**

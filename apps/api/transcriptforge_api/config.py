@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -17,6 +18,7 @@ class Settings(BaseSettings):
     )
 
     environment: str = "development"
+    deployment_mode: Literal["single_user_local"] = "single_user_local"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     database_url: str = "postgresql+asyncpg://transcriptforge:transcriptforge@localhost:5432/transcriptforge"
@@ -35,6 +37,9 @@ class Settings(BaseSettings):
     s3_secret_key: str | None = None
     s3_bucket: str = "transcriptforge"
     s3_region: str = "us-east-1"
+    max_upload_bytes: int = Field(default=25 * 1024**3, ge=1)
+    project_upload_quota_bytes: int = Field(default=100 * 1024**3, ge=1)
+    temporary_upload_retention_seconds: int = Field(default=24 * 60 * 60, ge=3600)
     cors_origins: list[AnyHttpUrl] = Field(default_factory=lambda: [AnyHttpUrl("http://localhost:5173")])
 
 

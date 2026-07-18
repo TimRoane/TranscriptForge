@@ -11,6 +11,7 @@ export interface HealthResponse {
   service: 'transcriptforge-api'
   version: string
   environment: string
+  deployment_mode: 'single_user_local'
 }
 
 export interface Project {

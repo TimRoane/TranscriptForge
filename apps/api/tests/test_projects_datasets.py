@@ -3,7 +3,9 @@
 import hashlib
 from pathlib import Path
 
+from fastapi import FastAPI
 from httpx import AsyncClient
+from transcriptforge_api.config import Settings, get_settings
 from transcriptforge_api.storage.local import LocalStorage
 
 
@@ -104,6 +106,45 @@ async def test_dataset_upload_is_hashed_and_namespaced(
     stored_path = Path(storage.path_for(uploaded["storage_uri"]))
     assert stored_path.read_bytes() == content
     assert stored_path.is_relative_to(storage.root)
+
+
+async def test_dataset_upload_and_project_quotas_are_enforced_before_storage(
+    client: AsyncClient,
+    test_app: FastAPI,
+    storage: LocalStorage,
+) -> None:
+    test_app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="test",
+        max_upload_bytes=5,
+        project_upload_quota_bytes=7,
+    )
+    project = await create_project(client, "Bounded inputs")
+    dataset = await create_dataset(client, str(project["id"]))
+    dataset_id = str(dataset["id"])
+
+    too_large = await client.post(
+        f"/api/datasets/{dataset_id}/files",
+        data={"role": "count_matrix"},
+        files={"file": ("large.tsv", b"123456", "text/tab-separated-values")},
+    )
+    assert too_large.status_code == 413
+    assert "5-byte file limit" in too_large.json()["detail"]
+
+    accepted = await client.post(
+        f"/api/datasets/{dataset_id}/files",
+        data={"role": "count_matrix"},
+        files={"file": ("first.tsv", b"1234", "text/tab-separated-values")},
+    )
+    assert accepted.status_code == 201
+
+    over_quota = await client.post(
+        f"/api/datasets/{dataset_id}/files",
+        data={"role": "sample_metadata"},
+        files={"file": ("second.tsv", b"5678", "text/tab-separated-values")},
+    )
+    assert over_quota.status_code == 413
+    assert "project dataset-input quota" in over_quota.json()["detail"]
+    assert len(list(storage.root.rglob("*.*"))) == 1
 
 
 async def test_affymetrix_cel_ingestion_freezes_platform_and_sample_mapping(

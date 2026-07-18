@@ -19,6 +19,7 @@ jobs:
           python-version: '3.12'
           cache: pip
       - run: pip install -e '.[dev]'
+      - run: python scripts/validate_release.py
       - run: python -m ruff check apps/api
       - run: python -m mypy apps/api/transcriptforge_api analysis/python/transcriptforge_analysis
       - run: python -m pytest apps/api/tests analysis/python/tests
