@@ -40,5 +40,8 @@ These JSON Schema 2020-12 contracts are the language-neutral boundary shared by 
 - `classifier_external_validation_protocol.schema.json` freezes cohort identity, endpoint mapping,
   preprocessing, model-lock prerequisites, one-use evaluation policy, success criteria, and the
   information inspected before a real external cohort is evaluated.
+- `classifier_external_validation_results.schema.json` records the one-shot locked-model metrics,
+  stratified bootstrap intervals, prespecified pass/fail decision, and checksums for the frozen
+  protocol, prediction artifact, separately sealed truth, model, and Expression Bundle.
 
 Every durable document includes a semantic `schema_version`. Consumers reject unknown major versions.

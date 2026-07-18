@@ -34,6 +34,12 @@ safe_svg <- function(path, plot_title, draw) {
   })
 }
 
+plot_sample_rows <- function(matrix, maximum_rows = 20000L) {
+  if (nrow(matrix) <= maximum_rows) return(matrix)
+  indices <- unique(as.integer(round(seq(1, nrow(matrix), length.out = maximum_rows))))
+  matrix[indices, , drop = FALSE]
+}
+
 args <- parse_args(commandArgs(trailingOnly = TRUE))
 manifest_path <- require_value(args, "ingestion_manifest")
 cel_dir <- require_value(args, "cel_dir")
@@ -44,15 +50,23 @@ dir.create(file.path(output_dir, "plots"), recursive = TRUE, showWarnings = FALS
 manifest <- fromJSON(manifest_path, simplifyVector = FALSE)
 normalization <- manifest$platform$normalization
 annotation <- manifest$platform$annotation
+normalization_engine <- normalization$engine
+design_package <- if (normalization_engine == "oligo") {
+  normalization$pd_info_package
+} else if (normalization_engine == "affy") {
+  normalization$cdf_package
+} else {
+  stop(sprintf("Unsupported frozen normalization engine '%s'.", normalization_engine))
+}
 required_packages <- c(
-  "oligo", "oligoClasses", "Biobase", "AnnotationDbi", "DBI",
-  normalization$pd_info_package, annotation$package
+  normalization_engine, "Biobase", "AnnotationDbi", design_package, annotation$package
 )
+if (normalization_engine == "oligo") required_packages <- c(required_packages, "oligoClasses", "DBI")
 missing_packages <- required_packages[!vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)]
 if (length(missing_packages)) {
   stop(sprintf("Microarray runtime is missing required packages: %s.", paste(missing_packages, collapse = ", ")))
 }
-suppressPackageStartupMessages(library(normalization$pd_info_package, character.only = TRUE))
+suppressPackageStartupMessages(library(design_package, character.only = TRUE))
 suppressPackageStartupMessages(library(annotation$package, character.only = TRUE))
 
 sample_ids <- vapply(manifest$samples, function(sample) sample$sample_id, character(1))
@@ -62,46 +76,78 @@ missing_files <- cel_names[!file.exists(cel_paths)]
 if (length(missing_files)) stop(sprintf("Staged CEL files are missing: %s.", paste(missing_files, collapse = ", ")))
 
 pheno <- Biobase::AnnotatedDataFrame(data.frame(row.names = sample_ids))
-raw_data <- oligo::read.celfiles(cel_paths, phenoData = pheno, verbose = FALSE)
-Biobase::sampleNames(raw_data) <- sample_ids
-detected_pd_package <- Biobase::annotation(raw_data)
-if (!identical(detected_pd_package, normalization$pd_info_package)) {
-  stop(sprintf(
-    "CEL platform mismatch: oligo selected '%s' but the frozen adapter requires '%s'.",
-    detected_pd_package,
-    normalization$pd_info_package
-  ))
+if (normalization_engine == "oligo") {
+  raw_data <- oligo::read.celfiles(cel_paths, phenoData = pheno, verbose = FALSE)
+  Biobase::sampleNames(raw_data) <- sample_ids
+  detected_design <- Biobase::annotation(raw_data)
+  if (!identical(detected_design, normalization$pd_info_package)) {
+    stop(sprintf(
+      "CEL platform mismatch: oligo selected '%s' but the frozen adapter requires '%s'.",
+      detected_design,
+      normalization$pd_info_package
+    ))
+  }
+  probe_eset <- oligo::rma(raw_data, target = normalization$target)
+} else {
+  raw_data <- affy::ReadAffy(
+    filenames = cel_paths,
+    sampleNames = sample_ids,
+    cdfname = sub("cdf$", "", normalization$cdf_package),
+    verbose = FALSE
+  )
+  detected_design <- Biobase::annotation(raw_data)
+  expected_design <- sub("cdf$", "", normalization$cdf_package)
+  if (!identical(tolower(detected_design), tolower(expected_design))) {
+    stop(sprintf(
+      "CEL platform mismatch: affy selected '%s' but the frozen adapter requires '%s'.",
+      detected_design,
+      expected_design
+    ))
+  }
+  probe_eset <- affy::rma(raw_data, verbose = FALSE)
 }
 
-probe_eset <- oligo::rma(raw_data, target = normalization$target)
 probe_expression <- Biobase::exprs(probe_eset)
 feature_data <- Biobase::fData(probe_eset)
-cluster_column <- intersect(
-  c("transcript_cluster_id", "transcriptclusterid", "transcript_cluster"),
-  colnames(feature_data)
-)
-if (length(cluster_column)) {
+if (normalization$feature_identifier == "normalized_feature_id") {
   probe_to_cluster <- data.frame(
     probe_id = rownames(probe_expression),
-    transcript_cluster_id = as.character(feature_data[[cluster_column[[1]]]]),
+    transcript_cluster_id = rownames(probe_expression),
     stringsAsFactors = FALSE
   )
+} else if (normalization$feature_identifier == "transcript_cluster_id") {
+  cluster_column <- intersect(
+    c("transcript_cluster_id", "transcriptclusterid", "transcript_cluster"),
+    colnames(feature_data)
+  )
+  if (length(cluster_column)) {
+    probe_to_cluster <- data.frame(
+      probe_id = rownames(probe_expression),
+      transcript_cluster_id = as.character(feature_data[[cluster_column[[1]]]]),
+      stringsAsFactors = FALSE
+    )
+  } else {
+    platform_design <- getExportedValue(normalization$pd_info_package, normalization$pd_info_package)
+    platform_connection <- oligoClasses::db(platform_design)
+    design_mapping <- DBI::dbGetQuery(
+      platform_connection,
+      "SELECT fsetid AS probe_id, transcript_cluster_id FROM featureSet"
+    )
+    design_mapping$probe_id <- as.character(design_mapping$probe_id)
+    design_mapping$transcript_cluster_id <- as.character(design_mapping$transcript_cluster_id)
+    probe_to_cluster <- merge(
+      data.frame(probe_id = rownames(probe_expression), stringsAsFactors = FALSE),
+      design_mapping,
+      by = "probe_id",
+      all.x = TRUE,
+      sort = FALSE
+    )
+  }
 } else {
-  platform_design <- getExportedValue(normalization$pd_info_package, normalization$pd_info_package)
-  platform_connection <- oligoClasses::db(platform_design)
-  design_mapping <- DBI::dbGetQuery(
-    platform_connection,
-    "SELECT fsetid AS probe_id, transcript_cluster_id FROM featureSet"
-  )
-  design_mapping$probe_id <- as.character(design_mapping$probe_id)
-  design_mapping$transcript_cluster_id <- as.character(design_mapping$transcript_cluster_id)
-  probe_to_cluster <- merge(
-    data.frame(probe_id = rownames(probe_expression), stringsAsFactors = FALSE),
-    design_mapping,
-    by = "probe_id",
-    all.x = TRUE,
-    sort = FALSE
-  )
+  stop(sprintf(
+    "Unsupported frozen normalized feature identifier '%s'.",
+    normalization$feature_identifier
+  ))
 }
 transcript_clusters <- probe_to_cluster$transcript_cluster_id
 
@@ -248,10 +294,12 @@ write.table(
 )
 
 safe_svg(file.path(output_dir, "plots", "raw_intensity_boxplot.svg"), "Raw intensity distributions", function() {
-  boxplot(as.data.frame(raw_intensity), las = 2, main = "Raw log2 intensity distributions", ylab = "log2 intensity")
+  plotted <- plot_sample_rows(raw_intensity)
+  boxplot(as.data.frame(plotted), las = 2, main = "Raw log2 intensity distributions", ylab = "log2 intensity")
 })
 safe_svg(file.path(output_dir, "plots", "normalized_expression_boxplot.svg"), "Normalized expression distributions", function() {
-  boxplot(as.data.frame(probe_expression), las = 2, main = "RMA normalized probe-set expression", ylab = "log2 expression")
+  plotted <- plot_sample_rows(probe_expression)
+  boxplot(as.data.frame(plotted), las = 2, main = "RMA normalized probe-set expression", ylab = "log2 expression")
 })
 safe_svg(file.path(output_dir, "plots", "sample_correlation.svg"), "Sample correlation", function() {
   correlation <- cor(gene_expression, method = "pearson")
@@ -289,6 +337,7 @@ write_json(
     platform_id = manifest$platform$platform_id,
     platform_definition_sha256 = manifest$platform$definition_sha256,
     adapter_version = manifest$platform$adapter_version,
+    normalization_engine = normalization_engine,
     rma_target = normalization$target,
     aggregation_method = aggregation_method,
     annotation_confidence = annotation$confidence

@@ -17,6 +17,7 @@
     "engine": "oligo",
     "method": "rma",
     "target": "probeset",
+    "feature_identifier": "transcript_cluster_id",
     "pd_info_package": "pd.hugene.1.0.st.v1"
   },
   "annotation": {

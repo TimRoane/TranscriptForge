@@ -44,6 +44,7 @@ include = ["transcriptforge_api*", "transcriptforge_analysis*"]
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
 testpaths = ["apps/api/tests", "analysis/python/tests"]
+pythonpath = ["."]
 asyncio_mode = "auto"
 
 [tool.ruff]

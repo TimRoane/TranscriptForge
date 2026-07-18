@@ -7,9 +7,9 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 ## Current position
 
 - Active roadmap phase: Phase 9 — classifier development and validation
-- Active milestone: Phase 9 software complete; prospective biological validation pending
-- Current task: Prepare GSE140494 without touching GSE32646 outcomes, lock the development model, then execute the frozen external protocol once
-- Overall milestone status: Binary and multiclass design, nested-CV execution, model export, inference, API/UI, and external-cohort support are complete. GSE32646 and the success thresholds are prospectively frozen, but no real independent-cohort performance has been calculated, so Phase 9 remains scientifically open.
+- Active milestone: Phase 9 external-validation inputs complete; development execution paused for permutation parallelization
+- Current task: Parallelize the deterministic full-retuning permutation control, prove serial/multicore equivalence, then restart the unchanged frozen GSE140494 request
+- Overall milestone status: Binary and multiclass design, nested-CV execution, model export, inference, API/UI, GPL570 preparation, outcome-separated real cohorts, and the frozen external evaluator are complete. The first GSE140494 fit was cleanly cancelled during its serial permutation control because it used roughly one of 32 logical cores; it emitted no model/result artifact, and GSE32646 has never been predicted or evaluated.
 
 ## Completed
 
@@ -271,6 +271,10 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 - [x] Added locked multinomial coefficient/intercept/scaling artifacts, model cards and inference schemas; `PREDICT_WITH_MODEL` now validates and applies binary or multiclass models and emits normalized class probabilities with checksummed provenance.
 - [x] Added binary/multiclass setup and result interfaces, including explicit classifier-type selection, compatible outcome filtering, macro metrics, multiclass confusion/stability evidence, locked-artifact downloads, and regression coverage for request serialization and rendering.
 - [x] Prospectively selected GSE140494 for model development and the disjoint Osaka University GSE32646 cohort for one-use external validation, after rejecting overlapping MD Anderson accessions as independent evidence. A new schema-valid protocol freezes GPL570/RMA preparation, endpoint mapping, the truth-label embargo, ROC-AUC at least 0.65 with lower 95% bound above 0.50, secondary metrics, and prohibited post-hoc changes. No external expression performance has been inspected or claimed.
+- [x] Added the checksum-pinned GPL570/HG-U133 Plus 2.0 adapter with `affy` RMA, exact CDF/annotation packages, probe-set-to-Ensembl mapping, median duplicate-gene aggregation, XDA ingestion coverage, and bounded deterministic QC plotting; the existing `oligo` adapter remains supported.
+- [x] Added checksum-pinned, archive-safe GSE140494/GSE32646 cohort materialization using the repository `.venv` and pinned Bioconductor container. Independently normalized 91 development and 115 external arrays into exactly compatible 23,963-gene Expression Bundles; external bundle metadata contains no outcome, and its truth remains in a separate sealed table.
+- [x] Froze the GSE140494 grouped repeated-nested-CV request and added a schema-valid external evaluator that enforces exact sample/class/threshold integrity, computes the prespecified metrics and deterministic 2,000-resample intervals, records a non-adjustable success decision, and checksums protocol, predictions, truth, model, and bundle provenance.
+- [x] Cleanly cancelled the first real GSE140494 execution during its serial 100-permutation control after confirming that it used only about one of 32 logical cores. No partial model/result artifact survived, no external prediction was run, and the performance work is tracked under TD-019.
 - [x] Reworked the root README as a hiring-manager-facing product overview with real RNA-seq and public-microarray user-flow screenshots, architecture, verification evidence, local setup, repository map, and explicit constraints.
 - [x] Materialized a live eight-array GSE39795 project through the public API, published its 23,702-gene/257,430-probe-set RMA Expression Bundle, and ran a full-rank paired `~ donor + zone` limma analysis for the portfolio walkthrough.
 - [x] Corrected server design preview so numeric-looking declared block identifiers are encoded categorically, matching the independent R scientific boundary and preserving paired-design semantics.
@@ -567,8 +571,8 @@ The development stack remains running. The large-study project is at `http://loc
 
 ## Next tasks
 
-1. Add a checksum-pinned GPL570 preparation adapter, materialize GSE140494 as development-only, and prepare the GSE32646 Expression Bundle without joining its pCR/nCR truth to model predictions.
-2. Fit and lock the GSE140494 model, run `PREDICT_WITH_MODEL` on GSE32646 exactly once, then evaluate the frozen primary and secondary metrics without refitting; document dataset shift and close or retain TD-018 according to the result.
+1. Parallelize independent binary-classifier permutations with index-derived seeds, bounded workers, stable output ordering, progress reporting, and a serial-versus-multicore equivalence test; retain one-worker behavior as the reference implementation.
+2. Restart the unchanged GSE140494 request, validate and lock its model, run `PREDICT_WITH_MODEL` on GSE32646 exactly once, then evaluate the frozen primary and secondary metrics without refitting; document dataset shift and close or retain TD-018 according to the result.
 3. Select an independent public deconvolution validation cohort and empirically approve method-specific overlap floors; enable EPIC only after legal review and an explicit user-supplied installation/acceptance workflow.
 
 ## Decisions and constraints

@@ -1,4 +1,4 @@
-"""Assemble oligo RMA outputs into a canonical microarray Expression Bundle."""
+"""Assemble adapter-frozen RMA outputs into a canonical microarray Expression Bundle."""
 
 from __future__ import annotations
 

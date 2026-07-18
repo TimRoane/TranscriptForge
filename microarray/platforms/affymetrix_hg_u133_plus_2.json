@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0.0",
+  "platform_id": "affymetrix_hg_u133_plus_2",
+  "adapter_version": "1.0.0",
+  "vendor": "Affymetrix",
+  "array_design": "Human Genome U133 Plus 2.0 Array",
+  "organism": "Homo sapiens",
+  "chip_type_aliases": [
+    "HG-U133_Plus_2",
+    "HG-U133 Plus 2.0"
+  ],
+  "cel_formats": [
+    "xda"
+  ],
+  "normalization": {
+    "engine": "affy",
+    "method": "rma",
+    "target": "probeset",
+    "feature_identifier": "normalized_feature_id",
+    "cdf_package": "hgu133plus2cdf"
+  },
+  "annotation": {
+    "package": "hgu133plus2.db",
+    "probe_key": "PROBEID",
+    "gene_id_field": "ENSEMBL",
+    "gene_symbol_field": "SYMBOL",
+    "confidence": "explicit_platform_adapter"
+  },
+  "aggregation": {
+    "default_method": "median",
+    "supported_methods": [
+      "highest_mad",
+      "median",
+      "mean"
+    ]
+  },
+  "sources": [
+    "https://bioconductor.org/packages/release/bioc/html/affy.html",
+    "https://bioconductor.org/packages/release/data/annotation/html/hgu133plus2cdf.html",
+    "https://bioconductor.org/packages/release/data/annotation/html/hgu133plus2.db.html",
+    "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GPL570"
+  ]
+}

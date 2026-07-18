@@ -94,11 +94,13 @@
     "evaluation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["execution_count", "primary_metric", "confidence_interval", "success_criteria", "secondary_metrics"],
+      "required": ["execution_count", "primary_metric", "confidence_interval", "bootstrap_iterations", "random_seed", "success_criteria", "secondary_metrics"],
       "properties": {
         "execution_count": { "const": 1 },
         "primary_metric": { "const": "roc_auc" },
         "confidence_interval": { "$ref": "#/$defs/nonempty" },
+        "bootstrap_iterations": { "type": "integer", "minimum": 1000, "maximum": 10000 },
+        "random_seed": { "type": "integer", "minimum": 0 },
         "success_criteria": {
           "type": "object",
           "additionalProperties": false,

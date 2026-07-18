@@ -281,10 +281,9 @@ judgment from the repository owner before they can be closed safely.
 
 - Type: Scientific content, product, and governance
 - Status: Open
-- Manual decision: Decide whether to approve or revise the frozen GSE140494-to-GSE32646 protocol
-  before model fitting; after fitting begins, cohort and thresholds must not change. Any intended use
-  beyond research-only exploratory modeling still requires separate domain, legal, and regulatory
-  review.
+- Manual decision: The GSE140494-to-GSE32646 protocol is frozen and fitting has begun, so its cohort,
+  endpoint, preprocessing, and success thresholds must not change. Any intended use beyond
+  research-only exploratory modeling still requires separate domain, legal, and regulatory review.
 - Current state: Binary elastic-net execution now uses deterministic group-aware repeated nested
   cross-validation with fold-local filtering, scaling, tuning, calibration, and threshold selection.
   The scientific runner reproduces the frozen split plan, emits complete repeated OOF predictions,
@@ -299,14 +298,32 @@ judgment from the repository owner before they can be closed safely.
   development and the disjoint 115-sample Osaka University GSE32646 cohort for one-use external
   validation. The schema-valid protocol freezes endpoint mapping, independent GPL570/RMA
   preparation, a truth-label embargo, ROC-AUC and confidence-bound success gates, secondary metrics,
-  and prohibited post-hoc changes. The software does not yet include the required checksum-pinned
-  GPL570 adapter, and the biological model has not been fit or evaluated externally. Internal OOF
-  performance is not labeled as external, clinical, diagnostic, or deployment validation.
+  and prohibited post-hoc changes. The checksum-pinned GPL570 adapter now independently prepared
+  exact-compatible 91-sample development and 115-sample external Expression Bundles; external
+  outcomes remain outside the bundle. The first development run was cleanly cancelled during its
+  serial 100-permutation stage to address TD-019 and emitted no locked model or result. GSE32646 has
+  not been predicted or evaluated. Internal OOF performance is not labeled as external, clinical,
+  diagnostic, or deployment validation.
 - Exit criteria: Pass the synthetic leakage and known-signal fixtures; publish one OOF probability
   per sample per repeat with uncertainty and feature-stability evidence; lock the model and decision
   policy before touching an independent cohort; evaluate that cohort once; document dataset shift,
   calibration, failure modes, and permitted claims; obtain domain/regulatory review before any
   clinical-use language.
+
+### TD-019 — Parallel classifier permutation execution
+
+- Type: Scientific-compute performance and developer experience
+- Status: Open
+- Manual decision: Choose a safe default worker limit for local and AWS Batch execution; the limit
+  must respect memory as well as advertised CPUs.
+- Current state: Full re-tuned label permutations are deterministic and leakage-safe, but execute
+  serially. On a 32-logical-core development host, the 100-permutation GSE140494 run used roughly
+  one CPU core, leaving independent permutation work unable to use the remaining capacity. This is
+  a throughput limitation only and does not weaken the frozen analysis or its statistical result.
+- Exit criteria: Give every permutation an index-derived deterministic seed, execute independent
+  permutations through a bounded worker pool, preserve result ordering, expose the CPU allocation
+  through the local/Nextflow/AWS resource contract, and prove identical structured results between
+  one-worker and multi-worker executions.
 
 ## Closed items
 

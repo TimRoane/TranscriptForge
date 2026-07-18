@@ -60,7 +60,7 @@
         "platform_id": { "type": "string", "minLength": 1 },
         "platform_definition_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "adapter_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
-        "normalization_engine": { "const": "oligo" },
+        "normalization_engine": { "enum": ["oligo", "affy"] },
         "normalization_method": { "const": "rma" },
         "rma_target": { "type": "string", "minLength": 1 },
         "annotation_package": { "type": "string", "minLength": 1 },

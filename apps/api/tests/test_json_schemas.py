@@ -25,6 +25,7 @@ def load_json(path: Path) -> dict[str, Any]:
         "classifier_model.schema.json",
         "classifier_prediction_results.schema.json",
         "classifier_external_validation_protocol.schema.json",
+        "classifier_external_validation_results.schema.json",
         "multiclass_classifier_model.schema.json",
         "multiclass_classifier_prediction_results.schema.json",
         "multiclass_classifier_results.schema.json",
@@ -350,9 +351,13 @@ def test_pinned_human_reference_bundle_is_valid() -> None:
     Draft202012Validator(schema).validate(reference)
 
 
-def test_affymetrix_platform_adapter_is_valid() -> None:
+@pytest.mark.parametrize(
+    "adapter_name",
+    ["affymetrix_hugene_1_0_st_v1", "affymetrix_hg_u133_plus_2"],
+)
+def test_affymetrix_platform_adapter_is_valid(adapter_name: str) -> None:
     schema = load_json(SCHEMAS / "microarray_platform.schema.json")
-    adapter = load_json(ROOT / "microarray/platforms/affymetrix_hugene_1_0_st_v1.json")
+    adapter = load_json(ROOT / f"microarray/platforms/{adapter_name}.json")
     Draft202012Validator(schema).validate(adapter)
 
 

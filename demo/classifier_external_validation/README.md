@@ -19,6 +19,15 @@ This directory does not contain an external-validation result. The permitted seq
 5. Only after prediction checksums exist, join the frozen pCR/nCR truth and calculate the
    prespecified metrics.
 
+Raw inputs are reproducibly materialized with `download_cohorts.sh`; `prepare_bundles.sh` then uses
+the repository `.venv` plus the pinned Bioconductor container to build both independent Expression
+Bundles. The script refuses to overwrite an existing frozen cohort directory. Both GEO tar archives
+and the metadata-only MINiML responses are SHA-256 pinned; `prepare_geo_cohort.py` rejects checksum,
+sample, class-count, archive-membership, or endpoint-vocabulary drift. Development metadata maps
+GSE140494 `pCR` to the positive class and `pPR`/`pNC` to `nCR`. External prediction metadata
+deliberately omits the response, while the exact GSE32646 truth table is written separately under
+`sealed_truth`.
+
 The primary success gate is ROC-AUC at least 0.65 with a two-sided 95% bootstrap lower bound above
 0.50. Passing that gate would support only a research transportability statement, not a clinical or
 diagnostic claim.

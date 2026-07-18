@@ -168,8 +168,16 @@ async def test_affymetrix_cel_ingestion_freezes_platform_and_sample_mapping(
 
     platforms = await client.get("/api/microarray-platforms")
     assert platforms.status_code == 200
-    assert platforms.json()[0]["platform_id"] == "affymetrix_hugene_1_0_st_v1"
-    assert platforms.json()[0]["aggregation"]["default_method"] == "highest_mad"
+    platform_lookup = {item["platform_id"]: item for item in platforms.json()}
+    assert platform_lookup["affymetrix_hugene_1_0_st_v1"]["aggregation"][
+        "default_method"
+    ] == "highest_mad"
+    assert platform_lookup["affymetrix_hg_u133_plus_2"]["normalization"][
+        "engine"
+    ] == "affy"
+    assert platform_lookup["affymetrix_hg_u133_plus_2"]["aggregation"][
+        "default_method"
+    ] == "median"
 
     prepared = await client.post(f"/api/datasets/{dataset_id}/prepare")
     assert prepared.status_code == 202, prepared.text
@@ -233,6 +241,55 @@ async def test_affymetrix_cel_ingestion_rejects_unsupported_arrays_and_bad_mappi
     )
     assert unknown_adapter.status_code == 422
     assert "Supported platforms" in unknown_adapter.json()["detail"]
+
+
+async def test_gpl570_ingestion_freezes_xda_affy_rma_adapter(client: AsyncClient) -> None:
+    project = await create_project(client, "GPL570 classifier cohorts")
+    created = await client.post(
+        f"/api/projects/{project['id']}/datasets",
+        json={
+            "name": "HG-U133 Plus 2 arrays",
+            "modality": "microarray",
+            "source_kind": "affymetrix_cel",
+        },
+    )
+    dataset_id = str(created.json()["id"])
+    xda_header = (64).to_bytes(4, byteorder="little") + b"HG-U133_Plus_2"
+    for role, name, payload in (
+        ("cel_file", "GSM1.CEL", xda_header + b"-fixture"),
+        (
+            "sample_metadata",
+            "samples.tsv",
+            b"sample_id\tcel_file\tcohort\nGSM1\tGSM1.CEL\tdevelopment\n",
+        ),
+    ):
+        response = await client.post(
+            f"/api/datasets/{dataset_id}/files",
+            data={"role": role},
+            files={"file": (name, payload, "application/octet-stream")},
+        )
+        assert response.status_code == 201
+
+    ingested = await client.post(
+        f"/api/datasets/{dataset_id}/microarray/ingest",
+        json={
+            "platform_id": "affymetrix_hg_u133_plus_2",
+            "aggregation_method": "median",
+        },
+    )
+
+    assert ingested.status_code == 201, ingested.text
+    platform = ingested.json()["platform"]
+    assert platform["detected_chip_type"] == "HG-U133_Plus_2"
+    assert platform["cel_format"] == "xda"
+    assert platform["normalization"] == {
+        "engine": "affy",
+        "method": "rma",
+        "target": "probeset",
+        "feature_identifier": "normalized_feature_id",
+        "cdf_package": "hgu133plus2cdf",
+    }
+    assert platform["annotation"]["package"] == "hgu133plus2.db"
 
 
 async def test_raw_rnaseq_sample_sheet_ingestion_supports_paired_and_single_end(

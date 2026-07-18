@@ -61,6 +61,8 @@
     "execution_count": 1,
     "primary_metric": "roc_auc",
     "confidence_interval": "Two-sided 95% experimental-unit bootstrap interval with 2000 deterministic stratified resamples",
+    "bootstrap_iterations": 2000,
+    "random_seed": 20260717,
     "success_criteria": {
       "minimum_point_estimate": 0.65,
       "minimum_lower_confidence_bound": 0.5
