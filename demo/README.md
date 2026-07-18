@@ -7,5 +7,8 @@ Two deterministic synthetic studies are included:
 - [`cross_modality_signature`](cross_modality_signature/README.md) freezes one weighted Ensembl
   signature and verifies mapping, direction, association, and rank discrimination independently in
   RNA-seq and microarray bundles while rejecting raw score-scale equivalence.
+- [`signature_public_benchmark`](signature_public_benchmark/README.md) evaluates all six scoring
+  methods against checksum-frozen GSE39795 cartilage-zone signatures and records the prespecified
+  80% mapping threshold and mean-z-score default policy.
 
-Larger public datasets will use accession-based download scripts after redistribution terms are reviewed.
+Public raw files are downloaded by accession and checksum rather than redistributed in this repository.

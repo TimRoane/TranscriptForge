@@ -206,11 +206,10 @@ judgment from the repository owner before they can be closed safely.
 ### TD-014 — Signature scoring and cross-platform interpretation policy
 
 - Type: Scientific content and product
-- Status: Open
-- Manual decision: Approve minimum mapping coverage, treatment of zero-variance genes, weight
-  normalization, score comparability claims, the language shown when RNA-seq and microarray values
-  produce scores on different scales, and when repeated-measures association should graduate from
-  categorical subject fixed effects to a prespecified mixed-effects model.
+- Status: Partially resolved
+- Manual decision: Select an independent external validation cohort and decide when repeated-measures
+  association should graduate from categorical subject fixed effects to a prespecified mixed-effects
+  model. Any clinical-use language or transferable decision threshold requires separate validation.
 - Current state: Mapping evidence is immutable and visible, including retained weights, missing
   identifiers, ambiguities, duplicates, and exact source checksums. Mean expression, mean z-score,
   weighted linear, rank-based, GSVA, and ssGSEA methods are deterministic with explicit formulas,
@@ -223,11 +222,16 @@ judgment from the repository owner before they can be closed safely.
   checksum-identical weighted signature to independently built RNA-seq log2-CPM and microarray
   RMA-like bundles. Both recover the prespecified direction and rank discrimination while producing
   intentionally different raw score ranges; the contract and product explicitly prohibit raw-scale
-  equivalence claims. Minimum coverage, default-method selection, association model policy, and
-  thresholds on independent public cohorts still require owner approval.
-- Exit criteria: Prespecify method-specific failure/warning thresholds; validate on synthetic and
-  independent public cohorts; document within-cohort versus cross-cohort interpretation; approve
-  report language and default method selection.
+  equivalence claims. The public GSE39795 technical benchmark now freezes 80% minimum recommended
+  mapping, four samples per group, FDR 0.05, directional AUROC 0.80, expected direction for every
+  set, and a byte-identical default rerun. All six methods passed both cartilage-zone sets; a fixed
+  preference order selects mean z-score as the product default. The GUI cautions below 80% coverage
+  without blocking exploratory scoring and states that raw cutoffs do not transfer. The marker paper
+  includes GSE39795, so this is deliberately not called independent biological validation.
+- Exit criteria: The method-specific technical thresholds, synthetic cross-modality validation,
+  within- versus cross-cohort language, and default selection are complete. Remaining: validate a
+  prospectively selected independent cohort and approve a mixed-effects policy if fixed subject
+  effects become inadequate.
 
 ## Closed items
 

@@ -1,0 +1,212 @@
+{
+  "benchmark_id": "gse39795_cartilage_zone_signature_v1",
+  "dataset": {
+    "accession": "GSE39795",
+    "expression_bundle_sha256": "2e7f6e0908596b2fbd1345cefa8aa8969244bbfdb2a745b397e7aa4ef27f89d1",
+    "platform": "GPL6244",
+    "sample_count": 8,
+    "superseries_accession": "GSE39797"
+  },
+  "limitations": [
+    "The marker publication includes this cohort, so this is a public technical benchmark rather than independent biological validation.",
+    "Eight samples from four paired donors provide a technical benchmark, not a population-level clinical validation.",
+    "Method selection is governed by a frozen preference order, not by choosing the largest observed effect after scoring.",
+    "No raw signature-score cutoff transfers to another cohort, platform, or preprocessing pipeline."
+  ],
+  "methods": [
+    {
+      "method": "mean_expression",
+      "passed": true,
+      "result_sha256": "da75539e22b7012f25d513ea3fc8da7ce3ee5d9167d3b51b68523b00e0283b1b",
+      "runtime": "Python",
+      "sets": [
+        {
+          "adjusted_p_value": 9.674348558730908e-05,
+          "directional_auc": 1.0,
+          "expected_direction": "positive",
+          "mapping_coverage": 1.0,
+          "observed_effect": 4.287794533927499,
+          "p_value": 4.837174279365454e-05,
+          "passed": true,
+          "signature_id": "SUPERFICIAL_ZONE_MARKERS"
+        },
+        {
+          "adjusted_p_value": 0.0004082164422644463,
+          "directional_auc": 1.0,
+          "expected_direction": "negative",
+          "mapping_coverage": 1.0,
+          "observed_effect": -5.639029058060833,
+          "p_value": 0.0004082164422644463,
+          "passed": true,
+          "signature_id": "DEEP_ZONE_MARKERS"
+        }
+      ]
+    },
+    {
+      "method": "mean_z_score",
+      "passed": true,
+      "result_sha256": "b1027ee474da86ce0375fdd3f14c577ea18aa3523c4398e3f15d17713752e215",
+      "runtime": "Python",
+      "sets": [
+        {
+          "adjusted_p_value": 0.0001150487366700542,
+          "directional_auc": 1.0,
+          "expected_direction": "positive",
+          "mapping_coverage": 1.0,
+          "observed_effect": 1.716370628061005,
+          "p_value": 5.75243683350271e-05,
+          "passed": true,
+          "signature_id": "SUPERFICIAL_ZONE_MARKERS"
+        },
+        {
+          "adjusted_p_value": 0.0012372060683070894,
+          "directional_auc": 1.0,
+          "expected_direction": "negative",
+          "mapping_coverage": 1.0,
+          "observed_effect": -1.620993266171792,
+          "p_value": 0.0012372060683070894,
+          "passed": true,
+          "signature_id": "DEEP_ZONE_MARKERS"
+        }
+      ]
+    },
+    {
+      "method": "weighted_linear",
+      "passed": true,
+      "result_sha256": "0b986d7b0d8a3111cf73f48cce79c06486fa4ea2ef551a754548ea10f779f8b4",
+      "runtime": "Python",
+      "sets": [
+        {
+          "adjusted_p_value": 9.674348558730908e-05,
+          "directional_auc": 1.0,
+          "expected_direction": "positive",
+          "mapping_coverage": 1.0,
+          "observed_effect": 8.575589067854999,
+          "p_value": 4.837174279365454e-05,
+          "passed": true,
+          "signature_id": "SUPERFICIAL_ZONE_MARKERS"
+        },
+        {
+          "adjusted_p_value": 0.00040821644226444673,
+          "directional_auc": 1.0,
+          "expected_direction": "negative",
+          "mapping_coverage": 1.0,
+          "observed_effect": -16.9170871741825,
+          "p_value": 0.00040821644226444673,
+          "passed": true,
+          "signature_id": "DEEP_ZONE_MARKERS"
+        }
+      ]
+    },
+    {
+      "method": "rank_based",
+      "passed": true,
+      "result_sha256": "43c0c477d3a85930d12716994fb6d4e3139954a40d141642269fbd798a6a6e2f",
+      "runtime": "Python",
+      "sets": [
+        {
+          "adjusted_p_value": 0.0024557979345648144,
+          "directional_auc": 1.0,
+          "expected_direction": "positive",
+          "mapping_coverage": 1.0,
+          "observed_effect": 0.5553170618513206,
+          "p_value": 0.0024557979345648144,
+          "passed": true,
+          "signature_id": "SUPERFICIAL_ZONE_MARKERS"
+        },
+        {
+          "adjusted_p_value": 0.0010679854186291292,
+          "directional_auc": 1.0,
+          "expected_direction": "negative",
+          "mapping_coverage": 1.0,
+          "observed_effect": -0.6765357353809806,
+          "p_value": 0.0005339927093145646,
+          "passed": true,
+          "signature_id": "DEEP_ZONE_MARKERS"
+        }
+      ]
+    },
+    {
+      "method": "gsva",
+      "passed": true,
+      "result_sha256": "bf67fc79442cdbca3e2974047a5ba21b6f4043773d0d3ef53d9ead0f6c0f960b",
+      "runtime": "R",
+      "sets": [
+        {
+          "adjusted_p_value": 0.00015272579081422515,
+          "directional_auc": 1.0,
+          "expected_direction": "positive",
+          "mapping_coverage": 1,
+          "observed_effect": 1.0485567550505948,
+          "p_value": 0.00015272579081422515,
+          "passed": true,
+          "signature_id": "SUPERFICIAL_ZONE_MARKERS"
+        },
+        {
+          "adjusted_p_value": 2.842716178925663e-05,
+          "directional_auc": 1.0,
+          "expected_direction": "negative",
+          "mapping_coverage": 1,
+          "observed_effect": -0.9946424232553482,
+          "p_value": 1.4213580894628316e-05,
+          "passed": true,
+          "signature_id": "DEEP_ZONE_MARKERS"
+        }
+      ]
+    },
+    {
+      "method": "ssgsea",
+      "passed": true,
+      "result_sha256": "9cc4ac0872985bde030afd4a37fbc0a91f50580a8f634426cfb4083182d043e8",
+      "runtime": "R",
+      "sets": [
+        {
+          "adjusted_p_value": 0.0021590345137788808,
+          "directional_auc": 1.0,
+          "expected_direction": "positive",
+          "mapping_coverage": 1,
+          "observed_effect": 0.573198038637904,
+          "p_value": 0.0021590345137788808,
+          "passed": true,
+          "signature_id": "SUPERFICIAL_ZONE_MARKERS"
+        },
+        {
+          "adjusted_p_value": 0.0012635478199660936,
+          "directional_auc": 1.0,
+          "expected_direction": "negative",
+          "mapping_coverage": 1,
+          "observed_effect": -0.7503716061428152,
+          "p_value": 0.0006317739099830468,
+          "passed": true,
+          "signature_id": "DEEP_ZONE_MARKERS"
+        }
+      ]
+    }
+  ],
+  "passed": true,
+  "policy_sha256": "7f5fcc84138209fe17e2f4a59be9800298d9cce76d8a1b989f3f2a021c19a24e",
+  "recommendation": {
+    "default_rerun_byte_identical": true,
+    "eligible": true,
+    "method": "mean_z_score",
+    "raw_cross_cohort_threshold_permitted": false,
+    "selection_rule": "Prefer the first passing method in this fixed order. Mean z-score is transparent, preserves gene-set direction, reduces gene-baseline dominance within a cohort, and does not add an R runtime dependency. It remains cohort-dependent and does not create a portable raw threshold."
+  },
+  "schema_version": "1.0.0",
+  "signature": {
+    "mapped_identifier_count": 5,
+    "mapping_coverage": 1.0,
+    "mapping_report_sha256": "35386af79877b8f7e87f2265eed0d6ed663c0935d3bf2a67f2a588e67b899a70",
+    "requested_identifier_count": 5,
+    "set_count": 2,
+    "sha256": "355b61f0cee1b7e4e567fea120671f8891e50f45d7ec242dfdc04455837bfc1b"
+  },
+  "thresholds": {
+    "maximum_adjusted_p_value": 0.05,
+    "minimum_directional_auc": 0.8,
+    "minimum_mapping_coverage": 0.8,
+    "minimum_samples_per_group": 4,
+    "require_byte_identical_default_rerun": true,
+    "require_expected_direction_for_every_set": true
+  }
+}

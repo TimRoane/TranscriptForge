@@ -180,6 +180,16 @@ async def test_upload_weighted_gene_list_and_map_with_visible_coverage(
     assert analysis_created.status_code == 201, analysis_created.text
     configuration = analysis_created.json()["configuration_json"]
     assert configuration["signature_mapping_report_sha256"] == mapping["report_sha256"]
+    default_analysis = await client.post(
+        f"/api/prepared-datasets/{prepared_id}/analyses",
+        json={
+            "analysis_type": "signature",
+            "assay": "log_expression",
+            "parameters": {"signature_mapping_id": mapping["id"]},
+        },
+    )
+    assert default_analysis.status_code == 201, default_analysis.text
+    assert default_analysis.json()["configuration_json"]["method"] == "mean_z_score"
     association_created = await client.post(
         f"/api/prepared-datasets/{prepared_id}/analyses",
         json={

@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0.0",
+  "benchmark_id": "gse39795_cartilage_zone_signature_v1",
+  "approved_on": "2026-07-18",
+  "dataset": {
+    "accession": "GSE39795",
+    "superseries_accession": "GSE39797",
+    "platform": "GPL6244",
+    "organism": "Homo sapiens",
+    "assay": "Affymetrix Human Gene 1.0 ST",
+    "normalization": "TranscriptForge pinned oligo RMA and highest-MAD gene aggregation",
+    "sample_scope": "Four matched normal-human donors; superficial and deep zones only",
+    "sample_count": 8,
+    "expression_bundle_sha256": "2e7f6e0908596b2fbd1345cefa8aa8969244bbfdb2a745b397e7aa4ef27f89d1",
+    "geo_url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE39795",
+    "download_policy": "Raw CEL files are downloaded by accession and checksum; they are not redistributed in this repository."
+  },
+  "signature": {
+    "source": "cartilage_zone_markers.gmt",
+    "sha256": "355b61f0cee1b7e4e567fea120671f8891e50f45d7ec242dfdc04455837bfc1b",
+    "identifier_type": "ensembl_gene_id",
+    "marker_source": "Grogan et al., Zone-specific Gene Expression Patterns in Articular Cartilage, Arthritis Rheum. 2013;65:418-428.",
+    "marker_source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3558601/",
+    "selection_timing": "Frozen before running the signature benchmark; no genes are selected from TranscriptForge differential-expression output.",
+    "validation_scope": "The marker publication includes this cohort, so this is a public technical benchmark rather than independent biological validation."
+  },
+  "phenotype": {
+    "column": "zone",
+    "numerator": "superficial",
+    "denominator": "deep",
+    "block_column": "donor"
+  },
+  "expected_directions": {
+    "SUPERFICIAL_ZONE_MARKERS": "positive",
+    "DEEP_ZONE_MARKERS": "negative"
+  },
+  "acceptance_thresholds": {
+    "minimum_mapping_coverage": 0.8,
+    "minimum_samples_per_group": 4,
+    "maximum_adjusted_p_value": 0.05,
+    "minimum_directional_auc": 0.8,
+    "require_expected_direction_for_every_set": true,
+    "require_byte_identical_default_rerun": true
+  },
+  "default_method_policy": {
+    "recommended_method": "mean_z_score",
+    "preference_order": [
+      "mean_z_score",
+      "rank_based",
+      "ssgsea",
+      "gsva",
+      "mean_expression",
+      "weighted_linear"
+    ],
+    "rationale": "Prefer the first passing method in this fixed order. Mean z-score is transparent, preserves gene-set direction, reduces gene-baseline dominance within a cohort, and does not add an R runtime dependency. It remains cohort-dependent and does not create a portable raw threshold.",
+    "minimum_mapping_coverage_for_recommendation": 0.8,
+    "raw_cross_cohort_threshold_permitted": false
+  }
+}

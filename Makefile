@@ -1,4 +1,7 @@
-.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-signature-cross-modality test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo terraform-check aws-batch-preflight aws-batch-acceptance
+.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-signature-cross-modality test-signature-public-benchmark test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo terraform-check aws-batch-preflight aws-batch-acceptance
+
+PUBLIC_SIGNATURE_BUNDLE ?=
+PUBLIC_SIGNATURE_BENCHMARK_OUT ?= .public-signature-benchmark
 
 dev:
 	docker compose up --build -d
@@ -30,6 +33,19 @@ test-signature-r:
 
 test-signature-cross-modality:
 	python3 -m pytest analysis/python/tests/test_cross_modality_signature.py
+
+test-signature-public-benchmark:
+	@test -n "$(PUBLIC_SIGNATURE_BUNDLE)" || (echo "Set PUBLIC_SIGNATURE_BUNDLE to the GSE39795 Expression Bundle archive." && exit 1)
+	mkdir -p "$(PUBLIC_SIGNATURE_BENCHMARK_OUT)"
+	docker compose run --rm --no-deps \
+		-e TRANSCRIPTFORGE_ROOT=/app \
+		-v "$(CURDIR)/demo/signature_public_benchmark:/benchmark:ro" \
+		-v "$(abspath $(PUBLIC_SIGNATURE_BUNDLE)):/benchmark-input/expression_bundle.tar.gz:ro" \
+		-v "$(abspath $(PUBLIC_SIGNATURE_BENCHMARK_OUT)):/benchmark-output" \
+		worker python /benchmark/run_benchmark.py \
+			--bundle /benchmark-input/expression_bundle.tar.gz \
+			--output-dir /benchmark-output/result \
+			--r-runner /app/analysis/r/signature_scoring.R
 
 test-raw-rnaseq:
 	demo/raw_rnaseq/run_acceptance.sh

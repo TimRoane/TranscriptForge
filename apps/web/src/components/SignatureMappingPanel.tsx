@@ -39,7 +39,7 @@ export function SignatureMappingPanel({
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [definitionId, setDefinitionId] = useState('')
-  const [scoringMethod, setScoringMethod] = useState<SignatureScoringMethod>('mean_expression')
+  const [scoringMethod, setScoringMethod] = useState<SignatureScoringMethod>('mean_z_score')
   const [minimumGeneSetSize, setMinimumGeneSetSize] = useState(1)
   const [maximumGeneSetSize, setMaximumGeneSetSize] = useState(5000)
   const [gsvaKcdf, setGsvaKcdf] = useState<'auto' | 'Gaussian' | 'Poisson' | 'none'>('Gaussian')
@@ -192,6 +192,13 @@ export function SignatureMappingPanel({
                   <Chip size="small" label={`${mapping.duplicate_identifier_count} duplicates`} />
                 </Stack>
               </Stack>
+              {mapping.mapping_coverage < 0.8 && (
+                <Alert severity="warning">
+                  Coverage is below the 80% recommendation threshold. Scoring remains available
+                  for exploration, but interpret the result cautiously and review missing or
+                  ambiguous identifiers before reporting it.
+                </Alert>
+              )}
               <Stack direction="row" spacing={2} flexWrap="wrap">
                 {([
                   ['report.json', 'Mapping report'],
@@ -222,8 +229,8 @@ export function SignatureMappingPanel({
                   )}
                   sx={{ minWidth: 220 }}
                 >
+                  <MenuItem value="mean_z_score">Mean z-score · recommended</MenuItem>
                   <MenuItem value="mean_expression">Mean expression</MenuItem>
-                  <MenuItem value="mean_z_score">Mean z-score</MenuItem>
                   <MenuItem
                     value="weighted_linear"
                     disabled={!mapping.report_json.sets.every((signatureSet) =>
@@ -250,6 +257,11 @@ export function SignatureMappingPanel({
                   {scoreSignature.isPending ? 'Launching…' : 'Score signature'}
                 </Button>
               </Stack>
+              <Typography variant="body2" color="text.secondary">
+                Mean z-score is the public-benchmark default for within-cohort direction, ranking,
+                and association. Raw score cutoffs do not transfer between cohorts, platforms, or
+                preprocessing pipelines.
+              </Typography>
               <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.paper' }}>
                 <Stack spacing={1.5}>
                   <FormControlLabel

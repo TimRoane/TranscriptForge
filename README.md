@@ -129,7 +129,7 @@ result visible rather than weakening the threshold or altering public data for a
 | Exploration | PCA, hierarchical clustering, UMAP, and t-SNE with interactive and static outputs |
 | Differential expression | DESeq2, edgeR QL, limma-voom, and limma with design preview, contrast validation, result tables, plots, feature drill-down, and reports |
 | Enrichment | Seeded ranked-list and over-representation analysis against checksum-versioned GMT collections |
-| Gene signatures | Immutable weighted TSV/GMT definitions; Ensembl/symbol/Entrez mapping evidence; six scoring methods; adjusted phenotype association; cross-modality acceptance without raw-scale equivalence claims |
+| Gene signatures | Immutable weighted TSV/GMT definitions; Ensembl/symbol/Entrez mapping evidence; six scoring methods; adjusted phenotype association; an 80% recommended mapping threshold; public-corpus and cross-modality acceptance without raw-scale equivalence claims |
 | Operations | Durable run state, in-app cancellation, retries through the workflow layer, artifact indexing, local/S3-compatible storage, and opt-in AWS Batch infrastructure |
 
 ## Architecture
@@ -183,7 +183,7 @@ The durable boundaries are described in [architecture](docs/architecture.md),
 
 The latest full regression checkpoint records:
 
-- 89 combined API, worker, contract, and scientific Python tests.
+- 91 combined API, worker, contract, and scientific Python tests.
 - 15 frontend integration tests plus ESLint and a Node 22 production build.
 - Strict mypy across 61 source files and Ruff across the Python codebase.
 - Containerized acceptance for all four differential-expression engines and enrichment.
@@ -193,6 +193,8 @@ The latest full regression checkpoint records:
 - Deterministic GSVA/ssGSEA fixtures with constant-gene handling and package provenance.
 - One checksum-frozen weighted signature accepted independently in RNA-seq and microarray bundles,
   with concordant direction/AUROC and intentionally different raw score ranges.
+- A prespecified public GSE39795 cartilage-zone benchmark across all six methods, with 100% marker
+  mapping, AUROC 1.0 for both expected directions, and a byte-identical mean-z-score default rerun.
 - JSON Schema, Docker Compose, Nextflow configuration, Alembic drift, and Terraform validation.
 
 ## Run locally
@@ -239,6 +241,7 @@ validation, preparation, and analysis cards expose a **Stop run** action.
 make test             # API, worker, contract, and frontend tests
 make test-r           # four DE engines plus enrichment in the pinned worker
 make test-signature-cross-modality # one frozen signature across RNA-seq and microarray bundles
+make test-signature-public-benchmark PUBLIC_SIGNATURE_BUNDLE=/path/to/bundle.tar.gz
 make test-raw-rnaseq  # paired, single-end, multi-lane, cache, and resume acceptance
 make test-microarray  # public CEL -> RMA -> Expression Bundle -> paired limma
 make test-all         # application tests plus the R acceptance harness
@@ -249,7 +252,8 @@ make pipeline-test    # Nextflow smoke workflow
 The raw RNA-seq and public microarray acceptances are intentionally heavier than unit tests. See
 [`demo/raw_rnaseq/`](demo/raw_rnaseq/), [`demo/microarray/`](demo/microarray/), and
 [`demo/cross_modality_signature/`](demo/cross_modality_signature/) for inputs, provenance, and
-expected outputs.
+expected outputs. The [public signature benchmark](demo/signature_public_benchmark/README.md)
+records its accession-based input, frozen thresholds, accepted result, and explicit validation limits.
 
 ## Repository map
 

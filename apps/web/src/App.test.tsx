@@ -535,8 +535,9 @@ describe('App', () => {
     )
     expect(screen.getByRole('button', { name: 'Score signature' })).toBeEnabled()
     expect(screen.getByRole('combobox', { name: 'Scoring method' })).toHaveTextContent(
-      'Mean expression',
+      'Mean z-score · recommended',
     )
+    expect(screen.getByText(/below the 80% recommendation threshold/i)).toBeInTheDocument()
     fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Scoring method' }))
     fireEvent.click(await screen.findByRole('option', { name: 'GSVA (Bioconductor R)' }))
     expect(screen.getByRole('spinbutton', { name: 'Minimum set size' })).toHaveValue(1)

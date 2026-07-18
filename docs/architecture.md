@@ -100,6 +100,15 @@ Its contract compares mapping coverage, within-cohort direction, rank discrimina
 and standardized effects while explicitly setting raw-score scale comparability to false. No matrix
 merging, shared raw threshold, or platform-equivalence claim is permitted.
 
+A second, public technical benchmark uses the paired human-cartilage GSE39795 Expression Bundle and
+prespecified superficial/deep marker directions. Its versioned policy requires at least 80% mapping,
+four samples per group, the expected direction for every set, directional AUROC at least 0.80,
+association FDR at most 0.05, and a byte-identical repeat before a method is eligible as the product
+default. The fixed preference order recommends mean z-score for within-cohort work. Coverage below
+80% remains runnable for exploration but is visibly cautioned, and no raw cutoff is portable across
+cohorts, platforms, or preprocessing. Because the marker publication includes the benchmark cohort,
+this evidence is explicitly technical rather than independent biological validation.
+
 ## Service boundaries
 
 - `apps/api`: HTTP API, persistence, storage abstraction, queueing, and run orchestration.

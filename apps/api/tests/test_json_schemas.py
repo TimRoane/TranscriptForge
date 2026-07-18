@@ -25,6 +25,7 @@ def load_json(path: Path) -> dict[str, Any]:
         "expression_bundle.schema.json",
         "microarray_ingestion.schema.json",
         "microarray_platform.schema.json",
+        "public_signature_benchmark.schema.json",
         "analysis_request.schema.json",
         "cross_modality_signature_acceptance.schema.json",
         "raw_rnaseq_ingestion.schema.json",
@@ -84,6 +85,35 @@ def test_public_microarray_limma_request_is_valid() -> None:
     schema = load_json(SCHEMAS / "analysis_request.schema.json")
     request = load_json(ROOT / "demo/microarray/limma_request.json")
     Draft202012Validator(schema).validate(request)
+
+
+def test_public_signature_benchmark_is_frozen_and_passes() -> None:
+    fixture = ROOT / "demo/signature_public_benchmark"
+    schema = load_json(SCHEMAS / "public_signature_benchmark.schema.json")
+    policy_path = fixture / "benchmark_policy.json"
+    signature_path = fixture / "cartilage_zone_markers.gmt"
+    result = load_json(fixture / "public_signature_benchmark.json")
+
+    Draft202012Validator(schema).validate(result)
+    assert result["policy_sha256"] == hashlib.sha256(policy_path.read_bytes()).hexdigest()
+    assert result["signature"]["sha256"] == hashlib.sha256(signature_path.read_bytes()).hexdigest()
+    assert result["recommendation"] == {
+        "default_rerun_byte_identical": True,
+        "eligible": True,
+        "method": "mean_z_score",
+        "raw_cross_cohort_threshold_permitted": False,
+        "selection_rule": load_json(policy_path)["default_method_policy"]["rationale"],
+    }
+    assert result["passed"] is True
+    assert all(method["passed"] for method in result["methods"])
+    assert {method["method"] for method in result["methods"]} == {
+        "mean_expression",
+        "mean_z_score",
+        "weighted_linear",
+        "rank_based",
+        "gsva",
+        "ssgsea",
+    }
 
 
 def test_dataset_manifest_rejects_modality_source_mismatch() -> None:

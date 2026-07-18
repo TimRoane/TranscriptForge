@@ -179,7 +179,7 @@ class AnalysisCreate(BaseModel):
             )
             payload["name"] = payload.get("name", "Differential expression")
         elif analysis_type == AnalysisType.SIGNATURE.value:
-            payload["method"] = payload.get("method", "mean_expression")
+            payload["method"] = payload.get("method", "mean_z_score")
             payload["parameters"] = SignatureScoringParameters.model_validate(
                 payload.get("parameters", {})
             )

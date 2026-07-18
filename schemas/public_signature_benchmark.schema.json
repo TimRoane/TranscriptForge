@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.local/schemas/public_signature_benchmark.schema.json",
+  "title": "TranscriptForge Public Signature Benchmark",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "benchmark_id", "policy_sha256", "dataset", "signature", "thresholds", "methods", "recommendation", "limitations", "passed"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "benchmark_id": { "$ref": "#/$defs/nonempty" },
+    "policy_sha256": { "$ref": "#/$defs/sha256" },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accession", "superseries_accession", "platform", "sample_count", "expression_bundle_sha256"],
+      "properties": {
+        "accession": { "const": "GSE39795" },
+        "superseries_accession": { "const": "GSE39797" },
+        "platform": { "const": "GPL6244" },
+        "sample_count": { "const": 8 },
+        "expression_bundle_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "set_count", "requested_identifier_count", "mapped_identifier_count", "mapping_coverage", "mapping_report_sha256"],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "set_count": { "const": 2 },
+        "requested_identifier_count": { "type": "integer", "minimum": 1 },
+        "mapped_identifier_count": { "type": "integer", "minimum": 1 },
+        "mapping_coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+        "mapping_report_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maximum_adjusted_p_value", "minimum_directional_auc", "minimum_mapping_coverage", "minimum_samples_per_group", "require_byte_identical_default_rerun", "require_expected_direction_for_every_set"],
+      "properties": {
+        "maximum_adjusted_p_value": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "minimum_directional_auc": { "type": "number", "minimum": 0.5, "maximum": 1 },
+        "minimum_mapping_coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minimum_samples_per_group": { "type": "integer", "minimum": 2 },
+        "require_byte_identical_default_rerun": { "type": "boolean" },
+        "require_expected_direction_for_every_set": { "type": "boolean" }
+      }
+    },
+    "methods": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/method" }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "eligible", "selection_rule", "default_rerun_byte_identical", "raw_cross_cohort_threshold_permitted"],
+      "properties": {
+        "method": { "$ref": "#/$defs/method_name" },
+        "eligible": { "type": "boolean" },
+        "selection_rule": { "$ref": "#/$defs/nonempty" },
+        "default_rerun_byte_identical": { "type": "boolean" },
+        "raw_cross_cohort_threshold_permitted": { "const": false }
+      }
+    },
+    "limitations": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/nonempty" } },
+    "passed": { "type": "boolean" }
+  },
+  "$defs": {
+    "nonempty": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "method_name": { "enum": ["mean_expression", "mean_z_score", "weighted_linear", "rank_based", "gsva", "ssgsea"] },
+    "set_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["signature_id", "expected_direction", "observed_effect", "directional_auc", "p_value", "adjusted_p_value", "mapping_coverage", "passed"],
+      "properties": {
+        "signature_id": { "$ref": "#/$defs/nonempty" },
+        "expected_direction": { "enum": ["positive", "negative"] },
+        "observed_effect": { "type": "number" },
+        "directional_auc": { "type": "number", "minimum": 0, "maximum": 1 },
+        "p_value": { "type": "number", "minimum": 0, "maximum": 1 },
+        "adjusted_p_value": { "type": "number", "minimum": 0, "maximum": 1 },
+        "mapping_coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+        "passed": { "type": "boolean" }
+      }
+    },
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "runtime", "result_sha256", "sets", "passed"],
+      "properties": {
+        "method": { "$ref": "#/$defs/method_name" },
+        "runtime": { "enum": ["Python", "R"] },
+        "result_sha256": { "$ref": "#/$defs/sha256" },
+        "sets": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/set_result" } },
+        "passed": { "type": "boolean" }
+      }
+    }
+  }
+}

@@ -1,15 +1,15 @@
 # TranscriptForge implementation progress
 
-Last updated: 2026-07-17
+Last updated: 2026-07-18
 
 This file is the durable continuation checkpoint for Codex sessions. Update it after every implementation session.
 
 ## Current position
 
-- Active roadmap phase: Phase 7 — signature analysis
-- Active milestone: Phase 7 — public-corpus benchmarking and default-method policy
-- Current task: Select an owner-approved public validation corpus and prespecify interpretation thresholds before recommending a default scoring method
-- Overall milestone status: Durable ingestion/mapping, six scoring methods, adjusted phenotype association, and synthetic cross-modality acceptance complete
+- Active roadmap phase: Phase 8 — cell-type deconvolution
+- Active milestone: Phase 8 — method registry and input-capability contracts
+- Current task: Define fraction-versus-enrichment result types and assay/scale/organism/identifier requirements before adding EPIC and quanTIseq runners
+- Overall milestone status: Phase 7 complete; durable signature ingestion/mapping, six scoring methods, adjusted phenotype association, cross-modality acceptance, and a public technical benchmark are implemented
 
 ## Completed
 
@@ -211,6 +211,12 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 - [x] Added a checksum-frozen weighted Ensembl signature acceptance that builds independent RNA-seq raw-count/log2-CPM and microarray RMA-like Expression Bundles, maps the identical definition checksum into each bundle, and scores both through the production Python scientific boundary.
 - [x] Added a Draft 2020-12 cross-modality acceptance contract with prespecified mapping, FDR, AUROC, direction-concordance, and distinct-raw-scale criteria plus deterministic repeat evidence and a dedicated Make target.
 - [x] Made the platform boundary explicit in score warnings, reports, result pages, architecture, and demo documentation: raw score magnitudes are not comparable across RNA-seq, microarray, cohorts, or preprocessing pipelines; only prespecified within-dataset direction/ranking/association or standardized effects are compared.
+- [x] Added a checksum-frozen public GSE39795 cartilage-zone benchmark with marker directions selected before scoring, explicit paired-donor association, and a versioned acceptance-result JSON Schema.
+- [x] Evaluated mean expression, mean z-score, weighted linear, rank-based, GSVA, and ssGSEA against the same public Expression Bundle; all methods retained 100% marker mapping and recovered both expected directions at directional AUROC 1.0 and FDR below 0.05.
+- [x] Prespecified the public benchmark thresholds: 80% recommended mapping coverage, four samples per group, expected direction for every set, directional AUROC at least 0.80, FDR at most 0.05, and a byte-identical repeated default run.
+- [x] Selected mean z-score through a fixed preference order as the within-cohort product default, added a visible below-80% exploratory warning, and retained explicit language prohibiting transferable raw thresholds across cohorts, platforms, or preprocessing pipelines.
+- [x] Added a reproducible containerized Make target that checksum-verifies the public bundle and marker definition, runs all Python/R scoring paths, validates the result contract, and reproduced the committed acceptance result byte-for-byte.
+- [x] Completed every Phase 7 task and acceptance criterion, while retaining independent biological validation and mixed-effects policy as explicit scientific debt rather than overstating the technical benchmark.
 - [x] Reworked the root README as a hiring-manager-facing product overview with real RNA-seq and public-microarray user-flow screenshots, architecture, verification evidence, local setup, repository map, and explicit constraints.
 - [x] Materialized a live eight-array GSE39795 project through the public API, published its 23,702-gene/257,430-probe-set RMA Expression Bundle, and ran a full-rank paired `~ donor + zone` limma analysis for the portfolio walkthrough.
 - [x] Corrected server design preview so numeric-looking declared block identifiers are encoded categorically, matching the independent R scientific boundary and preserving paired-design semantics.
@@ -440,12 +446,23 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
   mypy across 61 source files, ESLint, the Node.js 22 production build, both containerized
   GSVA/ssGSEA acceptance cases, JSON Schema validation, Docker Compose validation, and
   `git diff --check` passed. The existing chunk-size warning remains tracked under TD-006.
+- Phase 7 public benchmark: the pinned GSE39795 RMA Expression Bundle mapped all five prespecified
+  markers and all six scoring methods recovered the superficial and deep signatures in their
+  expected directions with AUROC 1.0 and FDR below 0.05. The fixed policy selected mean z-score,
+  its repeated score JSON was byte-identical, and the documented Make target reproduced the
+  committed benchmark result byte-for-byte.
+- Phase 7 completion regression: 91 combined Python tests and 15 frontend integration tests passed;
+  Ruff, strict mypy across 61 source files, ESLint, the Node.js 22 production build, JSON Schema and
+  Docker Compose validation, and `git diff --check` passed. The known production chunk-size warning
+  remains tracked under TD-006.
 
 The development stack remains running. The large-study project is at `http://localhost:5173/projects/0694625c-23e1-4847-9622-e508ad95b895`, its prepared bundle at `http://localhost:5173/prepared-datasets/ac5bbe72-ec4e-40ec-9258-f9eae3679209`, and live results are available for PCA (`74cfc4a8-bdea-49b5-ab94-69d8534c52d6`), clustering (`2af084ac-6e90-4beb-b07c-4eabd214f066`), UMAP (`e94db15b-ab8a-4fee-ab6f-9d8e3a2ef63c`), t-SNE (`1dac23c8-5621-46bd-bb71-ddc38640647e`), DESeq2 (`e033fb5c-0516-4a74-9bf8-8e0b77d1eeaa`), limma (`2a13c140-0f8a-4617-bb59-e17b386469f9`), edgeR QL (`c31e8833-39a1-4aa8-a33b-ca87b5df90d4`), limma-voom (`339a7348-f43b-402e-be0a-555c69a0267c`), and edgeR QL with enrichment (`53509cd4-532c-4173-b505-a65e43101b6b`). The polished raw RNA-seq ingestion dashboard is at `http://localhost:5173/projects/e9574d9b-dc8f-480d-b844-64e5be0bdf31`. The public microarray project is at `http://localhost:5173/projects/32eb730d-7bda-43c1-a930-a37d91789e44`, its prepared bundle at `http://localhost:5173/prepared-datasets/75deff90-236b-4055-9c1b-e74c2ba9ec67`, and its paired limma result at `http://localhost:5173/analyses/0a800b33-6940-4b55-8928-c6c491ebe53d`.
 
 ## Next tasks
 
-1. Add a public-corpus benchmark and owner-approved interpretation thresholds before recommending a default scoring method.
+1. Add a typed deconvolution method registry that distinguishes cell-fraction outputs from enrichment scores and declares method-specific input requirements.
+2. Add immutable deconvolution Analysis Request and result contracts with scale, gene-overlap, and reference provenance.
+3. Implement EPIC and quanTIseq behind the shared Nextflow/scientific-runtime boundary before adding result-type-aware plots and cross-method comparison.
 
 ## Decisions and constraints
 
