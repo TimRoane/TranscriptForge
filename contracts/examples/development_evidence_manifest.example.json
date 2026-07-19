@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "bundle_type": "development_evidence_bundle",
+  "experiment_id": "experiment-ffpe-input-001",
+  "experiment_type": "INPUT_DEGRADATION_EXPLORATION",
+  "revision": 1,
+  "question": "Does RNA input or degradation affect expression stability?",
+  "criteria_mode": "exploratory",
+  "scientist_decision_required": true,
+  "files": [{"path": "results/primary_results.json", "size_bytes": 1024, "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}],
+  "warnings": ["Exploratory development evidence does not establish a clinical LoD."]
+}

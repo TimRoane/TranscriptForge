@@ -22,10 +22,11 @@ import {
   fetchDeconvolutionCapabilities,
   importCibersortxResult,
   type DeconvolutionMethod,
+  type GuidedAnalysisContext,
 } from '../api/client'
 import { ErrorState, LoadingState } from './ApiState'
 
-export function DeconvolutionSetupPanel({ preparedDatasetId }: { preparedDatasetId: string }) {
+export function DeconvolutionSetupPanel({ preparedDatasetId, guidedContext }: { preparedDatasetId: string; guidedContext?: GuidedAnalysisContext }) {
   const navigate = useNavigate()
   const [methodId, setMethodId] = useState<DeconvolutionMethod>('quantiseq')
   const [assay, setAssay] = useState('')
@@ -103,6 +104,7 @@ export function DeconvolutionSetupPanel({ preparedDatasetId }: { preparedDataset
         minimumGeneOverlap,
         tumorMode,
         scaleMrna: true,
+        guidedContext,
       })
     },
     onSuccess: (analysis) => navigate(`/analyses/${analysis.id}`),

@@ -44,8 +44,100 @@ jobs:
       - uses: nf-core/setup-nextflow@v2
         with:
           version: '25.04.8'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -e .
       - run: nextflow run pipelines/main.nf -entry RUN_DEMO -profile test --outdir .nextflow-test-results
       - run: nextflow run pipelines/main.nf -entry PREPARE_DATASET -profile test --validation_config demo/configs/count_matrix_validation.json --matrix demo/data/counts.tsv --metadata demo/metadata/sample_metadata.tsv --outdir .nextflow-test-results
+      - run: python demo/assay_development/generate_precision_fixture.py --output-dir .nextflow-precision-inputs
+      - run: python demo/assay_development/generate_input_limit_fixture.py --output-dir .nextflow-limit-inputs
+      - run: python demo/assay_development/generate_paired_bridge_fixture.py --output-dir .nextflow-bridge-inputs
+      - run: python demo/assay_development/generate_robustness_fixture.py --output-dir .nextflow-robustness-inputs
+      - run: python demo/assay_development/generate_paired_condition_fixture.py --output-dir .nextflow-paired-inputs
+      - run: python demo/assay_development/generate_multifactor_fixture.py --output-dir .nextflow-multifactor-inputs
+      - run: python demo/assay_development/generate_technical_feasibility_fixture.py --output-dir .nextflow-feasibility-inputs
+      - run: >-
+          nextflow run pipelines/main.nf -entry RUN_ASSAY_EXPERIMENT -profile test
+          --experiment_spec .nextflow-feasibility-inputs/experiment_spec.json
+          --experiment_assignments .nextflow-feasibility-inputs/experiment_assignments.tsv
+          --expression_bundle .nextflow-feasibility-inputs/expression_bundle.tar.gz
+          --analysis_python python
+          --outdir .nextflow-feasibility-results
+      - name: Reject an invalid ExperimentSpec before analysis
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          source = Path('.nextflow-feasibility-inputs/experiment_spec.json')
+          payload = json.loads(source.read_text())
+          payload['analysis_plan'].pop('missing_value_policy')
+          Path('.nextflow-feasibility-inputs/invalid_experiment_spec.json').write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+          if nextflow run pipelines/main.nf -entry RUN_ASSAY_EXPERIMENT -profile test \
+            --experiment_spec .nextflow-feasibility-inputs/invalid_experiment_spec.json \
+            --experiment_assignments .nextflow-feasibility-inputs/experiment_assignments.tsv \
+            --expression_bundle .nextflow-feasibility-inputs/expression_bundle.tar.gz \
+            --analysis_python python \
+            --outdir .nextflow-invalid-feasibility-results; then
+            echo "Invalid ExperimentSpec unexpectedly reached successful analysis"
+            exit 1
+          fi
+          test ! -e .nextflow-invalid-feasibility-results/experiment/results/development_evidence_bundle/manifest.json
+      - run: >-
+          nextflow run pipelines/main.nf -entry RUN_ASSAY_EXPERIMENT -profile test
+          --experiment_spec .nextflow-paired-inputs/experiment_spec.json
+          --experiment_assignments .nextflow-paired-inputs/experiment_assignments.tsv
+          --expression_bundle .nextflow-paired-inputs/expression_bundle.tar.gz
+          --analysis_python python
+          --outdir .nextflow-paired-results
+      - run: >-
+          nextflow run pipelines/main.nf -entry RUN_ASSAY_EXPERIMENT -profile test
+          --experiment_spec .nextflow-multifactor-inputs/experiment_spec.json
+          --experiment_assignments .nextflow-multifactor-inputs/experiment_assignments.tsv
+          --expression_bundle .nextflow-multifactor-inputs/expression_bundle.tar.gz
+          --analysis_python python
+          --outdir .nextflow-multifactor-results
+      - run: >-
+          nextflow run pipelines/main.nf -entry RUN_ASSAY_STUDY -profile test
+          --study_spec .nextflow-precision-inputs/study_spec.json
+          --study_assignments .nextflow-precision-inputs/study_assignments.tsv
+          --expression_bundle .nextflow-precision-inputs/expression_bundle.tar.gz
+          --model .nextflow-precision-inputs/model.json
+          --model_manifest .nextflow-precision-inputs/model_manifest.json
+          --analysis_python python
+          --outdir .nextflow-study-results
+      - run: >-
+          nextflow run pipelines/main.nf -entry RUN_ASSAY_STUDY -profile test
+          --study_spec .nextflow-limit-inputs/study_spec.json
+          --study_assignments .nextflow-limit-inputs/study_assignments.tsv
+          --expression_bundle .nextflow-limit-inputs/expression_bundle.tar.gz
+          --model .nextflow-limit-inputs/model.json
+          --model_manifest .nextflow-limit-inputs/model_manifest.json
+          --analysis_python python
+          --outdir .nextflow-limit-results
+      - run: >-
+          nextflow run pipelines/main.nf -entry RUN_ASSAY_STUDY -profile test
+          --study_spec .nextflow-bridge-inputs/study_spec.json
+          --study_assignments .nextflow-bridge-inputs/study_assignments.tsv
+          --expression_bundle .nextflow-bridge-inputs/expression_bundle.tar.gz
+          --model .nextflow-bridge-inputs/model.json
+          --model_manifest .nextflow-bridge-inputs/model_manifest.json
+          --analysis_python python
+          --outdir .nextflow-bridge-results
+      - run: >-
+          nextflow run pipelines/main.nf -entry RUN_ASSAY_STUDY -profile test
+          --study_spec .nextflow-robustness-inputs/study_spec.json
+          --study_assignments .nextflow-robustness-inputs/study_assignments.tsv
+          --expression_bundle .nextflow-robustness-inputs/expression_bundle.tar.gz
+          --model .nextflow-robustness-inputs/model.json
+          --model_manifest .nextflow-robustness-inputs/model_manifest.json
+          --analysis_python python
+          --outdir .nextflow-robustness-results
 
   r-acceptance:
     runs-on: ubuntu-latest

@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "assay_project_id": "assay-project-1",
+  "scientific_question_id": "question-1",
+  "analysis_id": "analysis-1",
+  "run_id": "run-1",
+  "analysis_type": "dimension_reduction",
+  "question_answered": "What is the largest source of variation?",
+  "important_findings": ["The guided PCA completed using the frozen Expression Bundle."],
+  "quality_warnings": ["Principal components describe association and do not establish causality."],
+  "unresolved_risks": ["Potential biological and technical drivers require scientist review."],
+  "recommended_next_actions": ["Review PCA grouping against declared biological and technical metadata."],
+  "evidence_refs": [{
+    "artifact_type": "result_manifest",
+    "path": "result_manifest.json",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }],
+  "scientist_decision_required": true
+}

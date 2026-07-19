@@ -15,6 +15,11 @@ summarizes the portfolio evidence without treating simulated data as clinical ev
   index-derived seeds and completed on 32 workers with byte-identical serial/multicore artifacts.
 - The one-shot GSE32646 evaluation scores 115 external samples at 500/500 locked-feature overlap and
   computes 2,000 deterministic stratified bootstrap intervals without refitting.
+- The compact assay-development portfolio command executed three Development Experiment and four
+  locked-model Analytical Study templates through local Nextflow in 20.711 seconds on its recorded
+  2026-07-18 cold output-directory run. This is software-smoke evidence over synthetic fixtures, not
+  a wet-lab runtime estimate; exact artifact hashes and cloud status are in
+  [assay-development execution evidence](assay-validation-execution.md).
 
 Wall time depends heavily on cache state, architecture, storage, and container availability. Record
 elapsed time, peak memory, image digest, CPU allocation, cache-hit state, input checksum, and output

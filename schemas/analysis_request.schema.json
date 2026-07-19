@@ -27,6 +27,18 @@
     "method_registry_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "deconvolution_method": { "type": "object" },
     "input_assay_descriptor": { "type": "object" },
+    "guided_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assay_project_id", "scientific_question_id", "question_key", "question", "formal_question"],
+      "properties": {
+        "assay_project_id": { "type": "string", "minLength": 1 },
+        "scientific_question_id": { "type": "string", "minLength": 1 },
+        "question_key": { "type": "string", "minLength": 1 },
+        "question": { "type": "string", "minLength": 1 },
+        "formal_question": { "type": "string", "minLength": 1 }
+      }
+    },
     "expression_bundle": {
       "type": "object",
       "additionalProperties": false,

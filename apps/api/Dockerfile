@@ -13,6 +13,7 @@ COPY analysis/python ./analysis/python
 COPY analysis/r ./analysis/r
 RUN pip install --no-cache-dir .
 COPY schemas ./schemas
+COPY contracts ./contracts
 COPY microarray ./microarray
 COPY demo ./demo
 COPY pipelines ./pipelines

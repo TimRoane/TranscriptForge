@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "bundle_type": "validation_bundle",
+  "study_id": "study-demo-precision",
+  "study_type": "PRECISION_REPRODUCIBILITY",
+  "revision": 1,
+  "overall_status": "PASS",
+  "locked_model_id": "model-demo-locked",
+  "model_retrained": false,
+  "files": [
+    {
+      "path": "study_spec.yaml",
+      "size_bytes": 1024,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "scientist_decision_required": true,
+  "warnings": ["Research use only."]
+}

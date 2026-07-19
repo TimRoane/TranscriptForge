@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.dev/contracts/guidance-result/1.0.0",
+  "title": "TranscriptForge GuidanceResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "assay_project_id", "scientific_question_id", "analysis_id", "run_id", "analysis_type", "question_answered", "important_findings", "quality_warnings", "unresolved_risks", "recommended_next_actions", "evidence_refs", "scientist_decision_required"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "assay_project_id": { "type": "string", "minLength": 1 },
+    "scientific_question_id": { "type": "string", "minLength": 1 },
+    "analysis_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "analysis_type": { "enum": ["dimension_reduction", "differential_expression", "deconvolution", "signature", "classifier"] },
+    "question_answered": { "type": "string", "minLength": 1 },
+    "important_findings": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "quality_warnings": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "unresolved_risks": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "recommended_next_actions": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_type", "path", "sha256"],
+        "properties": {
+          "artifact_type": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "scientist_decision_required": { "const": true }
+  }
+}

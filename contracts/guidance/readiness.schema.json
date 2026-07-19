@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.local/contracts/readiness/1.0.0",
+  "title": "Stage-aware readiness result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "stage", "status", "evaluated_at", "ready_items", "missing_items", "blockers", "warnings", "recommended_action_ids", "alternative_action_ids", "not_recommended_action_ids"],
+  "$defs": {
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "facts", "conclusion", "severity", "suggested_action", "assumptions", "documentation_url"],
+      "properties": {
+        "rule_id": {"type": "string", "minLength": 1},
+        "facts": {"type": "object"},
+        "conclusion": {"type": "string", "minLength": 1},
+        "severity": {"enum": ["INFO", "WARNING", "BLOCKER"]},
+        "suggested_action": {"type": "string", "minLength": 1},
+        "assumptions": {"type": "array", "items": {"type": "string"}},
+        "documentation_url": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "stage": {"enum": ["DEFINE", "FEASIBILITY", "EXPLORE", "OPTIMIZE", "DEVELOP", "LOCK", "VALIDATE", "REPORT", "ON_HOLD", "COMPLETED"]},
+    "status": {"enum": ["NOT_ASSESSED", "BLOCKED", "NEEDS_INFORMATION", "READY_FOR_RECOMMENDED_ACTION", "ACTION_IN_PROGRESS", "REVIEW_REQUIRED"]},
+    "evaluated_at": {"type": "string", "format": "date-time"},
+    "ready_items": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "missing_items": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "blockers": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "warnings": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "recommended_action_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "alternative_action_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "not_recommended_action_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+  }
+}

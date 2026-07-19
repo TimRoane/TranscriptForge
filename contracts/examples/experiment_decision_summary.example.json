@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "question": "Does RNA input or degradation affect expression stability?",
+  "finding": "Profiles remained descriptively stable through 25 ng under the tested conditions.",
+  "evidence": [{"type": "primary_results", "path": "results/primary_results.json"}],
+  "limitations": ["The experiment is exploratory and uses no prespecified pass/fail criterion."],
+  "criteria_mode": "exploratory",
+  "condition_results": [{"input_ng": 25, "measurement_count": 4, "mean_profile_correlation": 0.97, "median_profile_correlation": 0.971, "confidence_interval_95": {"lower": 0.95, "upper": 0.99, "method": "normal_approximation_descriptive"}, "mean_detected_genes": 12000, "mean_expression": 4.2, "paired_reference": false, "descriptive_stability_indicator": true}],
+  "recommended_next_action_ids": ["INPUT_DEGRADATION.BALANCED_CONFIRMATION"],
+  "scientist_decision_required": true
+}

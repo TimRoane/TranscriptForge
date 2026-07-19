@@ -258,6 +258,16 @@ analyze the study; it is not a database fixture shortcut.
 For a hiring-manager walkthrough after seeding, follow the timed
 [five-minute demo path](docs/five-minute-demo.md).
 
+The question-first assay-development and locked-endpoint validation path has its own
+[guided tutorial and scientific-judgment boundaries](docs/guided_assay_development.md), plus a
+[local/cloud execution evidence record](docs/assay-validation-execution.md) and
+[requirement-by-requirement completion audit](docs/assay-development-completion-audit.md). A compact,
+cache-aware local acceptance of every implemented experiment/study template is available with:
+
+```bash
+make assay-validation-demo
+```
+
 The full GENCODE/GRCh38 Salmon index is generated data and is deliberately excluded from Git. The
 first raw RNA-seq run for an exact reference definition materializes it once in the shared Docker
 `run-data` volume; later projects reuse the checksum-verified cache. The AWS profile uses the same

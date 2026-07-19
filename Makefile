@@ -1,4 +1,4 @@
-.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-deconvolution-r test-signature-cross-modality test-signature-public-benchmark test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo seed-classifier-validation build-demo-video validate-release terraform-check aws-batch-preflight aws-batch-acceptance
+.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-deconvolution-r test-signature-cross-modality test-signature-public-benchmark test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo seed-assay-development assay-validation-demo seed-classifier-validation build-demo-video validate-release terraform-check aws-batch-preflight aws-batch-acceptance
 
 PUBLIC_SIGNATURE_BUNDLE ?=
 PUBLIC_SIGNATURE_BENCHMARK_OUT ?= .public-signature-benchmark
@@ -75,6 +75,12 @@ pipeline-test:
 
 seed-demo:
 	.venv/bin/python demo/large_experiment/seed.py
+
+seed-assay-development:
+	.venv/bin/python -m demo.assay_development.seed
+
+assay-validation-demo:
+	.venv/bin/python -m demo.assay_development.run_portfolio_demo
 
 seed-classifier-validation:
 	.venv/bin/python demo/classifier_external_validation/seed_gui.py

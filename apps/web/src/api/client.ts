@@ -23,6 +23,212 @@ export interface Project {
   updated_at: string
 }
 
+export type AssayLifecycleStage =
+  | 'DEFINE'
+  | 'FEASIBILITY'
+  | 'EXPLORE'
+  | 'OPTIMIZE'
+  | 'DEVELOP'
+  | 'LOCK'
+  | 'VALIDATE'
+  | 'REPORT'
+  | 'ON_HOLD'
+  | 'COMPLETED'
+
+export type AssayReadinessStatus =
+  | 'NOT_ASSESSED'
+  | 'BLOCKED'
+  | 'NEEDS_INFORMATION'
+  | 'READY_FOR_RECOMMENDED_ACTION'
+  | 'ACTION_IN_PROGRESS'
+  | 'REVIEW_REQUIRED'
+
+export interface AssayProject {
+  id: string
+  project_id: string
+  name: string
+  proposed_purpose: string | null
+  specimen_type: string | null
+  biological_context: string | null
+  proposed_output: string | null
+  current_stage: AssayLifecycleStage
+  readiness_status: AssayReadinessStatus
+  active_question_id: string | null
+  assay_version: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+}
+
+export interface QuestionCatalogEntry {
+  key: string
+  question: string
+  stage: AssayLifecycleStage
+  experiment_type?: string | null
+  analysis_type?: string | null
+  study_type?: string | null
+  required_inputs: string[]
+  required_metadata: string[]
+  recommended_endpoints: string[]
+  design_checks: string[]
+  possible_next_actions: string[]
+}
+
+export interface QuestionCatalog {
+  schema_version: '1.0.0'
+  catalog_version: string
+  questions: QuestionCatalogEntry[]
+}
+
+export interface ScientificQuestion {
+  id: string
+  assay_project_id: string
+  question_key: string
+  plain_language_question: string
+  formal_question: string
+  stage: AssayLifecycleStage
+  status: 'OPEN' | 'RESOLVED' | 'SUPERSEDED'
+  source: 'USER_SELECTED' | 'SYSTEM_RECOMMENDED' | 'FOLLOW_UP_FROM_RESULT'
+  created_at: string
+  resolved_at: string | null
+  resolution_summary: string | null
+}
+
+export interface ReadinessItem {
+  rule_id: string
+  facts: Record<string, unknown>
+  conclusion: string
+  severity: 'INFO' | 'WARNING' | 'BLOCKER'
+  suggested_action: string
+  assumptions: string[]
+  documentation_url: string
+}
+
+export interface AssayReadiness {
+  schema_version: '1.0.0'
+  stage: AssayLifecycleStage
+  status: AssayReadinessStatus
+  evaluated_at: string
+  ready_items: ReadinessItem[]
+  missing_items: ReadinessItem[]
+  blockers: ReadinessItem[]
+  warnings: ReadinessItem[]
+  recommended_action_ids: string[]
+  alternative_action_ids: string[]
+  not_recommended_action_ids: string[]
+}
+
+export interface Recommendation {
+  id: string
+  assay_project_id: string
+  source_type: string
+  source_id: string
+  rule_id: string
+  recommendation_type: string
+  title: string
+  summary: string
+  why: string
+  what_it_resolves: string
+  stage: AssayLifecycleStage
+  priority: number
+  requirement_level: 'BLOCKER' | 'STRONGLY_RECOMMENDED' | 'RECOMMENDED' | 'OPTIONAL' | 'NOT_RECOMMENDED'
+  status: 'OPEN' | 'ACCEPTED' | 'REJECTED' | 'MODIFIED' | 'SUPERSEDED' | 'COMPLETED'
+  required_inputs: string[]
+  expected_output: string
+  proposed_action: Record<string, unknown>
+  evidence_refs: Array<Record<string, unknown>>
+  assumptions: string[]
+  limitations: string[]
+  alternative_action_ids: string[]
+  scientist_decision_required: true
+  created_at: string
+  resolved_at: string | null
+}
+
+export interface DecisionRecord {
+  id: string
+  assay_project_id: string
+  source_type: string
+  source_id: string
+  stage: AssayLifecycleStage
+  decision_key: string
+  decision: string
+  rationale: string
+  selected_option: string
+  alternatives: Array<Record<string, unknown>>
+  evidence_refs: Array<Record<string, unknown>>
+  made_by: string
+  made_at: string
+  supersedes_decision_id: string | null
+}
+
+export interface GuidanceResult {
+  id: string
+  assay_project_id: string
+  question_id: string
+  analysis_id: string
+  run_id: string
+  payload_json: {
+    schema_version: '1.0.0'
+    analysis_type: string
+    question_answered: string
+    important_findings: string[]
+    quality_warnings: string[]
+    unresolved_risks: string[]
+    recommended_next_actions: string[]
+    evidence_refs: Array<{ artifact_type: string; path: string; sha256: string }>
+    scientist_decision_required: true
+  }
+  artifact_uri: string
+  artifact_sha256: string
+  created_at: string
+}
+
+export interface ModelRecord {
+  id: string
+  analysis_id: string
+  run_id: string
+  model_name: string
+  algorithm: string
+  outcome_column: string
+  metrics_json: Record<string, unknown>
+  feature_count: number
+  status: 'CANDIDATE' | 'REVIEWED' | 'LOCKED' | 'RETIRED' | 'SUPERSEDED'
+  reviewed_at: string | null
+  reviewed_by: string | null
+  locked_at: string | null
+  locked_by: string | null
+  retired_at: string | null
+  parent_model_id: string | null
+  model_manifest_sha256: string | null
+  model_package_sha256: string | null
+  feature_schema_sha256: string | null
+  preprocessing_sha256: string | null
+  model_object_sha256: string | null
+  threshold_sha256: string | null
+  training_dataset_refs_json: Array<Record<string, unknown>>
+  validation_dataset_refs_json: Array<Record<string, unknown>>
+  container_digest: string | null
+  inference_test_status: string
+  created_at: string
+}
+
+export interface ModelLockReadiness {
+  model_id: string
+  ready: boolean
+  checks: Record<string, boolean>
+  blockers: string[]
+  warnings: string[]
+}
+
+export interface ModelIntegrity {
+  model_id: string
+  valid: boolean
+  checks: Record<string, boolean>
+  errors: string[]
+}
+
 export interface Dataset {
   id: string
   project_id: string
@@ -179,10 +385,12 @@ export type RunState =
 
 export interface Run {
   id: string
-  run_type: 'dataset_validation' | 'dataset_preparation' | 'analysis' | 'prediction'
+  run_type: 'dataset_validation' | 'dataset_preparation' | 'analysis' | 'prediction' | 'assay_experiment' | 'assay_study'
   dataset_id: string | null
   prepared_dataset_id: string | null
   analysis_id: string | null
+  experiment_id?: string | null
+  study_id?: string | null
   state: RunState
   profile: string
   nextflow_session_id: string | null
@@ -848,6 +1056,8 @@ export interface Analysis {
   id: string
   project_id: string
   prepared_dataset_id: string
+  assay_project_id: string | null
+  scientific_question_id: string | null
   analysis_type:
     | 'dimension_reduction'
     | 'differential_expression'
@@ -863,6 +1073,11 @@ export interface Analysis {
     | DeconvolutionConfiguration
     | ClassifierConfiguration
   created_at: string
+}
+
+export interface GuidedAnalysisContext {
+  assay_project_id: string
+  scientific_question_id: string
 }
 
 export interface CreateDimensionReductionRequest {
@@ -885,6 +1100,337 @@ export interface DesignOptions {
     missing_count: number
     unique_count: number
   }>
+}
+
+export interface ExperimentInputOption {
+  prepared_dataset_id: string
+  dataset_id: string
+  dataset_name: string
+  prepared_version: number
+  sample_count: number
+  feature_count: number
+  assays: string[]
+  qc_status: string
+}
+
+export interface ExperimentDesignOptions {
+  prepared_dataset_id: string
+  sample_count: number
+  assays: string[]
+  measurement_ids: string[]
+  metadata_columns: string[]
+  metadata_rows: Array<Record<string, string>>
+}
+
+export interface ExperimentAssignment {
+  measurement_id: string
+  biological_sample_id: string
+  prepared_dataset_id: string
+  include: boolean
+  exclusion_reason: string | null
+  replicate_id: string | null
+  pair_id: string | null
+  input_ng: number | null
+  dv200: number | null
+  sequencing_run: string | null
+  condition: string | null
+  run: string | null
+  quality_metric: number | null
+  operator: string | null
+  reagent_lot: string | null
+  instrument: string | null
+  processing_order: number | null
+  extraction_method: string | null
+  library_method: string | null
+  sequencing_depth: number | null
+  specimen_group: string | null
+  technical_failure: boolean
+}
+
+export interface ExperimentDesignFinding {
+  severity: 'ERROR' | 'WARNING' | 'INFO'
+  code: string
+  message: string
+  facts: Record<string, unknown>
+  recommendation: string
+}
+
+export interface ExperimentDesignValidation {
+  schema_version: '1.0.0'
+  valid: boolean
+  retrospective_mapping: boolean
+  measurement_count: number
+  biological_sample_count: number
+  included_measurement_count: number
+  reference_level?: number
+  input_levels?: number[]
+  reference_condition?: string
+  comparator_condition?: string
+  conditions?: string[]
+  complete_pair_count?: number
+  factors?: string[]
+  interactions?: string[]
+  factor_levels?: Record<string, string[]>
+  design_matrix_rank?: number
+  design_matrix_columns?: number
+  residual_degrees_of_freedom?: number
+  run_levels?: string[]
+  specimen_groups?: string[]
+  findings: ExperimentDesignFinding[]
+  errors: ExperimentDesignFinding[]
+  warnings: ExperimentDesignFinding[]
+  informational: ExperimentDesignFinding[]
+}
+
+export interface DevelopmentExperiment {
+  id: string
+  assay_project_id: string
+  question_id: string
+  prepared_dataset_id: string
+  parent_experiment_id: string | null
+  name: string
+  experiment_type: 'TECHNICAL_FEASIBILITY' | 'INPUT_DEGRADATION_EXPLORATION' | 'PAIRED_CONDITION_COMPARISON' | 'MULTIFACTOR_OPTIMIZATION'
+  objective: string
+  mode: 'PLAN_FIRST' | 'ANALYZE_EXISTING'
+  status: 'DRAFT' | 'DESIGN_VALID' | 'DESIGN_INVALID' | 'LOCKED_FOR_EXECUTION' | 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'SUPERSEDED'
+  experiment_spec: Record<string, unknown>
+  experiment_spec_uri: string | null
+  experiment_spec_sha256: string | null
+  assignments: ExperimentAssignment[]
+  assignments_uri: string | null
+  assignments_sha256: string | null
+  design_validation: ExperimentDesignValidation | null
+  development_bundle_uri: string | null
+  current_revision: number
+  created_by: string
+  created_at: string
+  updated_at: string
+  locked_at: string | null
+  completed_at: string | null
+}
+
+export interface ExperimentCreatePayload {
+  assay_project_id: string
+  question_id: string
+  prepared_dataset_id: string
+  name: string
+  objective: string
+  experiment_type: 'TECHNICAL_FEASIBILITY' | 'INPUT_DEGRADATION_EXPLORATION' | 'PAIRED_CONDITION_COMPARISON' | 'MULTIFACTOR_OPTIMIZATION'
+  mode: 'PLAN_FIRST' | 'ANALYZE_EXISTING'
+  reference_level?: number
+  reference_condition?: string
+  comparator_condition?: string
+  assay: string
+  primary_endpoints: string[]
+  secondary_endpoints: string[]
+  declared_questions: string[]
+  reference_level_rationale?: string
+  condition_contrast_rationale?: string
+  endpoint_rationale: string
+  assignments: ExperimentAssignment[]
+  factor_names?: string[]
+  interactions?: string[]
+}
+
+export interface ExperimentResults {
+  experiment_id: string
+  status: string
+  run_id: string | null
+  decision_summary: null | {
+    schema_version: string
+    question: string
+    finding: string
+    evidence: Array<Record<string, unknown>>
+    limitations: string[]
+    criteria_mode: string
+    condition_results: Array<Record<string, unknown>>
+    recommended_next_action_ids: string[]
+    scientist_decision_required: true
+  }
+  recommendations: null | { schema_version: string; recommendations: Array<Record<string, unknown>> }
+  artifacts: Array<Pick<Artifact, 'id' | 'artifact_type' | 'title' | 'relative_path' | 'mime_type' | 'size_bytes' | 'sha256'>>
+}
+
+export interface StudyAssignment {
+  measurement_id: string
+  biological_sample_id: string
+  replicate_id: string | null
+  operator: string | null
+  run: string | null
+  reagent_lot: string | null
+  input_level: number | null
+  quality_metric: number | null
+  qc_failure: boolean
+  condition: string | null
+  challenge_type: string | null
+  subgroup: string | null
+  instrument: string | null
+  day: string | null
+  site: string | null
+  include: boolean
+  exclusion_reason: string | null
+}
+
+export interface AcceptanceCriterionInput {
+  key: string
+  metric: 'icc' | 'categorical_agreement' | 'repeatability_sd' | 'reproducibility_sd' | 'mean_absolute_score_difference' | 'call_agreement_to_reference' | 'qc_failure_rate' | 'paired_bias' | 'discordance_rate' | 'profile_correlation' | 'tost_equivalence' | 'mean_challenge_effect' | 'call_change_rate'
+  endpoint: 'classifier_score' | 'predicted_class' | 'qc_failure'
+  operator: 'gt' | 'gte' | 'lt' | 'lte' | 'between' | 'absolute_lte' | 'all_levels' | 'consecutive_levels'
+  threshold: number | number[]
+  rationale: string
+}
+
+export interface StudyDesignValidation {
+  schema_version: '1.0.0'
+  valid: boolean
+  included_measurement_count: number
+  biological_sample_count: number
+  replicates_per_sample: Record<string, number>
+  reference_level?: number
+  ordered_levels?: number[]
+  complete_pair_count?: number
+  factor_levels: Record<string, string[]>
+  design_matrix_rank: number
+  design_matrix_columns: number
+  errors: Array<{ code: string; message: string; facts?: Record<string, unknown> }>
+  warnings: Array<{ code: string; message: string; facts?: Record<string, unknown> }>
+}
+
+export interface AnalyticalStudy {
+  id: string
+  assay_project_id: string
+  question_id: string
+  model_id: string
+  prepared_dataset_id: string
+  parent_study_id: string | null
+  name: string
+  study_type: 'PRECISION_REPRODUCIBILITY' | 'INPUT_DEGRADATION_LIMIT' | 'PAIRED_BRIDGING' | 'ROBUSTNESS_INTERFERENCE'
+  objective: string
+  status: 'DRAFT' | 'DESIGN_VALID' | 'DESIGN_INVALID' | 'LOCKED' | 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'SUPERSEDED'
+  study_spec_json: Record<string, unknown>
+  assignments_json: StudyAssignment[]
+  criteria_json: AcceptanceCriterionInput[]
+  design_validation_json: StudyDesignValidation | null
+  study_spec_uri: string | null
+  study_spec_sha256: string | null
+  assignments_uri: string | null
+  assignments_sha256: string | null
+  validation_bundle_uri: string | null
+  current_revision: number
+  created_by: string
+  created_at: string
+  updated_at: string
+  locked_at: string | null
+  completed_at: string | null
+}
+
+export interface StudyInputOptions {
+  locked_models: Array<{
+    id: string
+    name: string
+    algorithm: string
+    expected_assay: string
+    feature_count: number
+    manifest_sha256: string
+  }>
+  prepared_datasets: Array<{
+    id: string
+    dataset_name: string
+    version: number
+    sample_count: number
+    feature_count: number
+    assays: string[]
+    qc_status: string
+  }>
+}
+
+export interface StudyCreatePayload {
+  assay_project_id: string
+  question_id: string
+  model_id: string
+  prepared_dataset_id: string
+  name: string
+  objective: string
+  study_type: 'PRECISION_REPRODUCIBILITY' | 'INPUT_DEGRADATION_LIMIT' | 'PAIRED_BRIDGING' | 'ROBUSTNESS_INTERFERENCE'
+  assignments: StudyAssignment[]
+  factors: string[]
+  criteria: AcceptanceCriterionInput[]
+  confidence_level: number
+  bootstrap_iterations: number
+  threshold_proximity_band: number
+  reference_level?: number
+  level_rationale?: string
+  reference_condition?: string
+  comparator_condition?: string
+  equivalence_margin?: number
+  condition_rationale?: string
+}
+
+export interface StudyResults {
+  study_id: string
+  status: string
+  run_id: string | null
+  summary: null | {
+    overall_status: 'PASS' | 'FAIL' | 'INDETERMINATE'
+    finding: string
+    limitations: string[]
+    model_retrained: false
+    scientist_decision_required: true
+    precision?: Record<string, number | null | Record<string, number>>
+    variance_components?: Record<string, number | string | null>
+    agreement?: {
+      categorical_agreement: number | null
+      per_sample_call_stability: Array<Record<string, unknown>>
+    }
+    input_degradation?: {
+      levels: Array<Record<string, unknown>>
+      trend: Record<string, unknown>
+      change_point_exploration: Record<string, unknown>
+      threshold_stability: Record<string, unknown>
+      candidate_lowest_tested_level: number | null
+      candidate_interpretation: string
+    }
+    paired_bridging?: {
+      pair_count: number
+      paired_bias: number
+      paired_bias_confidence_interval_95: { lower: number; upper: number }
+      profile_correlation: number | null
+      correlation_passes_equivalence: false
+      categorical_agreement: number
+      discordance_rate: number
+      tost_equivalence: { margin: number; passed: boolean; method: string }
+      subgroup_review: Array<Record<string, unknown>>
+      threshold_adjacent_review: Record<string, unknown>
+    }
+    robustness_interference?: {
+      pair_count: number
+      mean_challenge_effect: number
+      challenge_effect_confidence_interval_95: { lower: number; upper: number }
+      maximum_effect_margin: number
+      effect_within_margin: boolean
+      call_change_rate: number
+      qc_failure_rate: number
+      challenge_type_review: Array<Record<string, unknown>>
+      threshold_adjacent_review: Record<string, unknown>
+      biological_specificity_claims_supported: false
+    }
+    threshold_stability: {
+      decision_threshold: number
+      proximity_band: number
+      near_threshold_count: number
+      near_threshold_measurement_ids: string[]
+    }
+    acceptance_results: {
+      overall_status: 'PASS' | 'FAIL' | 'INDETERMINATE'
+      criteria: Array<AcceptanceCriterionInput & {
+        observed: unknown
+        status: 'PASS' | 'FAIL' | 'INDETERMINATE' | 'NOT_APPLICABLE'
+        population: string
+        uncertainty: unknown
+      }>
+    }
+  }
+  artifacts: Array<Pick<Artifact, 'id' | 'artifact_type' | 'title' | 'relative_path' | 'mime_type' | 'size_bytes' | 'sha256'>>
 }
 
 export interface DifferentialExpressionPreviewRequest {
@@ -1630,7 +2176,7 @@ export function fetchFeatureMappingSummary(
 
 export function createDimensionReductionAnalysis(
   preparedDatasetId: string,
-  payload: CreateDimensionReductionRequest,
+  payload: CreateDimensionReductionRequest & Partial<GuidedAnalysisContext>,
 ): Promise<Analysis> {
   return request(`/prepared-datasets/${preparedDatasetId}/analyses`, {
     method: 'POST',
@@ -1661,7 +2207,7 @@ export function validateDifferentialExpressionDesign(
 
 export function createDifferentialExpressionAnalysis(
   preparedDatasetId: string,
-  payload: CreateDifferentialExpressionRequest,
+  payload: CreateDifferentialExpressionRequest & Partial<GuidedAnalysisContext>,
 ): Promise<Analysis> {
   return request(`/prepared-datasets/${preparedDatasetId}/analyses`, {
     method: 'POST',
@@ -1684,6 +2230,58 @@ export function fetchClassifierResults(
   return request(`/runs/${runId}/classifier-results`, { signal })
 }
 
+export function fetchAnalysisModels(
+  analysisId: string,
+  signal?: AbortSignal,
+): Promise<ModelRecord[]> {
+  return request(`/analyses/${analysisId}/models`, { signal })
+}
+
+export function fetchModel(modelId: string, signal?: AbortSignal): Promise<ModelRecord> {
+  return request(`/models/${modelId}`, { signal })
+}
+
+export function fetchModelLockReadiness(
+  modelId: string,
+  signal?: AbortSignal,
+): Promise<ModelLockReadiness> {
+  return request(`/models/${modelId}/lock-readiness`, { signal })
+}
+
+export function reviewModel(modelId: string, rationale: string): Promise<ModelRecord> {
+  return request(`/models/${modelId}/review`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rationale }),
+  })
+}
+
+export function lockModel(modelId: string, rationale: string): Promise<ModelRecord> {
+  return request(`/models/${modelId}/lock`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rationale }),
+  })
+}
+
+export function cloneModel(modelId: string): Promise<ModelRecord> {
+  return request(`/models/${modelId}/clone`, { method: 'POST' })
+}
+
+export function retireModel(modelId: string, rationale: string): Promise<ModelRecord> {
+  return request(`/models/${modelId}/retire`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rationale }),
+  })
+}
+
+export function checkModelIntegrity(modelId: string): Promise<ModelIntegrity> {
+  return request(`/models/${modelId}/integrity`, { method: 'POST' })
+}
+
+export function modelManifestUrl(modelId: string): string {
+  return `${apiBaseUrl}/models/${encodeURIComponent(modelId)}/manifest`
+}
+
+export function modelPackageUrl(modelId: string): string {
+  return `${apiBaseUrl}/models/${encodeURIComponent(modelId)}/package`
+}
+
 export function validateClassifierDesign(
   preparedDatasetId: string,
   payload: ClassifierPreviewRequest,
@@ -1699,7 +2297,7 @@ export function validateClassifierDesign(
 
 export function createClassifierAnalysis(
   preparedDatasetId: string,
-  payload: ClassifierPreviewRequest & { name: string },
+  payload: ClassifierPreviewRequest & { name: string } & Partial<GuidedAnalysisContext>,
 ): Promise<Analysis> {
   return request(`/prepared-datasets/${preparedDatasetId}/analyses`, {
     method: 'POST',
@@ -1715,6 +2313,7 @@ export function createSignatureScoringAnalysis(
     method: SignatureScoringMethod
     signatureMappingId: string
     parameters?: Partial<Omit<SignatureScoringParameters, 'signature_mapping_id'>>
+    guidedContext?: GuidedAnalysisContext
   },
 ): Promise<Analysis> {
   return request(`/prepared-datasets/${preparedDatasetId}/analyses`, {
@@ -1730,6 +2329,7 @@ export function createSignatureScoringAnalysis(
         ...payload.parameters,
       },
       random_seed: 0,
+      ...payload.guidedContext,
     }),
   })
 }
@@ -1765,6 +2365,7 @@ export function createDeconvolutionAnalysis(
     minimumGeneOverlap: number
     tumorMode?: boolean
     scaleMrna?: boolean
+    guidedContext?: GuidedAnalysisContext
   },
 ): Promise<Analysis> {
   return request(`/prepared-datasets/${preparedDatasetId}/analyses`, {
@@ -1781,6 +2382,7 @@ export function createDeconvolutionAnalysis(
         tumor_mode: payload.tumorMode ?? false,
         scale_mrna: payload.scaleMrna ?? true,
       },
+      ...payload.guidedContext,
       random_seed: 0,
     }),
   })
@@ -2010,4 +2612,280 @@ export function signatureMappingDownloadUrl(
   document: 'report.json' | 'missing.tsv' | 'ambiguous.tsv',
 ): string {
   return `${apiBaseUrl}/signature-mappings/${mappingId}/${document}`
+}
+
+export function fetchAssayProjects(signal?: AbortSignal): Promise<AssayProject[]> {
+  return request('/assay-projects', { signal })
+}
+
+export function fetchAssayProject(
+  assayProjectId: string,
+  signal?: AbortSignal,
+): Promise<AssayProject> {
+  return request(`/assay-projects/${assayProjectId}`, { signal })
+}
+
+export function fetchProjectAssayDevelopment(
+  projectId: string,
+  signal?: AbortSignal,
+): Promise<AssayProject | null> {
+  return request(`/projects/${projectId}/assay-development`, { signal })
+}
+
+export function createAssayProject(payload: {
+  project_id: string
+  name: string
+  proposed_purpose?: string
+  specimen_type?: string
+  biological_context?: string
+  proposed_output?: string
+  assay_version?: string
+}): Promise<AssayProject> {
+  return request('/assay-projects', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateAssayProject(
+  assayProjectId: string,
+  payload: Partial<Pick<AssayProject, 'name' | 'proposed_purpose' | 'specimen_type' | 'biological_context' | 'proposed_output' | 'assay_version'>>,
+): Promise<AssayProject> {
+  return request(`/assay-projects/${assayProjectId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function fetchQuestionCatalog(signal?: AbortSignal): Promise<QuestionCatalog> {
+  return request('/scientific-questions/catalog', { signal })
+}
+
+export function fetchScientificQuestions(
+  assayProjectId: string,
+  signal?: AbortSignal,
+): Promise<ScientificQuestion[]> {
+  return request(`/assay-projects/${assayProjectId}/questions`, { signal })
+}
+
+export function createScientificQuestion(
+  assayProjectId: string,
+  payload: { question_key: string; formal_question: string; source?: ScientificQuestion['source'] },
+): Promise<ScientificQuestion> {
+  return request(`/assay-projects/${assayProjectId}/questions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function fetchAssayReadiness(
+  assayProjectId: string,
+  signal?: AbortSignal,
+): Promise<AssayReadiness> {
+  return request(`/assay-projects/${assayProjectId}/readiness`, { signal })
+}
+
+export function fetchRecommendations(
+  assayProjectId: string,
+  signal?: AbortSignal,
+): Promise<Recommendation[]> {
+  return request(`/assay-projects/${assayProjectId}/recommendations`, { signal })
+}
+
+export function resolveRecommendation(
+  recommendationId: string,
+  resolution: 'accept' | 'reject' | 'modify',
+  payload: { rationale: string; modified_action?: Record<string, unknown> },
+): Promise<{
+  decision: DecisionRecord
+  replacement_recommendation: Recommendation | null
+  action_launched: false
+}> {
+  return request(`/recommendations/${recommendationId}/${resolution}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function recordStageDecision(
+  assayProjectId: string,
+  payload: { requested_stage: AssayLifecycleStage; decision: 'ACCEPT' | 'REJECT' | 'DEFER'; rationale: string },
+): Promise<DecisionRecord> {
+  return request(`/assay-projects/${assayProjectId}/stage-decisions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function fetchAssayDecisions(
+  assayProjectId: string,
+  signal?: AbortSignal,
+): Promise<DecisionRecord[]> {
+  return request(`/assay-projects/${assayProjectId}/decisions`, { signal })
+}
+
+export function fetchGuidanceResults(
+  assayProjectId: string,
+  signal?: AbortSignal,
+): Promise<GuidanceResult[]> {
+  return request(`/assay-projects/${assayProjectId}/guidance-results`, { signal })
+}
+
+export function fetchExperimentInputOptions(
+  assayProjectId: string,
+  signal?: AbortSignal,
+): Promise<ExperimentInputOption[]> {
+  return request(`/assay-projects/${assayProjectId}/experiment-input-options`, { signal })
+}
+
+export function fetchExperimentDesignOptions(
+  preparedDatasetId: string,
+  signal?: AbortSignal,
+): Promise<ExperimentDesignOptions> {
+  return request(`/prepared-datasets/${preparedDatasetId}/experiment-design-options`, { signal })
+}
+
+export function createDevelopmentExperiment(
+  payload: ExperimentCreatePayload,
+): Promise<DevelopmentExperiment> {
+  return request('/experiments', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function fetchDevelopmentExperiments(
+  assayProjectId: string,
+  signal?: AbortSignal,
+): Promise<DevelopmentExperiment[]> {
+  return request(`/assay-projects/${assayProjectId}/experiments`, { signal })
+}
+
+export function fetchDevelopmentExperiment(
+  experimentId: string,
+  signal?: AbortSignal,
+): Promise<DevelopmentExperiment> {
+  return request(`/experiments/${experimentId}`, { signal })
+}
+
+export function updateDevelopmentExperiment(
+  experimentId: string,
+  payload: Partial<Pick<ExperimentCreatePayload, 'name' | 'objective' | 'reference_level' | 'reference_condition' | 'comparator_condition' | 'primary_endpoints' | 'secondary_endpoints' | 'declared_questions' | 'reference_level_rationale' | 'condition_contrast_rationale' | 'endpoint_rationale' | 'assignments'>>,
+): Promise<DevelopmentExperiment> {
+  return request(`/experiments/${experimentId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function lockDevelopmentExperiment(experimentId: string): Promise<DevelopmentExperiment> {
+  return request(`/experiments/${experimentId}/lock-execution-revision`, { method: 'POST' })
+}
+
+export function runDevelopmentExperiment(
+  experimentId: string,
+): Promise<{ experiment: DevelopmentExperiment; run_id: string; run_state: 'QUEUED' }> {
+  return request(`/experiments/${experimentId}/run`, { method: 'POST' })
+}
+
+export function cloneDevelopmentExperiment(experimentId: string): Promise<DevelopmentExperiment> {
+  return request(`/experiments/${experimentId}/clone`, { method: 'POST' })
+}
+
+export function acceptDevelopmentExperimentFollowUp(
+  experimentId: string,
+  recommendationId: string,
+  rationale: string,
+): Promise<DevelopmentExperiment> {
+  return request(`/experiments/${experimentId}/recommendations/${recommendationId}/accept-follow-up`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rationale }),
+  })
+}
+
+export function fetchDevelopmentExperimentResults(
+  experimentId: string,
+  signal?: AbortSignal,
+): Promise<ExperimentResults> {
+  return request(`/experiments/${experimentId}/results`, { signal })
+}
+
+export function fetchDevelopmentExperimentRecommendations(
+  experimentId: string,
+  signal?: AbortSignal,
+): Promise<Recommendation[]> {
+  return request(`/experiments/${experimentId}/recommendations`, { signal })
+}
+
+export function experimentWetLabPackageUrl(experimentId: string): string {
+  return `${apiBaseUrl}/experiments/${encodeURIComponent(experimentId)}/wet-lab-package`
+}
+
+export function fetchStudyInputOptions(
+  assayProjectId: string,
+  signal?: AbortSignal,
+): Promise<StudyInputOptions> {
+  return request(`/assay-projects/${assayProjectId}/study-input-options`, { signal })
+}
+
+export function fetchAnalyticalStudies(
+  assayProjectId: string,
+  signal?: AbortSignal,
+): Promise<AnalyticalStudy[]> {
+  return request(`/assay-projects/${assayProjectId}/studies`, { signal })
+}
+
+export function fetchAnalyticalStudy(
+  studyId: string,
+  signal?: AbortSignal,
+): Promise<AnalyticalStudy> {
+  return request(`/studies/${studyId}`, { signal })
+}
+
+export function createAnalyticalStudy(payload: StudyCreatePayload): Promise<AnalyticalStudy> {
+  return request('/studies', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateAnalyticalStudy(
+  studyId: string,
+  payload: Partial<Pick<StudyCreatePayload, 'name' | 'objective' | 'assignments' | 'factors' | 'criteria' | 'confidence_level' | 'bootstrap_iterations' | 'threshold_proximity_band' | 'reference_level' | 'level_rationale' | 'reference_condition' | 'comparator_condition' | 'equivalence_margin' | 'condition_rationale'>>,
+): Promise<AnalyticalStudy> {
+  return request(`/studies/${studyId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function lockAnalyticalStudy(studyId: string): Promise<AnalyticalStudy> {
+  return request(`/studies/${studyId}/lock`, { method: 'POST' })
+}
+
+export function runAnalyticalStudy(
+  studyId: string,
+): Promise<{ study: AnalyticalStudy; run_id: string; run_state: 'QUEUED' }> {
+  return request(`/studies/${studyId}/run`, { method: 'POST' })
+}
+
+export function cloneAnalyticalStudy(studyId: string): Promise<AnalyticalStudy> {
+  return request(`/studies/${studyId}/clone`, { method: 'POST' })
+}
+
+export function fetchAnalyticalStudyResults(
+  studyId: string,
+  signal?: AbortSignal,
+): Promise<StudyResults> {
+  return request(`/studies/${studyId}/results`, { signal })
 }

@@ -17,7 +17,9 @@ from transcriptforge_api.storage import get_storage_backend
 from transcriptforge_api.storage.local import LocalStorage
 from transcriptforge_api.workers.dispatch import (
     get_analysis_dispatcher,
+    get_experiment_dispatcher,
     get_preparation_dispatcher,
+    get_study_dispatcher,
     get_validation_dispatcher,
 )
 
@@ -39,6 +41,16 @@ def dispatched_preparation_ids() -> list[str]:
 
 @pytest.fixture
 def dispatched_analysis_ids() -> list[str]:
+    return []
+
+
+@pytest.fixture
+def dispatched_experiment_ids() -> list[str]:
+    return []
+
+
+@pytest.fixture
+def dispatched_study_ids() -> list[str]:
     return []
 
 
@@ -69,6 +81,8 @@ async def test_app(
     dispatched_run_ids: list[str],
     dispatched_preparation_ids: list[str],
     dispatched_analysis_ids: list[str],
+    dispatched_experiment_ids: list[str],
+    dispatched_study_ids: list[str],
     session_factory: async_sessionmaker[AsyncSession],
 ) -> AsyncIterator[FastAPI]:
     async def override_session() -> AsyncIterator[AsyncSession]:
@@ -87,6 +101,12 @@ async def test_app(
     def override_analysis_dispatcher():  # type: ignore[no-untyped-def]
         return dispatched_analysis_ids.append
 
+    def override_experiment_dispatcher():  # type: ignore[no-untyped-def]
+        return dispatched_experiment_ids.append
+
+    def override_study_dispatcher():  # type: ignore[no-untyped-def]
+        return dispatched_study_ids.append
+
     application = create_app()
     test_settings = Settings(
         environment="test",
@@ -100,6 +120,8 @@ async def test_app(
     application.dependency_overrides[get_validation_dispatcher] = override_dispatcher
     application.dependency_overrides[get_preparation_dispatcher] = override_preparation_dispatcher
     application.dependency_overrides[get_analysis_dispatcher] = override_analysis_dispatcher
+    application.dependency_overrides[get_experiment_dispatcher] = override_experiment_dispatcher
+    application.dependency_overrides[get_study_dispatcher] = override_study_dispatcher
     yield application
     application.dependency_overrides.clear()
 

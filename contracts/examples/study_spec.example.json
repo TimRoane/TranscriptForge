@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "study": {"study_id": "study-demo-precision", "name": "Locked classifier precision study", "type": "PRECISION_REPRODUCIBILITY", "objective": "Evaluate repeatability and reproducibility of the locked score and categorical call.", "revision": 1},
+  "assay_context": {"assay_name": "TranscriptForge FFPE RNA demo assay", "assay_version": "demo-1.0", "specimen_type": "simulated_ffpe_expression", "intended_use_statement": "Synthetic portfolio demonstration only; not clinically validated."},
+  "model": {"model_id": "model-demo-locked", "required_status": "LOCKED", "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+  "inputs": {"assignment_table": "design/study_assignments.tsv", "expression_bundles": [{"prepared_dataset_id": "prepared-validation", "role": "validation"}]},
+  "sample_structure": {"measurement_id": "measurement_id", "biological_sample_id": "biological_sample_id", "replicate_id": "replicate_id"},
+  "factors": [{"name": "operator", "type": "categorical", "treatment": "random"}, {"name": "run", "type": "categorical", "treatment": "random"}],
+  "endpoints": {"continuous": ["classifier_score"], "categorical": ["predicted_class"], "qc": ["mapping_rate", "detected_genes"]},
+  "analysis_plan": {"template": "crossed_random_effects", "confidence_level": 0.95, "bootstrap_iterations": 2000, "threshold_proximity_band": 0.1},
+  "acceptance_criteria": [{"key": "score_icc", "metric": "icc", "endpoint": "classifier_score", "operator": "gte", "threshold": 0.9, "rationale": "Prespecified synthetic demonstration criterion."}],
+  "design_validation": {"valid": true, "errors": [], "warnings": []}
+}

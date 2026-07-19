@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "experiment": {"experiment_id": "exp-demo-ffpe-input", "name": "FFPE RNA input feasibility", "type": "INPUT_DEGRADATION_EXPLORATION", "stage": "FEASIBILITY", "objective": "Determine whether input and degradation are associated with unstable expression measurements.", "exploratory": true, "mode": "ANALYZE_EXISTING", "revision": 1},
+  "assay_context": {"specimen_type": "simulated_ffpe_tumor", "proposed_output": "expression_classifier_score", "assay_version": "development-unlocked"},
+  "question": {"question_key": "input_degradation_stability", "plain_language": "Does RNA input or degradation affect expression stability?", "decision_to_inform": "Whether to retain 25 ng as a candidate development condition."},
+  "inputs": {"assignment_table": "design/experiment_assignments.tsv", "expression_bundles": [{"prepared_dataset_id": "prepared-demo-ffpe", "role": "development", "sha256": null}]},
+  "sample_structure": {"measurement_id": "measurement_id", "biological_sample_id": "biological_sample_id", "replicate_id": "replicate_id", "pair_id": "biological_sample_id"},
+  "factors": [{"name": "input_ng", "type": "ordered_numeric", "role": "primary"}, {"name": "dv200", "type": "continuous", "role": "covariate"}, {"name": "sequencing_run", "type": "categorical", "role": "blocking"}],
+  "endpoints": {"primary": ["expression_profile_correlation_to_reference", "detected_genes"], "secondary": ["mapping_rate", "candidate_signature_score"]},
+  "analysis_plan": {"template": "ordered_level_paired_exploration", "reference_level": 100, "confidence_level": 0.95, "missing_value_policy": "fail_required_endpoint"},
+  "success_guidance": {"mode": "exploratory", "declared_questions": ["Is profile correlation stable through 25 ng?", "Do technical failure rates increase below 25 ng?"]},
+  "rationales": {"reference_level": "Highest routinely available input condition.", "endpoint_choice": "Profile stability is required before classifier development."}
+}

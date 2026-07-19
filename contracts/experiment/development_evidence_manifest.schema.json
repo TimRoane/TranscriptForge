@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.local/contracts/experiment/development-evidence-manifest/1.0.0",
+  "title": "Development Evidence Bundle Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "bundle_type", "experiment_id", "experiment_type", "revision", "question", "criteria_mode", "scientist_decision_required", "files", "warnings"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "bundle_type": {"const": "development_evidence_bundle"},
+    "experiment_id": {"type": "string", "minLength": 1},
+    "experiment_type": {"enum": ["TECHNICAL_FEASIBILITY", "INPUT_DEGRADATION_EXPLORATION", "PAIRED_CONDITION_COMPARISON", "MULTIFACTOR_OPTIMIZATION"]},
+    "revision": {"type": "integer", "minimum": 1},
+    "question": {"type": "string", "minLength": 1},
+    "criteria_mode": {"enum": ["exploratory", "prespecified_acceptance"]},
+    "scientist_decision_required": {"const": true},
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "size_bytes", "sha256"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"},
+          "size_bytes": {"type": "integer", "minimum": 0},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        }
+      }
+    },
+    "warnings": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  }
+}

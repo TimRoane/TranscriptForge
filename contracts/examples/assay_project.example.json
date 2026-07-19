@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "id": "assay-demo-ffpe",
+  "project_id": "project-demo-ffpe",
+  "name": "Synthetic FFPE RNA Assay Development",
+  "proposed_purpose": "Explore whether synthetic FFPE-like RNA measurements support a stable research classifier endpoint.",
+  "specimen_type": "simulated_ffpe_tumor",
+  "biological_context": "Synthetic portfolio demonstration with input and degradation effects.",
+  "proposed_output": "expression_classifier_score",
+  "current_stage": "FEASIBILITY",
+  "readiness_status": "NEEDS_INFORMATION",
+  "active_question_id": "question-input-degradation",
+  "assay_version": "development-unlocked",
+  "created_by": "local-user",
+  "created_at": "2026-07-18T12:00:00Z",
+  "updated_at": "2026-07-18T12:00:00Z",
+  "completed_at": null
+}

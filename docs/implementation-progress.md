@@ -1,15 +1,50 @@
 # TranscriptForge implementation progress
 
+## Revised assay-development amendment
+
+The completed base platform is now being extended according to `TranscriptForge_Assay_Development_Validation_Amendment_REVISED.md`.
+
+- [x] G0: Added safe-default feature flags for the guided workspace, Development Experiment execution, and Analytical Study execution.
+- [x] G0: Added stable lifecycle, readiness, question-source, recommendation, and supported Development Experiment values.
+- [x] G0: Added versioned JSON Schemas and validating examples for Assay Development Projects, Scientific Questions, readiness, recommendations, DecisionRecords, ExperimentSpecs, assignment rows, ModelManifests, and StudySpecs.
+- [x] G0: Added a versioned static question catalog with explicit stage, required-input, metadata, endpoint, design-check, and supported-action routing.
+- [x] G0: Documented the development-versus-validation boundary and human scientific-judgment boundary without changing existing workflows.
+- [x] G1: Added durable assay-project, ScientificQuestion, Recommendation, DecisionRecord, and append-only assay-audit entities with an Alembic migration and project-delete cascades.
+- [x] G1: Added question catalog, assay-project CRUD, readiness/recompute, recommendation resolution, explicit stage decision, decision listing, and audit-timeline APIs.
+- [x] G1: Added a deterministic readiness engine that exposes rule IDs, input facts, conclusions, severity, suggested actions, assumptions, and documentation links; resolved rules do not silently respawn identical recommendations.
+- [x] G1: Added explicit accept, reject, and modify flows requiring scientist rationale. Each records a DecisionRecord and audit event and returns `action_launched: false`.
+- [x] G1: Added Assay Development navigation, base-project workspace creation, lifecycle rail, known/missing/blocker/warning evidence cards, recommendation cards, recent decisions, context repair, explicit stage approval, and a question-first wizard shell.
+- [x] G1: Added API and frontend regression coverage for safe routing, duplicate workspaces, transparent readiness, immutable decisions, no automatic launch, and the guided dashboard.
+- [x] G2: Added ExperimentPlan/Input persistence, metadata-backed assignment design, confounding/rank validation, immutable execution revisions, cancellation, and clone lineage.
+- [x] G2: Added `RUN_ASSAY_EXPERIMENT`, contract-validated Development Evidence Bundles, Parquet/TSV endpoints, HTML/PDF reports, complete provenance downloads, and result-linked recommendations.
+- [x] G2: Added the synthetic paired FFPE input/degradation study, deliberately confounded teaching draft, wet-lab export, evidence dashboard, and one-click scientist-controlled follow-up draft.
+- [x] Completion audit: Closed the catalog-to-run gap for `TECHNICAL_FEASIBILITY` with explicit specimen/run/failure assignments, design validation, exploratory evidence generation, GUI design/results, API lifecycle, deterministic fixture, scientific/UI tests, CI and direct Nextflow coverage. Catalog route tests now prevent an advertised experiment or study question from lacking a lifecycle handler.
+- [x] G3: Routed guided questions to the existing PCA, differential-expression, deconvolution, signature, and classifier builders with exact workspace/question lineage and no duplicate scientific implementation.
+- [x] G3: Added contract-validated GuidanceResult persistence/artifacts with checksummed Result Bundle references, risk/limitation boundaries, dashboard review, and readiness recomputation after successful guided runs.
+- [x] G4: Extended ModelRecord with candidate/reviewed/locked/retired state, lineage, immutable asset hashes, training/validation references, runtime identity, and deterministic inference status.
+- [x] G4: Added transparent lock readiness, scientist-rationale review/lock/retire operations, deterministic ModelManifest/package publication, clone lineage, GUI controls, and audit/DecisionRecords for guided models.
+- [x] G4: Hardened `PREDICT_WITH_MODEL` to require a locked ModelManifest and reject model, ordered-feature, preprocessing, decision-rule, or assay integrity changes; tamper regression coverage passes.
+- [x] G5: Added AnalyticalStudy/Input/AcceptanceCriterion/ValidationResult persistence, exact bundle-sample mapping, locked-model compatibility/integrity checks, deterministic design validation, immutable lock/clone/run/cancel lifecycle, and audit lineage.
+- [x] G5: Added `RUN_ASSAY_STUDY`, locked-model precision/variance/ICC/agreement/threshold calculations, explicit PASS/FAIL/INDETERMINATE/NOT_APPLICABLE criteria, a schema-valid Validation Bundle, durable worker indexing, and a real Nextflow smoke fixture.
+- [x] G5: Added dashboard recommendation routing, validation-study designer/list/detail pages, repair/lock/run controls, criteria and threshold review, explicit no-retraining provenance, artifact downloads, and frontend/API/scientific coverage.
+- [x] G6: Implemented the additional experiment and study templates in the amendment's required order.
+  - [x] Added paired-condition Development Experiments with exact-pair and factor-confounding validation, declared primary/secondary endpoints, paired differences and confidence intervals, Bland-Altman and profile-correlation evidence, failure/discordance summaries, quality interactions, immutable execution, type-aware GUI design/results, API/scientific/UI tests, and a direct Nextflow smoke fixture.
+  - [x] Added post-lock input/degradation limit studies with exact immutable bundle mapping, paired ordered-level and confounding validation, one-time locked-model inference, paired score/call/QC endpoints, trend and change-point exploration, all-level and consecutive-level criteria, candidate lowest-tested-level reporting with a non-LoD boundary, type-aware GUI evidence, API/scientific/UI tests, and direct Nextflow evidence.
+  - [x] Added paired bridging studies with exact pairs, condition/run confounding checks, one-time locked inference, paired bias and intervals, Bland-Altman and Deming evidence, call agreement/discordance, prespecified TOST margins, subgroup and threshold-adjacent review, an explicit correlation-only prohibition, GUI/API/scientific coverage, and direct Nextflow evidence.
+  - [x] Added robustness/interference studies with exact challenge/reference pairing, challenge/run confounding checks, prespecified challenge types and effect margins, locked score/call/QC effects, per-challenge and threshold-adjacent review, an explicit no-biological-specificity-claim policy, GUI/API/scientific coverage, and direct Nextflow evidence.
+  - [x] Added constrained multifactor optimization with a two-to-three-factor/two-interaction cap, repeated-sample and run blocking, rank/residual-DF/sparse-cell rejection, fixed-effect intervals, descriptive variance decomposition, response surfaces only for supported two-numeric-factor designs, type-aware GUI/API/scientific coverage, and direct Nextflow evidence.
+- [x] G7: Added a one-command, cache-aware seven-template Nextflow portfolio acceptance; guided tutorial and human-judgment table; assay lifecycle architecture diagram; local runtime/checksum evidence; README walkthrough links; and an explicit owner-gated AWS Batch parity procedure without claiming an unexecuted cloud run.
+
 Last updated: 2026-07-18
 
 This file is the durable continuation checkpoint for Codex sessions. Update it after every implementation session.
 
 ## Current position
 
-- Active roadmap phase: Base implementation plan complete through Phase 10; additive assay-development amendment not started
-- Active milestone: Local/cloud-portable product, scientific workflows, security boundary, portfolio media, and release automation complete
-- Current task: Maintenance and owner-gated operational acceptance only
-- Overall milestone status: Every locally actionable task in the authoritative base plan's Phases 0–10 is complete. The separate `TranscriptForge_Assay_Development_Validation_Amendment_REVISED.md` defines a substantial new G0–G7 product expansion and has not been represented as base-plan completion. The application remains an explicit loopback-bound single-user research workbench. Live AWS provisioning/parity, the first pushed release tag, multi-user identity, legal review, retention policy, and additional biological validation require owner authority or external decisions and are retained in the debt register rather than represented as completed evidence.
+- Active roadmap phase: Revised assay-development amendment complete
+- Active milestone: None — implementation plan complete
+- Current task: Owner review, optional live AWS Batch parity, and future debt-register work only.
+- Overall milestone status: The base implementation plan and revised assay-development amendment G0-G7 are implemented and locally verified. The application remains an explicit loopback-bound single-user research workbench; live AWS provisioning/parity and other owner-gated items remain in the debt register and are not represented as completed evidence.
 
 ## Completed
 
@@ -598,14 +633,30 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
   identity validation, both GitHub workflow files via actionlint, Terraform validation, live
   liveness/readiness/system/metrics checks, and `git diff --check` passed. The compact walkthrough
   was generated reproducibly from the README's real 1440-pixel application captures.
+- Amendment G5 precision/reproducibility regression: the deterministic scientific fixture produced
+  byte-identical Validation Bundle archives, PASS criteria, ICC above 0.99, complete Parquet/TSV,
+  HTML/PDF, decision, and provenance artifacts, and unchanged locked-model bytes. A direct
+  `RUN_ASSAY_STUDY` Nextflow test passed with the repository `.venv`, and its output manifest
+  validated against the versioned Validation Bundle schema. Focused backend coverage passed 26
+  lifecycle/contract/worker/model tests; the full Node 22 frontend suite passed 30 tests with clean
+  ESLint and production TypeScript/Vite build. API coverage proves design repair, exact immutable
+  sample mapping, model/feature/checksum compatibility, lock/clone immutability, queueing, and cancel.
+- Amendment G6-G7 completion regression: all additional experiment/study templates passed their
+  scientific and API lifecycle coverage, and `make assay-validation-demo` executed seven real
+  Nextflow entry-point slices in 20.711 seconds on the recorded cold local output directory. The
+  four post-lock studies returned PASS with `model_retrained: false`; all three pre-lock experiments
+  published exploratory evidence requiring scientist review. The final combined suite passed 185
+  Python tests and 36 frontend tests; Ruff, strict mypy across 99 Python source files, ESLint, the
+  Node.js 22 production build, Compose validation, JSON contract/catalog parsing, actionlint when
+  available, and `git diff --check` passed. Live AWS execution remains explicitly owner-gated.
 
 The development stack remains running. The frozen GSE140494/GSE32646 validation dashboard is at `http://localhost:5173/classifier-external-validations/9959f1ce-cacc-4329-9daf-732f2c7d115d` in project `http://localhost:5173/projects/99c6225f-3c44-4d75-a55f-2d4cce93b631`. The large-study project is at `http://localhost:5173/projects/0694625c-23e1-4847-9622-e508ad95b895`, its prepared bundle at `http://localhost:5173/prepared-datasets/ac5bbe72-ec4e-40ec-9258-f9eae3679209`, and live results are available for PCA (`74cfc4a8-bdea-49b5-ab94-69d8534c52d6`), clustering (`2af084ac-6e90-4beb-b07c-4eabd214f066`), UMAP (`e94db15b-ab8a-4fee-ab6f-9d8e3a2ef63c`), t-SNE (`1dac23c8-5621-46bd-bb71-ddc38640647e`), DESeq2 (`e033fb5c-0516-4a74-9bf8-8e0b77d1eeaa`), limma (`2a13c140-0f8a-4617-bb59-e17b386469f9`), edgeR QL (`c31e8833-39a1-4aa8-a33b-ca87b5df90d4`), limma-voom (`339a7348-f43b-402e-be0a-555c69a0267c`), and edgeR QL with enrichment (`53509cd4-532c-4173-b505-a65e43101b6b`). The polished raw RNA-seq ingestion dashboard is at `http://localhost:5173/projects/e9574d9b-dc8f-480d-b844-64e5be0bdf31`. The public microarray project is at `http://localhost:5173/projects/32eb730d-7bda-43c1-a930-a37d91789e44`, its prepared bundle at `http://localhost:5173/prepared-datasets/75deff90-236b-4055-9c1b-e74c2ba9ec67`, and its paired limma result at `http://localhost:5173/analyses/0a800b33-6940-4b55-8928-c6c491ebe53d`.
 
 ## Next tasks
 
-1. Decide whether to adopt the separate guided assay-development amendment; if adopted, begin its G0 contracts/scaffolding and immediate guided feasibility vertical slice as a new roadmap.
-2. When the owner is ready, push a version-matching annotated tag to exercise the external GHCR/GitHub release publication workflow; with an approved AWS account/VPC/budget, separately run the cost-incurring cloud parity acceptance.
-3. Resolve the manual scientific, legal, identity, and retention decisions in `docs/debt-register.md`; any future classifier revision or validation cohort must be a new prospectively versioned study.
+1. Owner-gated: provision the reviewed AWS infrastructure, run `make aws-batch-acceptance` with explicit cost authorization, and attach the parity evidence described in `docs/assay-validation-execution.md`.
+2. Work the remaining owner/content/technical decisions in `docs/debt-register.md` as priorities and external resources permit.
+3. Treat any new product work as a new roadmap revision; the imported implementation plan and revised amendment are complete.
 
 ## Decisions and constraints
 
@@ -632,4 +683,4 @@ The development stack remains running. The frozen GSE140494/GSE32646 validation 
 
 ## Continue prompt
 
-Ask Codex: **Continue TranscriptForge maintenance from `docs/implementation-progress.md` and only act on owner-approved debt items.**
+Ask Codex: **Continue G6 paired condition comparison from `docs/implementation-progress.md`.**

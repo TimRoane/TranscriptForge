@@ -1,0 +1,159 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_version": "2026.07",
+  "questions": [
+    {
+      "key": "usable_rna_feasibility",
+      "question": "Can the intended specimens produce usable RNA data?",
+      "stage": "FEASIBILITY",
+      "experiment_type": "TECHNICAL_FEASIBILITY",
+      "required_inputs": ["expression_bundle", "sample_metadata"],
+      "required_metadata": ["biological_sample_id", "specimen_type"],
+      "recommended_endpoints": ["technical_success_rate", "detected_genes", "mapping_rate"],
+      "design_checks": ["measurement_uniqueness", "metadata_completeness"],
+      "possible_next_actions": ["create_technical_feasibility_experiment", "collect_missing_metadata"]
+    },
+    {
+      "key": "input_degradation_stability",
+      "question": "Does RNA input or degradation affect expression stability?",
+      "stage": "FEASIBILITY",
+      "experiment_type": "INPUT_DEGRADATION_EXPLORATION",
+      "required_inputs": ["expression_bundle", "experiment_assignments"],
+      "required_metadata": ["measurement_id", "biological_sample_id", "input_ng", "dv200", "sequencing_run"],
+      "recommended_endpoints": ["expression_profile_correlation_to_reference", "detected_genes", "candidate_signature_score"],
+      "design_checks": ["paired_completeness", "reference_condition", "factor_confounding", "rank_deficiency"],
+      "possible_next_actions": ["create_input_degradation_experiment", "rebalance_run_assignments"]
+    },
+    {
+      "key": "largest_variance_source",
+      "question": "What is the largest source of variation?",
+      "stage": "EXPLORE",
+      "analysis_type": "dimension_reduction",
+      "required_inputs": ["expression_bundle"],
+      "required_metadata": ["biological_sample_id"],
+      "recommended_endpoints": ["principal_components", "sample_correlation"],
+      "design_checks": ["batch_outcome_alignment", "metadata_completeness"],
+      "possible_next_actions": ["create_guided_pca_analysis", "create_variance_source_experiment"]
+    },
+    {
+      "key": "cell_composition_signal",
+      "question": "Is cell composition affecting the observed signal?",
+      "stage": "EXPLORE",
+      "analysis_type": "deconvolution",
+      "required_inputs": ["expression_bundle"],
+      "required_metadata": ["outcome"],
+      "recommended_endpoints": ["cell_population_estimates", "adjusted_signal_sensitivity"],
+      "design_checks": ["outcome_completeness", "reference_compatibility"],
+      "possible_next_actions": ["create_guided_deconvolution_analysis", "compare_adjusted_and_unadjusted_results"]
+    },
+    {
+      "key": "differential_expression_signal",
+      "question": "Which expression features differ between the biological groups?",
+      "stage": "EXPLORE",
+      "analysis_type": "differential_expression",
+      "required_inputs": ["expression_bundle", "outcome_labels"],
+      "required_metadata": ["outcome", "biological_sample_id"],
+      "recommended_endpoints": ["effect_size", "false_discovery_rate", "model_diagnostics"],
+      "design_checks": ["contrast_replication", "model_rank", "batch_outcome_alignment"],
+      "possible_next_actions": ["create_guided_differential_expression_analysis", "review_model_sensitivity"]
+    },
+    {
+      "key": "candidate_signature_stability",
+      "question": "Does a candidate gene signature provide a stable biological endpoint?",
+      "stage": "DEVELOP",
+      "analysis_type": "signature",
+      "required_inputs": ["expression_bundle", "signature_definition"],
+      "required_metadata": ["outcome", "biological_sample_id"],
+      "recommended_endpoints": ["signature_score", "mapping_coverage", "phenotype_association"],
+      "design_checks": ["signature_mapping_coverage", "model_rank", "platform_boundary"],
+      "possible_next_actions": ["create_guided_signature_analysis", "review_candidate_endpoint"]
+    },
+    {
+      "key": "paired_condition_performance",
+      "question": "Which extraction or library-preparation condition performs best?",
+      "stage": "OPTIMIZE",
+      "experiment_type": "PAIRED_CONDITION_COMPARISON",
+      "required_inputs": ["expression_bundle", "experiment_assignments"],
+      "required_metadata": ["biological_sample_id", "method", "run", "operator", "reagent_lot"],
+      "recommended_endpoints": ["detected_genes", "mapping_rate", "expression_correlation", "failure_rate"],
+      "design_checks": ["paired_completeness", "factor_confounding", "reference_condition"],
+      "possible_next_actions": ["create_paired_condition_experiment", "collect_missing_pairs"]
+    },
+    {
+      "key": "multifactor_optimization",
+      "question": "Which constrained combination of assay-development factors best supports the declared endpoint?",
+      "stage": "OPTIMIZE",
+      "experiment_type": "MULTIFACTOR_OPTIMIZATION",
+      "required_inputs": ["expression_bundle", "experiment_assignments"],
+      "required_metadata": ["biological_sample_id", "run", "two_or_three_declared_factors"],
+      "recommended_endpoints": ["mean_expression", "detected_genes", "fixed_effect_estimates", "variance_decomposition"],
+      "design_checks": ["factor_level_coverage", "interaction_support", "model_rank", "residual_degrees_of_freedom"],
+      "possible_next_actions": ["create_multifactor_experiment", "simplify_sparse_design"]
+    },
+    {
+      "key": "classifier_signal",
+      "question": "Is there enough stable signal to build a classifier?",
+      "stage": "DEVELOP",
+      "analysis_type": "classifier",
+      "required_inputs": ["expression_bundle", "outcome_labels"],
+      "required_metadata": ["outcome", "biological_sample_id"],
+      "recommended_endpoints": ["nested_cv_roc_auc", "calibration", "feature_stability"],
+      "design_checks": ["class_balance", "group_leakage", "batch_outcome_alignment"],
+      "possible_next_actions": ["create_guided_classifier_analysis", "collect_external_cohort"]
+    },
+    {
+      "key": "classifier_lock_readiness",
+      "question": "Is the classifier ready to lock?",
+      "stage": "LOCK",
+      "required_inputs": ["candidate_model", "classifier_result", "model_card"],
+      "required_metadata": ["threshold_source", "validation_mode"],
+      "recommended_endpoints": ["deterministic_inference", "asset_integrity", "unresolved_confounding"],
+      "design_checks": ["leakage_audit", "feature_schema_complete", "model_manifest_complete"],
+      "possible_next_actions": ["review_model_candidate", "resolve_lock_blockers"]
+    },
+    {
+      "key": "precision_reproducibility",
+      "question": "Is the locked score repeatable and reproducible?",
+      "stage": "VALIDATE",
+      "study_type": "PRECISION_REPRODUCIBILITY",
+      "required_inputs": ["locked_model", "expression_bundle", "study_assignments"],
+      "required_metadata": ["measurement_id", "biological_sample_id", "replicate_id", "operator", "run"],
+      "recommended_endpoints": ["classifier_score", "predicted_class"],
+      "design_checks": ["repeated_measure_adequacy", "factor_structure", "criterion_computability"],
+      "possible_next_actions": ["create_precision_study", "add_replicates"]
+    },
+    {
+      "key": "input_degradation_limit_validation",
+      "question": "What is the lowest tested input or quality level meeting the locked-endpoint criteria?",
+      "stage": "VALIDATE",
+      "study_type": "INPUT_DEGRADATION_LIMIT",
+      "required_inputs": ["locked_model", "expression_bundle", "study_assignments"],
+      "required_metadata": ["measurement_id", "biological_sample_id", "input_level", "run"],
+      "recommended_endpoints": ["classifier_score", "predicted_class", "qc_failure"],
+      "design_checks": ["paired_level_completeness", "reference_level", "factor_confounding", "criterion_computability"],
+      "possible_next_actions": ["create_input_degradation_limit_study", "complete_missing_levels"]
+    },
+    {
+      "key": "paired_bridging_equivalence",
+      "question": "Is the candidate pipeline or assay change equivalent to the comparator?",
+      "stage": "VALIDATE",
+      "study_type": "PAIRED_BRIDGING",
+      "required_inputs": ["locked_model", "expression_bundle", "study_assignments"],
+      "required_metadata": ["biological_sample_id", "reference_condition", "challenge_condition"],
+      "recommended_endpoints": ["paired_bias", "categorical_agreement", "threshold_discordance"],
+      "design_checks": ["paired_completeness", "equivalence_margin_present", "criterion_computability"],
+      "possible_next_actions": ["create_paired_bridging_study", "define_equivalence_margin"]
+    },
+    {
+      "key": "robustness_interference_validation",
+      "question": "Does a realistic robustness or interference challenge cause unacceptable locked-endpoint changes?",
+      "stage": "VALIDATE",
+      "study_type": "ROBUSTNESS_INTERFERENCE",
+      "required_inputs": ["locked_model", "expression_bundle", "study_assignments"],
+      "required_metadata": ["biological_sample_id", "condition", "challenge_type", "run"],
+      "recommended_endpoints": ["mean_challenge_effect", "call_change_rate", "qc_failure_rate"],
+      "design_checks": ["paired_completeness", "challenge_run_confounding", "effect_margin_present", "criterion_computability"],
+      "possible_next_actions": ["create_robustness_interference_study", "review_challenge_failures"]
+    }
+  ]
+}

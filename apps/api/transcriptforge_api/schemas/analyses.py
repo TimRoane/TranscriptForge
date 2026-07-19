@@ -428,6 +428,8 @@ class CibersortxImportRequest(BaseModel):
 
 
 class AnalysisCreate(BaseModel):
+    assay_project_id: str | None = Field(default=None, min_length=1, max_length=100)
+    scientific_question_id: str | None = Field(default=None, min_length=1, max_length=100)
     name: str = Field(default="Principal component analysis", min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=4000)
     analysis_type: Literal[
@@ -623,6 +625,8 @@ class AnalysisRead(BaseModel):
     id: str
     project_id: str
     prepared_dataset_id: str
+    assay_project_id: str | None
+    scientific_question_id: str | None
     analysis_type: AnalysisType
     name: str
     description: str | None

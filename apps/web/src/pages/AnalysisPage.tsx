@@ -45,6 +45,7 @@ import {
   createGeneSignature,
   fetchAnalysis,
   fetchAnalysisRuns,
+  fetchAnalysisModels,
   fetchCorrelationHeatmap,
   fetchClassifierResults,
   fetchDendrogramPlot,
@@ -186,6 +187,11 @@ export function AnalysisPage() {
   const classifierResults = useQuery({
     queryKey: ['classifier-results', latest?.id],
     queryFn: ({ signal }) => fetchClassifierResults(latest!.id, signal),
+    enabled: succeeded && analysis.data?.analysis_type === 'classifier',
+  })
+  const models = useQuery({
+    queryKey: ['analysis-models', analysisId, latest?.id],
+    queryFn: ({ signal }) => fetchAnalysisModels(analysisId, signal),
     enabled: succeeded && analysis.data?.analysis_type === 'classifier',
   })
   const deconvolutionComparison = useQuery({
@@ -539,10 +545,12 @@ export function AnalysisPage() {
               </Table>
             </TableContainer>
             <Alert severity="warning" sx={{ mt: 2 }}>
-              A locked research model, model card, inference schema, and prediction template are
-              available below. This lock occurs only after internal validation; performance still
-              requires an untouched compatible external cohort.
+              A candidate research model, model card, inference schema, and prediction template are
+              available below. The model remains editable-development evidence until a scientist
+              reviews and explicitly locks it; performance still requires an untouched compatible
+              external cohort.
             </Alert>
+            {models.data && <Stack spacing={1.5} mt={2}>{models.data.map((model) => <Paper component={RouterLink} to={`/models/${model.id}`} variant="outlined" key={model.id} sx={{ p: 2, display: 'block', color: 'inherit', textDecoration: 'none', '&:hover': { borderColor: 'secondary.main' } }}><Stack direction="row" justifyContent="space-between" gap={1}><div><Typography fontWeight={700}>{model.model_name}</Typography><Typography variant="body2" color="text.secondary">{model.feature_count} features · inference fixture {model.inference_test_status}</Typography></div><Chip label={model.status} color={model.status === 'LOCKED' ? 'success' : model.status === 'REVIEWED' ? 'secondary' : 'warning'} /></Stack></Paper>)}</Stack>}
             {artifacts.data && (
               <Stack direction="row" spacing={2} mt={2} flexWrap="wrap" useFlexGap>
                 {artifacts.data.filter((artifact) => artifact.artifact_type.startsWith('classifier_') || ['analysis_report', 'analysis_report_source'].includes(artifact.artifact_type)).map((artifact) => (

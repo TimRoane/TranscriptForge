@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.local/contracts/experiment/decision-summary/1.0.0",
+  "title": "Development Experiment Decision Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "question", "finding", "evidence", "limitations", "criteria_mode", "condition_results", "recommended_next_action_ids", "scientist_decision_required"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "question": {"type": "string", "minLength": 1},
+    "finding": {"type": "string", "minLength": 1},
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["type", "path"],
+        "properties": {
+          "type": {"type": "string", "minLength": 1},
+          "path": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "limitations": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "criteria_mode": {"enum": ["exploratory", "prespecified_acceptance"]},
+    "condition_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["input_ng", "measurement_count", "mean_profile_correlation", "median_profile_correlation", "confidence_interval_95", "mean_detected_genes", "mean_expression", "paired_reference", "descriptive_stability_indicator"],
+            "properties": {
+              "input_ng": {"type": "number", "exclusiveMinimum": 0},
+              "measurement_count": {"type": "integer", "minimum": 1},
+              "mean_profile_correlation": {"type": "number", "minimum": -1, "maximum": 1},
+              "median_profile_correlation": {"type": "number", "minimum": -1, "maximum": 1},
+              "confidence_interval_95": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["lower", "upper", "method"],
+                "properties": {
+                  "lower": {"type": "number", "minimum": -1, "maximum": 1},
+                  "upper": {"type": "number", "minimum": -1, "maximum": 1},
+                  "method": {"const": "normal_approximation_descriptive"}
+                }
+              },
+              "mean_detected_genes": {"type": "number", "minimum": 0},
+              "mean_expression": {"type": "number"},
+              "paired_reference": {"type": "boolean"},
+              "descriptive_stability_indicator": {"type": "boolean"}
+            }
+          },
+          {
+            "type": "object",
+            "required": ["reference_condition", "comparator_condition", "pair_count", "mean_paired_difference", "paired_difference_confidence_interval_95", "median_profile_correlation", "mean_profile_correlation", "mean_profile_discordance", "reference_failure_rate", "comparator_failure_rate", "failure_rate_difference", "discordant_pair_count", "condition_by_quality_interaction"],
+            "properties": {
+              "reference_condition": {"type": "string", "minLength": 1},
+              "comparator_condition": {"type": "string", "minLength": 1},
+              "pair_count": {"type": "integer", "minimum": 3},
+              "mean_paired_difference": {"type": "number"},
+              "paired_difference_confidence_interval_95": {"type": "object"},
+              "median_profile_correlation": {"type": "number", "minimum": -1, "maximum": 1},
+              "mean_profile_correlation": {"type": "number", "minimum": -1, "maximum": 1},
+              "mean_profile_discordance": {"type": "number", "minimum": 0, "maximum": 2},
+              "reference_failure_rate": {"type": "number", "minimum": 0, "maximum": 1},
+              "comparator_failure_rate": {"type": "number", "minimum": 0, "maximum": 1},
+              "failure_rate_difference": {"type": "number", "minimum": -1, "maximum": 1},
+              "discordant_pair_count": {"type": "integer", "minimum": 0},
+              "condition_by_quality_interaction": {"type": "object"}
+            }
+          }
+        ]
+      }
+    },
+    "recommended_next_action_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "scientist_decision_required": {"const": true}
+  }
+}

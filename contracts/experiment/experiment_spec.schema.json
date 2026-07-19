@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.local/contracts/experiment-spec/1.0.0",
+  "title": "Immutable Development Experiment execution revision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "experiment", "assay_context", "question", "inputs", "sample_structure", "factors", "endpoints", "analysis_plan", "success_guidance", "rationales"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "experiment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["experiment_id", "name", "type", "stage", "objective", "exploratory", "mode", "revision"],
+      "properties": {
+        "experiment_id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "type": {"enum": ["TECHNICAL_FEASIBILITY", "PAIRED_CONDITION_COMPARISON", "MULTIFACTOR_OPTIMIZATION", "INPUT_DEGRADATION_EXPLORATION", "SEQUENCING_DEPTH_EXPLORATION", "VARIANCE_SOURCE_INVESTIGATION", "QC_RULE_EVALUATION", "BATCH_CONFOUNDER_INVESTIGATION"]},
+        "stage": {"enum": ["FEASIBILITY", "EXPLORE", "OPTIMIZE", "DEVELOP"]},
+        "objective": {"type": "string", "minLength": 1},
+        "exploratory": {"type": "boolean"},
+        "mode": {"enum": ["PLAN_FIRST", "ANALYZE_EXISTING"]},
+        "revision": {"type": "integer", "minimum": 1}
+      }
+    },
+    "assay_context": {
+      "type": "object", "additionalProperties": false,
+      "required": ["specimen_type", "proposed_output", "assay_version"],
+      "properties": {
+        "specimen_type": {"type": "string", "minLength": 1},
+        "proposed_output": {"type": "string", "minLength": 1},
+        "assay_version": {"type": "string", "minLength": 1}
+      }
+    },
+    "question": {
+      "type": "object", "additionalProperties": false,
+      "required": ["question_key", "plain_language", "decision_to_inform"],
+      "properties": {
+        "question_key": {"type": "string", "minLength": 1},
+        "plain_language": {"type": "string", "minLength": 1},
+        "decision_to_inform": {"type": "string", "minLength": 1}
+      }
+    },
+    "inputs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assignment_table", "expression_bundles"],
+      "properties": {
+        "assignment_table": {"type": "string", "minLength": 1},
+        "expression_bundles": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["prepared_dataset_id", "role"], "properties": {"prepared_dataset_id": {"type": "string", "minLength": 1}, "role": {"enum": ["development", "reference", "comparator"]}, "sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}}}}
+      }
+    },
+    "sample_structure": {
+      "type": "object", "additionalProperties": false,
+      "required": ["measurement_id", "biological_sample_id"],
+      "properties": {
+        "measurement_id": {"type": "string", "minLength": 1},
+        "biological_sample_id": {"type": "string", "minLength": 1},
+        "replicate_id": {"type": ["string", "null"]},
+        "pair_id": {"type": ["string", "null"]}
+      }
+    },
+    "factors": {
+      "type": "array", "minItems": 1,
+      "items": {"type": "object", "additionalProperties": false, "required": ["name", "type", "role"], "properties": {"name": {"type": "string", "minLength": 1}, "type": {"enum": ["ordered_numeric", "continuous", "categorical"]}, "role": {"enum": ["primary", "covariate", "blocking"]}}}
+    },
+    "endpoints": {
+      "type": "object", "additionalProperties": false, "required": ["primary", "secondary"],
+      "properties": {"primary": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "secondary": {"type": "array", "items": {"type": "string"}}}
+    },
+    "analysis_plan": {"type": "object", "required": ["template", "confidence_level", "missing_value_policy"], "properties": {"template": {"type": "string", "minLength": 1}, "reference_level": {}, "confidence_level": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1}, "missing_value_policy": {"enum": ["fail_required_endpoint", "exclude_with_reason"]}}},
+    "success_guidance": {"type": "object", "additionalProperties": false, "required": ["mode", "declared_questions"], "properties": {"mode": {"enum": ["exploratory", "prespecified_criteria"]}, "declared_questions": {"type": "array", "minItems": 1, "items": {"type": "string"}}}},
+    "rationales": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "minLength": 1}}
+  }
+}

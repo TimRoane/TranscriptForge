@@ -21,7 +21,9 @@ class Settings(BaseSettings):
     deployment_mode: Literal["single_user_local"] = "single_user_local"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
-    database_url: str = "postgresql+asyncpg://transcriptforge:transcriptforge@localhost:5432/transcriptforge"
+    database_url: str = (
+        "postgresql+asyncpg://transcriptforge:transcriptforge@localhost:5432/transcriptforge"
+    )
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/1"
     storage_backend: str = "local"
@@ -40,7 +42,12 @@ class Settings(BaseSettings):
     max_upload_bytes: int = Field(default=25 * 1024**3, ge=1)
     project_upload_quota_bytes: int = Field(default=100 * 1024**3, ge=1)
     temporary_upload_retention_seconds: int = Field(default=24 * 60 * 60, ge=3600)
-    cors_origins: list[AnyHttpUrl] = Field(default_factory=lambda: [AnyHttpUrl("http://localhost:5173")])
+    guided_assay_development_enabled: bool = True
+    assay_experiment_execution_enabled: bool = True
+    assay_study_execution_enabled: bool = True
+    cors_origins: list[AnyHttpUrl] = Field(
+        default_factory=lambda: [AnyHttpUrl("http://localhost:5173")]
+    )
 
 
 @lru_cache

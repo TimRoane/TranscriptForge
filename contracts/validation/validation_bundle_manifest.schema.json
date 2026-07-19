@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.local/contracts/validation-bundle-manifest/1.0.0",
+  "title": "TranscriptForge Validation Bundle manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "bundle_type",
+    "study_id",
+    "study_type",
+    "revision",
+    "overall_status",
+    "locked_model_id",
+    "model_retrained",
+    "files",
+    "scientist_decision_required",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "bundle_type": {"const": "validation_bundle"},
+    "study_id": {"type": "string", "minLength": 1},
+    "study_type": {
+      "enum": [
+        "PRECISION_REPRODUCIBILITY",
+        "INPUT_DEGRADATION_LIMIT",
+        "PAIRED_BRIDGING",
+        "ROBUSTNESS_INTERFERENCE"
+      ]
+    },
+    "revision": {"type": "integer", "minimum": 1},
+    "overall_status": {"enum": ["PASS", "FAIL", "INDETERMINATE"]},
+    "locked_model_id": {"type": "string", "minLength": 1},
+    "model_retrained": {"const": false},
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "size_bytes", "sha256"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "size_bytes": {"type": "integer", "minimum": 0},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        }
+      }
+    },
+    "scientist_decision_required": {"const": true},
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  }
+}

@@ -7,6 +7,7 @@ process RUN_MODEL_PREDICTION {
 
     input:
     path model
+    path model_manifest
     path expression_bundle
     path analysis_package
 
@@ -21,6 +22,7 @@ process RUN_MODEL_PREDICTION {
     fi
     PYTHONPATH=. "\${PYTHON_EXECUTABLE}" -m transcriptforge_analysis.classifier_prediction_cli \
       --model ${model} \
+      --model-manifest ${model_manifest} \
       --bundle ${expression_bundle} \
       --output-dir results
     """

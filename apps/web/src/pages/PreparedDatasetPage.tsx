@@ -19,7 +19,7 @@ import {
 } from '@mui/material'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
+import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import {
   artifactDownloadUrl,
@@ -88,7 +88,14 @@ function normalizedVariableName(name: string) {
 
 export function PreparedDatasetPage() {
   const { preparedDatasetId = '' } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const assayProjectId = searchParams.get('assayProjectId') || ''
+  const scientificQuestionId = searchParams.get('scientificQuestionId') || ''
+  const guidedAnalysisType = searchParams.get('guidedAnalysisType') || ''
+  const guidedContext = assayProjectId && scientificQuestionId
+    ? { assay_project_id: assayProjectId, scientific_question_id: scientificQuestionId }
+    : undefined
   const [method, setMethod] = useState<DimensionReductionMethod>('pca')
   const [componentCount, setComponentCount] = useState(10)
   const [scaleFeatures, setScaleFeatures] = useState(false)
@@ -287,6 +294,7 @@ export function PreparedDatasetPage() {
           perplexity,
         },
         random_seed: 20260716,
+        ...(guidedAnalysisType === 'dimension_reduction' ? guidedContext : undefined),
       })
       await runAnalysis(analysis.id)
       return analysis
@@ -301,6 +309,7 @@ export function PreparedDatasetPage() {
       method: deMethod,
       parameters: deParameters,
       random_seed: 20260716,
+      ...(guidedAnalysisType === 'differential_expression' ? guidedContext : undefined),
     }),
     onSuccess: (analysis) => navigate(`/analyses/${analysis.id}`),
   })
@@ -322,6 +331,7 @@ export function PreparedDatasetPage() {
 
   return (
     <Stack spacing={3}>
+      {guidedContext && <Alert severity="info">Guided analysis configuration: the saved analysis will remain linked to the declared scientific question. Review every design choice; opening this page does not launch work.</Alert>}
       {dataset.data && (
         <Link
           component={RouterLink}
@@ -759,12 +769,13 @@ export function PreparedDatasetPage() {
         <SignatureMappingPanel
           preparedDatasetId={preparedDatasetId}
           projectId={dataset.data.project_id}
+          guidedContext={guidedAnalysisType === 'signature' ? guidedContext : undefined}
         />
       )}
 
-      <DeconvolutionSetupPanel preparedDatasetId={preparedDatasetId} />
+      <DeconvolutionSetupPanel preparedDatasetId={preparedDatasetId} guidedContext={guidedAnalysisType === 'deconvolution' ? guidedContext : undefined} />
 
-      <ClassifierSetupPanel preparedDatasetId={preparedDatasetId} />
+      <ClassifierSetupPanel preparedDatasetId={preparedDatasetId} guidedContext={guidedAnalysisType === 'classifier' ? guidedContext : undefined} />
 
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Stack spacing={2.5}>

@@ -19,6 +19,9 @@ include { MULTIQC_RAW_RNASEQ } from './modules/local/multiqc/main'
 include { BUILD_RAW_EXPRESSION_BUNDLE } from './modules/local/build_raw_expression_bundle/main'
 include { PREPARE_AFFYMETRIX } from './modules/local/prepare_affymetrix/main'
 include { BUILD_MICROARRAY_EXPRESSION_BUNDLE } from './modules/local/build_microarray_expression_bundle/main'
+include { VALIDATE_EXPERIMENT_DESIGN } from './modules/local/validate_experiment_design/main'
+include { RUN_INPUT_DEGRADATION_EXPERIMENT } from './modules/local/run_assay_experiment/main'
+include { RUN_PRECISION_REPRODUCIBILITY_STUDY } from './modules/local/run_assay_study/main'
 
 params.outdir = params.outdir ?: 'results'
 params.reference_cache = params.reference_cache ?: '.transcriptforge-reference-cache'
@@ -26,6 +29,14 @@ params.reference_cache_uri = params.reference_cache_uri ?: null
 params.prepared_dataset_id = params.prepared_dataset_id ?: null
 params.prepared_version = params.prepared_version ?: null
 params.reference_asset_dir = params.reference_asset_dir ?: null
+params.experiment_spec = params.experiment_spec ?: null
+params.experiment_assignments = params.experiment_assignments ?: null
+params.expression_bundle = params.expression_bundle ?: null
+params.analysis_python = params.analysis_python ?: 'python3'
+params.study_spec = params.study_spec ?: null
+params.study_assignments = params.study_assignments ?: null
+params.model = params.model ?: null
+params.model_manifest = params.model_manifest ?: null
 
 process PHASE0_SMOKE {
     tag 'phase0-smoke'
@@ -62,7 +73,6 @@ workflow VALIDATE_DATASET {
         type: 'dir',
         checkIfExists: true
     )
-
     VALIDATE_COUNT_MATRIX(
         validation_config_ch,
         matrix_ch,
@@ -169,6 +179,96 @@ workflow RUN_ANALYSIS {
     } else {
         error "Unsupported analysis type: ${analysisRequest.analysis_type}"
     }
+}
+
+workflow RUN_ASSAY_EXPERIMENT {
+    if (!params.experiment_spec || !params.experiment_assignments || !params.expression_bundle) {
+        error 'RUN_ASSAY_EXPERIMENT requires --experiment_spec, --experiment_assignments, and --expression_bundle.'
+    }
+
+    experiment_spec_ch = Channel.fromPath(params.experiment_spec, checkIfExists: true)
+    experiment_assignments_ch = Channel.fromPath(
+        params.experiment_assignments,
+        checkIfExists: true
+    )
+    expression_bundle_ch = Channel.fromPath(params.expression_bundle, checkIfExists: true)
+    experiment_schema_ch = Channel.fromPath(
+        "${projectDir}/../contracts/experiment/experiment_spec.schema.json",
+        checkIfExists: true
+    )
+    analysis_package_ch = Channel.fromPath(
+        "${projectDir}/../analysis/python/transcriptforge_analysis",
+        type: 'dir',
+        checkIfExists: true
+    )
+    def experimentSpec = new groovy.json.JsonSlurper().parse(new File(params.experiment_spec))
+    def supportedExperiments = ['TECHNICAL_FEASIBILITY', 'INPUT_DEGRADATION_EXPLORATION', 'PAIRED_CONDITION_COMPARISON', 'MULTIFACTOR_OPTIMIZATION']
+    if (!supportedExperiments.contains(experimentSpec.experiment.type)) {
+        error "Unsupported development experiment type: ${experimentSpec.experiment.type}."
+    }
+
+    VALIDATE_EXPERIMENT_DESIGN(
+        experiment_spec_ch,
+        experiment_assignments_ch,
+        experiment_schema_ch,
+        analysis_package_ch
+    )
+    RUN_INPUT_DEGRADATION_EXPERIMENT(
+        experiment_spec_ch,
+        experiment_assignments_ch,
+        expression_bundle_ch,
+        VALIDATE_EXPERIMENT_DESIGN.out.validation,
+        analysis_package_ch
+    )
+
+    emit:
+    design_validation = VALIDATE_EXPERIMENT_DESIGN.out.validation
+    development_evidence_bundle = RUN_INPUT_DEGRADATION_EXPERIMENT.out.bundle
+    development_evidence_archive = RUN_INPUT_DEGRADATION_EXPERIMENT.out.archive
+}
+
+workflow RUN_ASSAY_STUDY {
+    if (!params.study_spec || !params.study_assignments || !params.expression_bundle) {
+        error 'RUN_ASSAY_STUDY requires --study_spec, --study_assignments, and --expression_bundle.'
+    }
+    if (!params.model || !params.model_manifest) {
+        error 'RUN_ASSAY_STUDY requires a locked --model and --model_manifest.'
+    }
+
+    study_spec_ch = Channel.fromPath(params.study_spec, checkIfExists: true)
+    study_assignments_ch = Channel.fromPath(params.study_assignments, checkIfExists: true)
+    expression_bundle_ch = Channel.fromPath(params.expression_bundle, checkIfExists: true)
+    model_ch = Channel.fromPath(params.model, checkIfExists: true)
+    model_manifest_ch = Channel.fromPath(params.model_manifest, checkIfExists: true)
+    analysis_package_ch = Channel.fromPath(
+        "${projectDir}/../analysis/python/transcriptforge_analysis",
+        type: 'dir',
+        checkIfExists: true
+    )
+    validation_contracts_ch = Channel.fromPath(
+        "${projectDir}/../contracts/validation",
+        type: 'dir',
+        checkIfExists: true
+    )
+    def studySpec = new groovy.json.JsonSlurper().parse(new File(params.study_spec))
+    def supportedStudies = ['PRECISION_REPRODUCIBILITY', 'INPUT_DEGRADATION_LIMIT', 'PAIRED_BRIDGING', 'ROBUSTNESS_INTERFERENCE']
+    if (!supportedStudies.contains(studySpec.study.type)) {
+        error "Unsupported analytical study type: ${studySpec.study.type}."
+    }
+
+    RUN_PRECISION_REPRODUCIBILITY_STUDY(
+        study_spec_ch,
+        study_assignments_ch,
+        expression_bundle_ch,
+        model_ch,
+        model_manifest_ch,
+        analysis_package_ch,
+        validation_contracts_ch
+    )
+
+    emit:
+    validation_bundle = RUN_PRECISION_REPRODUCIBILITY_STUDY.out.bundle
+    validation_archive = RUN_PRECISION_REPRODUCIBILITY_STUDY.out.archive
 }
 
 workflow PREPARE_RAW_RNASEQ {
@@ -295,11 +395,12 @@ workflow RUN_DEMO {
 }
 
 workflow PREDICT_WITH_MODEL {
-    if (!params.model || !params.expression_bundle) {
-        error 'PREDICT_WITH_MODEL requires --model and --expression_bundle.'
+    if (!params.model || !params.model_manifest || !params.expression_bundle) {
+        error 'PREDICT_WITH_MODEL requires --model, --model_manifest, and --expression_bundle.'
     }
 
     model_ch = Channel.fromPath(params.model, checkIfExists: true)
+    manifest_ch = Channel.fromPath(params.model_manifest, checkIfExists: true)
     bundle_ch = Channel.fromPath(params.expression_bundle, checkIfExists: true)
     analysis_package_ch = Channel.fromPath(
         "${projectDir}/../analysis/python/transcriptforge_analysis",
@@ -307,7 +408,7 @@ workflow PREDICT_WITH_MODEL {
         checkIfExists: true
     )
 
-    RUN_MODEL_PREDICTION(model_ch, bundle_ch, analysis_package_ch)
+    RUN_MODEL_PREDICTION(model_ch, manifest_ch, bundle_ch, analysis_package_ch)
 
     emit:
     results = RUN_MODEL_PREDICTION.out.results

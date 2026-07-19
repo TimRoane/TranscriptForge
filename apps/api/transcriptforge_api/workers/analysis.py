@@ -12,7 +12,15 @@ from typing import Any
 from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 
 from transcriptforge_api.config import Settings, get_settings
-from transcriptforge_api.models import Artifact, ModelRecord, Run
+from transcriptforge_api.models import (
+    Analysis,
+    Artifact,
+    AssayAuditEvent,
+    AssayDevelopmentProject,
+    GuidanceResult,
+    ModelRecord,
+    Run,
+)
 from transcriptforge_api.models.enums import RunState, RunType
 from transcriptforge_api.storage import get_storage_backend
 from transcriptforge_api.storage.base import StorageBackend
@@ -42,6 +50,9 @@ class AnalysisRunSnapshot:
 
 
 _SCHEMA_ROOT = Path(__file__).resolve().parents[4] / "schemas"
+_GUIDANCE_SCHEMA = (
+    Path(__file__).resolve().parents[4] / "contracts/guidance/guidance_result.schema.json"
+)
 
 
 def run_analysis_workflow(
@@ -198,9 +209,52 @@ def run_analysis_workflow(
                     "validation": "internal_grouped_repeated_nested_cross_validation",
                 },
                 "feature_count": len(locked_model["selected_feature_ids"]),
+                "status": "CANDIDATE",
+                "feature_schema_sha256": hashlib.sha256(
+                    json.dumps(locked_model["selected_feature_ids"], separators=(",", ":")).encode()
+                ).hexdigest(),
+                "preprocessing_sha256": hashlib.sha256(
+                    json.dumps(
+                        locked_model["preprocessing"], sort_keys=True, separators=(",", ":")
+                    ).encode()
+                ).hexdigest(),
+                "threshold_sha256": hashlib.sha256(
+                    json.dumps(
+                        _classifier_decision_rule(locked_model),
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode()
+                ).hexdigest(),
+                "training_dataset_refs_json": [
+                    {"prepared_dataset_id": locked_model["prepared_dataset_id"]}
+                ],
+                "validation_dataset_refs_json": [
+                    {
+                        "mode": "internal_grouped_repeated_nested_cross_validation",
+                        "run_id": run_id,
+                    }
+                ],
+                "container_digest": "sha256:"
+                + hashlib.sha256(
+                    json.dumps(
+                        classifier_payload.get("software", {}),
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode()
+                ).hexdigest(),
             }
+        guidance_payload = _write_guidance_result(frozen, result_manifest.parent)
         artifacts = _store_artifacts(storage, run_id, _artifact_specs(run_root))
-        asyncio.run(_mark_succeeded(settings, snapshot, artifacts, session_id, classifier_registry))
+        asyncio.run(
+            _mark_succeeded(
+                settings,
+                snapshot,
+                artifacts,
+                session_id,
+                classifier_registry,
+                guidance_payload,
+            )
+        )
         return {"run_id": run_id, "state": RunState.SUCCEEDED.value}
     except RunCancelled as error:
         asyncio.run(_mark_cancelled(settings, snapshot, error))
@@ -221,6 +275,143 @@ def _validate_json_contract(payload: Any, schema_name: str, label: str) -> None:
         first = errors[0]
         location = ".".join(str(part) for part in first.path) or "root"
         raise RuntimeError(f"{label} violates {schema_name} at {location}: {first.message}")
+
+
+def _classifier_decision_rule(model: dict[str, Any]) -> dict[str, Any]:
+    if model["model_type"] == "binary_elastic_net_logistic_regression":
+        return {
+            "operator": "gte",
+            "threshold": model["decision_threshold"],
+            "positive_class": model["positive_class"],
+            "negative_class": model["negative_class"],
+        }
+    return {"operator": "argmax", "classes": model["classes"]}
+
+
+def _write_guidance_result(frozen: dict[str, Any], results_dir: Path) -> dict[str, Any] | None:
+    context = frozen.get("guided_context")
+    if not isinstance(context, dict):
+        return None
+    analysis_type = str(frozen["analysis_type"])
+    evidence_candidates: dict[str, list[tuple[str, str]]] = {
+        "dimension_reduction": [
+            ("pca_plot", "pca_plot.json"),
+            ("embedding_plot", "embedding_plot.json"),
+            ("dendrogram_plot", "dendrogram_plot.json"),
+        ],
+        "differential_expression": [
+            ("differential_expression_results", "differential_expression.tsv"),
+            ("method_diagnostics", "method_diagnostics.json"),
+        ],
+        "deconvolution": [("deconvolution_results", "deconvolution_results.json")],
+        "signature": [("signature_scores", "signature_scores.json")],
+        "classifier": [("classifier_results", "classifier_results.json")],
+    }
+    references: list[dict[str, str]] = []
+    for artifact_type, relative_path in [
+        ("result_manifest", "result_manifest.json"),
+        *evidence_candidates.get(analysis_type, []),
+    ]:
+        path = results_dir / relative_path
+        if path.is_file():
+            references.append(
+                {
+                    "artifact_type": artifact_type,
+                    "path": relative_path,
+                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                }
+            )
+    labels = {
+        "dimension_reduction": (
+            "The guided variation analysis completed over the frozen expression measurements."
+        ),
+        "differential_expression": (
+            "The guided differential-expression model completed with its frozen design and "
+            "contrast."
+        ),
+        "deconvolution": (
+            "The guided cell-composition analysis completed using the declared reference and "
+            "assay semantics."
+        ),
+        "signature": (
+            "The guided signature analysis completed using the frozen mapping and scoring method."
+        ),
+        "classifier": (
+            "The leakage-resistant classifier development run completed with grouped nested "
+            "validation."
+        ),
+    }
+    risks = {
+        "dimension_reduction": (
+            "Observed component structure is associative and requires biological and technical "
+            "metadata review."
+        ),
+        "differential_expression": (
+            "Association does not establish causality; residual confounding and model sensitivity "
+            "remain scientist-reviewed."
+        ),
+        "deconvolution": (
+            "Reference mismatch and cell-state effects may influence estimates; inferred "
+            "populations are not direct cell counts."
+        ),
+        "signature": (
+            "Raw score magnitudes are not transferable across cohorts, platforms, or "
+            "preprocessing pipelines."
+        ),
+        "classifier": (
+            "Internal cross-validation is not independent external validation and does not "
+            "establish clinical performance."
+        ),
+    }
+    actions = {
+        "dimension_reduction": (
+            "Review component grouping against declared biological and technical variables."
+        ),
+        "differential_expression": (
+            "Review effect direction, multiplicity, model diagnostics, and prespecified "
+            "sensitivity analyses."
+        ),
+        "deconvolution": (
+            "Review reference overlap and test whether composition is associated with the "
+            "biological endpoint."
+        ),
+        "signature": (
+            "Review mapping coverage and score association before selecting a candidate endpoint."
+        ),
+        "classifier": (
+            "Review leakage audits, calibration, feature stability, and external-validation "
+            "requirements before model review."
+        ),
+    }
+    payload: dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "assay_project_id": context["assay_project_id"],
+        "scientific_question_id": context["scientific_question_id"],
+        "analysis_id": frozen["analysis_id"],
+        "run_id": frozen["run_id"],
+        "analysis_type": analysis_type,
+        "question_answered": context["question"],
+        "important_findings": [labels[analysis_type]],
+        "quality_warnings": [
+            "This deterministic summary points to source artifacts; it does not replace "
+            "scientist interpretation."
+        ],
+        "unresolved_risks": [risks[analysis_type]],
+        "recommended_next_actions": [actions[analysis_type]],
+        "evidence_refs": references,
+        "scientist_decision_required": True,
+    }
+    schema = json.loads(_GUIDANCE_SCHEMA.read_text(encoding="utf-8"))
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(payload),
+        key=lambda item: tuple(str(part) for part in item.path),
+    )
+    if errors:
+        raise RuntimeError(f"GuidanceResult violates its contract: {errors[0].message}")
+    (results_dir / "guidance_result.json").write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return payload
 
 
 def _stage_bundle(storage: StorageBackend, item: dict[str, Any], input_dir: Path) -> Path:
@@ -276,6 +467,13 @@ def _nextflow_command(
 def _artifact_specs(run_root: Path) -> list[ArtifactSpec]:
     analysis = run_root / "output" / "analysis" / "results"
     candidates = [
+        ArtifactSpec(
+            "guidance_result",
+            "Question-aware guidance result",
+            analysis / "guidance_result.json",
+            "application/json",
+            0,
+        ),
         ArtifactSpec(
             "classifier_results",
             "Structured classifier results",
@@ -757,6 +955,7 @@ async def _mark_succeeded(
     artifacts: list[dict[str, Any]],
     session_id: str | None,
     classifier_registry: dict[str, Any] | None = None,
+    guidance_payload: dict[str, Any] | None = None,
 ) -> None:
     async with _worker_session(settings) as session:
         run = await session.get(Run, snapshot.id)
@@ -766,6 +965,50 @@ async def _mark_succeeded(
             raise RunCancelled("Cancelled by user.")
         for item in artifacts:
             session.add(Artifact(run_id=run.id, metadata_json={}, **item))
+        if guidance_payload is not None:
+            guidance_artifact = next(
+                (item for item in artifacts if item["artifact_type"] == "guidance_result"),
+                None,
+            )
+            analysis = await session.get(Analysis, snapshot.analysis_id)
+            if guidance_artifact is None or analysis is None:
+                raise RuntimeError("Guided analysis completed without a guidance artifact.")
+            if (
+                analysis.assay_project_id != guidance_payload["assay_project_id"]
+                or analysis.scientific_question_id != guidance_payload["scientific_question_id"]
+            ):
+                raise RuntimeError("GuidanceResult lineage disagrees with the saved analysis.")
+            session.add(
+                GuidanceResult(
+                    assay_project_id=guidance_payload["assay_project_id"],
+                    question_id=guidance_payload["scientific_question_id"],
+                    analysis_id=snapshot.analysis_id,
+                    run_id=run.id,
+                    payload_json=guidance_payload,
+                    artifact_uri=guidance_artifact["storage_uri"],
+                    artifact_sha256=guidance_artifact["sha256"],
+                )
+            )
+            assay_project = await session.get(
+                AssayDevelopmentProject, guidance_payload["assay_project_id"]
+            )
+            if assay_project is None:
+                raise RuntimeError("Guided assay workspace disappeared before completion.")
+            session.add(
+                AssayAuditEvent(
+                    assay_project_id=assay_project.id,
+                    event_type="GUIDANCE_RESULT_CREATED",
+                    actor="system",
+                    object_type="GuidanceResult",
+                    object_id=run.id,
+                    hashes_json={"guidance_result": guidance_artifact["sha256"]},
+                    details_json={
+                        "analysis_id": snapshot.analysis_id,
+                        "question_id": guidance_payload["scientific_question_id"],
+                        "evidence_refs": guidance_payload["evidence_refs"],
+                    },
+                )
+            )
         if classifier_registry is not None:
             artifact_by_type = {item["artifact_type"]: item for item in artifacts}
             model_artifact = artifact_by_type.get("classifier_model")
@@ -778,6 +1021,7 @@ async def _mark_succeeded(
                     run_id=run.id,
                     model_uri=model_artifact["storage_uri"],
                     model_card_uri=card_artifact["storage_uri"],
+                    model_object_sha256=model_artifact["sha256"],
                     **classifier_registry,
                 )
             )
@@ -785,6 +1029,12 @@ async def _mark_succeeded(
         run.exit_code = 0
         run.nextflow_session_id = session_id
         run.finished_at = datetime.now(UTC)
+        if guidance_payload is not None:
+            from transcriptforge_api.services.guided_assay import recompute_guidance
+
+            assert assay_project is not None
+            await session.flush()
+            await recompute_guidance(session, assay_project, commit=False)
         await session.commit()
 
 
