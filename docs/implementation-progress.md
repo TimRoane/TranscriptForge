@@ -35,6 +35,17 @@ The completed base platform is now being extended according to `TranscriptForge_
   - [x] Added constrained multifactor optimization with a two-to-three-factor/two-interaction cap, repeated-sample and run blocking, rank/residual-DF/sparse-cell rejection, fixed-effect intervals, descriptive variance decomposition, response surfaces only for supported two-numeric-factor designs, type-aware GUI/API/scientific coverage, and direct Nextflow evidence.
 - [x] G7: Added a one-command, cache-aware seven-template Nextflow portfolio acceptance; guided tutorial and human-judgment table; assay lifecycle architecture diagram; local runtime/checksum evidence; README walkthrough links; and an explicit owner-gated AWS Batch parity procedure without claiming an unexecuted cloud run.
 
+## Complete end-to-end assay demonstration
+
+- [x] Added five checksum-stable synthetic datasets sharing 2,000 Ensembl features: 18 feasibility, 24 optimization, 96 classifier-development, 32 precision/reproducibility, and 24 robustness measurements.
+- [x] Added declared positive/negative classifier, degradation, method, run, borderline-sample, and 1,000-feature null truth blocks with byte-identity and balance tests.
+- [x] Added `make seed-complete-assay-demo`, an idempotent public-API/worker/Nextflow seed that preserves the confounded teaching revision, repairs its child, runs PCA/DE/optimization/classifier evidence, reviews and locks the model, completes two no-retraining studies, records decisions, and reaches `REPORT`.
+- [x] Added checkpointed resume, cancelled-analysis retry, stable-name configuration conflict rejection, immutable ID reuse, source checksums, direct GUI URLs, and machine-readable completion evidence.
+- [x] Added `GET /api/assay-projects/{id}/models`, model-lineage cards on the assay dashboard, terminal REPORT readiness, locked-model readiness persistence, experiment clone lineage, evidence counts, and frontend/API coverage.
+- [x] Corrected canonical gzipped assay-member reading for Analytical Study feature compatibility and corrected whole-project deletion ordering for lifecycle records with immutable input constraints.
+- [x] Added a hiring-manager walkthrough and four current GUI captures for terminal lifecycle status, repaired feasibility, model lock, and robustness evidence.
+- [x] Measured a clean 32-core workstation run at 123.8 seconds and a no-duplicate cached rerun at 0.40 seconds (3 experiments, 1 model, 2 studies retained).
+
 Last updated: 2026-07-18
 
 This file is the durable continuation checkpoint for Codex sessions. Update it after every implementation session.
@@ -42,9 +53,9 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 ## Current position
 
 - Active roadmap phase: Revised assay-development amendment complete
-- Active milestone: None — implementation plan complete
+- Active milestone: None — implementation plan and complete synthetic demonstration complete
 - Current task: Owner review, optional live AWS Batch parity, and future debt-register work only.
-- Overall milestone status: The base implementation plan and revised assay-development amendment G0-G7 are implemented and locally verified. The application remains an explicit loopback-bound single-user research workbench; live AWS provisioning/parity and other owner-gated items remain in the debt register and are not represented as completed evidence.
+- Overall milestone status: The base implementation plan, revised assay-development amendment G0-G7, and complete synthetic lifecycle demonstration are implemented and locally verified. The application remains an explicit loopback-bound single-user research workbench; live AWS provisioning/parity and other owner-gated items remain in the debt register and are not represented as completed evidence.
 
 ## Completed
 
@@ -649,6 +660,12 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
   Python tests and 36 frontend tests; Ruff, strict mypy across 99 Python source files, ESLint, the
   Node.js 22 production build, Compose validation, JSON contract/catalog parsing, actionlint when
   available, and `git diff --check` passed. Live AWS execution remains explicitly owner-gated.
+- Complete assay-demonstration regression: 194 Python/API/scientific tests and 36 Node 22 frontend
+  tests passed. Ruff and strict mypy passed across 101 Python source files; ESLint, TypeScript, the
+  production Vite build, release-version validation, the `demo` Nextflow profile, Docker Compose,
+  and `git diff --check` passed. A clean real-stack seed reached `REPORT` in 123.8 seconds using
+  32 classifier permutation workers; an immediate cache-only run took 0.40 seconds with no duplicate
+  experiment, model, or study records.
 
 The development stack remains running. The frozen GSE140494/GSE32646 validation dashboard is at `http://localhost:5173/classifier-external-validations/9959f1ce-cacc-4329-9daf-732f2c7d115d` in project `http://localhost:5173/projects/99c6225f-3c44-4d75-a55f-2d4cce93b631`. The large-study project is at `http://localhost:5173/projects/0694625c-23e1-4847-9622-e508ad95b895`, its prepared bundle at `http://localhost:5173/prepared-datasets/ac5bbe72-ec4e-40ec-9258-f9eae3679209`, and live results are available for PCA (`74cfc4a8-bdea-49b5-ab94-69d8534c52d6`), clustering (`2af084ac-6e90-4beb-b07c-4eabd214f066`), UMAP (`e94db15b-ab8a-4fee-ab6f-9d8e3a2ef63c`), t-SNE (`1dac23c8-5621-46bd-bb71-ddc38640647e`), DESeq2 (`e033fb5c-0516-4a74-9bf8-8e0b77d1eeaa`), limma (`2a13c140-0f8a-4617-bb59-e17b386469f9`), edgeR QL (`c31e8833-39a1-4aa8-a33b-ca87b5df90d4`), limma-voom (`339a7348-f43b-402e-be0a-555c69a0267c`), and edgeR QL with enrichment (`53509cd4-532c-4173-b505-a65e43101b6b`). The polished raw RNA-seq ingestion dashboard is at `http://localhost:5173/projects/e9574d9b-dc8f-480d-b844-64e5be0bdf31`. The public microarray project is at `http://localhost:5173/projects/32eb730d-7bda-43c1-a930-a37d91789e44`, its prepared bundle at `http://localhost:5173/prepared-datasets/75deff90-236b-4055-9c1b-e74c2ba9ec67`, and its paired limma result at `http://localhost:5173/analyses/0a800b33-6940-4b55-8928-c6c491ebe53d`.
 
@@ -683,4 +700,4 @@ The development stack remains running. The frozen GSE140494/GSE32646 validation 
 
 ## Continue prompt
 
-Ask Codex: **Continue G6 paired condition comparison from `docs/implementation-progress.md`.**
+Ask Codex: **Review the next owner-prioritized item in `docs/debt-register.md` and continue from `docs/implementation-progress.md`.**

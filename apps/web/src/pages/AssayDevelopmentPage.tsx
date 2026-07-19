@@ -33,6 +33,7 @@ import {
   createScientificQuestion,
   fetchAssayDecisions,
   fetchAssayProject,
+  fetchAssayProjectModels,
   fetchAssayReadiness,
   fetchAnalyticalStudies,
   fetchDevelopmentExperiments,
@@ -98,6 +99,7 @@ export function AssayDevelopmentPage() {
   const experiments = useQuery({ queryKey: ['assay-experiments', assayProjectId], queryFn: ({ signal }) => fetchDevelopmentExperiments(assayProjectId, signal), enabled: !!assayProjectId })
   const studies = useQuery({ queryKey: ['assay-studies', assayProjectId], queryFn: ({ signal }) => fetchAnalyticalStudies(assayProjectId, signal), enabled: !!assayProjectId })
   const guidanceResults = useQuery({ queryKey: ['assay-guidance-results', assayProjectId], queryFn: ({ signal }) => fetchGuidanceResults(assayProjectId, signal), enabled: !!assayProjectId })
+  const models = useQuery({ queryKey: ['assay-models', assayProjectId], queryFn: ({ signal }) => fetchAssayProjectModels(assayProjectId, signal), enabled: !!assayProjectId })
   const catalog = useQuery({ queryKey: ['scientific-question-catalog'], queryFn: ({ signal }) => fetchQuestionCatalog(signal) })
   const activeQuestion = questions.data?.find((item) => item.id === assay.data?.active_question_id)
   const selectedRoute = useMemo(() => catalog.data?.questions.find((item) => item.key === questionKey), [catalog.data, questionKey])
@@ -112,6 +114,7 @@ export function AssayDevelopmentPage() {
       queryClient.invalidateQueries({ queryKey: ['assay-experiments', assayProjectId] }),
       queryClient.invalidateQueries({ queryKey: ['assay-studies', assayProjectId] }),
       queryClient.invalidateQueries({ queryKey: ['assay-guidance-results', assayProjectId] }),
+      queryClient.invalidateQueries({ queryKey: ['assay-models', assayProjectId] }),
       queryClient.invalidateQueries({ queryKey: ['assay-projects'] }),
     ])
   }
@@ -154,6 +157,7 @@ export function AssayDevelopmentPage() {
   if (assay.isPending || readiness.isPending) return <LoadingState label="Loading guided assay workspace…" />
   if (assay.isError) return <ErrorState error={assay.error} />
   if (readiness.isError) return <ErrorState error={readiness.error} />
+  const reportingComplete = assay.data.current_stage === 'REPORT'
 
   const openContext = () => {
     setContextDraft({
@@ -196,10 +200,10 @@ export function AssayDevelopmentPage() {
       <Grid container spacing={2}>
         <Grid item xs={12} md={8}>
           <Paper variant="outlined" sx={{ p: 3, height: '100%' }}>
-            <Typography variant="overline" color="secondary.main" fontWeight={750}>Current scientific question</Typography>
-            <Typography variant="h5" fontWeight={720} mt={0.5}>{activeQuestion?.plain_language_question || 'No active question selected'}</Typography>
-            <Typography color="text.secondary" mt={1}>{activeQuestion?.formal_question || 'Select what you are trying to learn before choosing an analysis or experiment.'}</Typography>
-            <Button variant="contained" color="secondary" sx={{ mt: 2 }} onClick={() => setQuestionOpen(true)}>{activeQuestion ? 'Change question' : 'Select a question'}</Button>
+            <Typography variant="overline" color="secondary.main" fontWeight={750}>{reportingComplete ? 'Lifecycle reporting status' : 'Current scientific question'}</Typography>
+            <Typography variant="h5" fontWeight={720} mt={0.5}>{reportingComplete ? 'Governed evidence lifecycle complete' : activeQuestion?.plain_language_question || 'No active question selected'}</Typography>
+            <Typography color="text.secondary" mt={1}>{reportingComplete ? 'Review the linked experiments, analyses, locked model, validation studies, and scientist decisions below.' : activeQuestion?.formal_question || 'Select what you are trying to learn before choosing an analysis or experiment.'}</Typography>
+            {!reportingComplete && <Button variant="contained" color="secondary" sx={{ mt: 2 }} onClick={() => setQuestionOpen(true)}>{activeQuestion ? 'Change question' : 'Select a question'}</Button>}
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
@@ -252,9 +256,9 @@ export function AssayDevelopmentPage() {
         <Typography variant="h5" fontWeight={720}>Five-question stage card</Typography>
         <Grid container spacing={2} mt={0.5}>
           {[
-            ['Question', activeQuestion?.plain_language_question || 'Select the decision being addressed.'],
-            ['Requirements', activeQuestion ? 'Review the cataloged inputs, metadata, controls, and design checks.' : 'A scientific question is required first.'],
-            ['Action', recommendations.data?.[0]?.title || 'Resolve missing information before choosing an action.'],
+            ['Question', reportingComplete ? 'The full assay-development story is assembled for review.' : activeQuestion?.plain_language_question || 'Select the decision being addressed.'],
+            ['Requirements', reportingComplete ? 'Immutable evidence and scientist decisions remain linked to their source records.' : activeQuestion ? 'Review the cataloged inputs, metadata, controls, and design checks.' : 'A scientific question is required first.'],
+            ['Action', reportingComplete ? 'Review and communicate the accumulated evidence without changing the frozen endpoint.' : recommendations.data?.[0]?.title || 'Resolve missing information before choosing an action.'],
             ['Evidence', `${readiness.data.ready_items.length} known item(s); ${readiness.data.blockers.length} blocker(s).`],
             ['Next decision', 'Accept, reject, modify, or defer the recommendation with rationale.'],
           ].map(([title, body]) => <Grid item xs={12} md key={title}><Typography variant="overline" color="secondary.main" fontWeight={750}>{title}</Typography><Typography variant="body2">{body}</Typography></Grid>)}
@@ -277,6 +281,14 @@ export function AssayDevelopmentPage() {
         {guidanceResults.isError && <ErrorState error={guidanceResults.error} />}
         {guidanceResults.data?.length === 0 && <Typography color="text.secondary" mt={1}>No guided existing-analysis results yet.</Typography>}
         <Grid container spacing={2} mt={0.5}>{guidanceResults.data?.map((result) => <Grid item xs={12} md={6} key={result.id}><Card variant="outlined" sx={{ height: '100%' }}><CardContent><Chip size="small" label={result.payload_json.analysis_type.replaceAll('_', ' ')} color="secondary" /><Typography variant="h6" fontWeight={700} mt={1.5}>{result.payload_json.question_answered}</Typography><Typography mt={1}>{result.payload_json.important_findings.join(' ')}</Typography><Alert severity="warning" sx={{ mt: 2 }}>{result.payload_json.unresolved_risks.join(' ')}</Alert><Typography variant="body2" mt={2}><strong>Next:</strong> {result.payload_json.recommended_next_actions.join(' ')}</Typography><Typography variant="caption" color="text.secondary" display="block" mt={1}>Evidence references: {result.payload_json.evidence_refs.length} · Guidance SHA-256 {result.artifact_sha256}</Typography></CardContent><CardActions><Button component={RouterLink} to={`/analyses/${result.analysis_id}`} variant="outlined">Open source results</Button></CardActions></Card></Grid>)}</Grid>
+      </div>
+
+      <div>
+        <Typography variant="overline" color="secondary.main" fontWeight={750}>Frozen classifier lineage</Typography>
+        <Typography variant="h4" fontWeight={740}>Model lifecycle</Typography>
+        {models.isError && <ErrorState error={models.error} />}
+        {models.data?.length === 0 && <Typography color="text.secondary" mt={1}>No classifier candidates are linked to this assay-development project yet.</Typography>}
+        <Grid container spacing={2} mt={0.5}>{models.data?.map((model) => <Grid item xs={12} md={6} key={model.id}><Card component={RouterLink} to={`/models/${model.id}`} variant="outlined" sx={{ height: '100%', display: 'block', textDecoration: 'none', color: 'inherit', borderLeft: 6, borderLeftColor: model.status === 'LOCKED' ? 'success.main' : model.status === 'RETIRED' ? 'text.disabled' : 'secondary.main', '&:hover': { borderColor: 'secondary.main' } }}><CardContent><Stack direction="row" justifyContent="space-between" gap={1}><Typography variant="h6" fontWeight={700}>{model.model_name}</Typography><Chip size="small" label={model.status} color={model.status === 'LOCKED' ? 'success' : model.status === 'REVIEWED' ? 'secondary' : model.status === 'RETIRED' ? 'default' : 'warning'} /></Stack><Typography variant="body2" color="text.secondary" mt={1}>{model.algorithm.replaceAll('_', ' ')} · {model.feature_count} frozen features</Typography><Typography variant="body2" mt={1}>Outcome: {model.outcome_column} · deterministic inference {model.inference_test_status.replaceAll('_', ' ')}</Typography><Typography variant="caption" color="text.secondary" display="block" mt={1.5}>{model.parent_model_id ? `Derived from model ${model.parent_model_id}` : 'Primary model lineage'} · {Object.keys(model.metrics_json).length} recorded metric fields</Typography></CardContent><CardActions><Button variant="outlined">Review model evidence</Button></CardActions></Card></Grid>)}</Grid>
       </div>
 
       <div>

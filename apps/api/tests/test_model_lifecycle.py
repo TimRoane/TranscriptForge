@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from transcriptforge_api.models import (
     Analysis,
     Artifact,
+    AssayDevelopmentProject,
     Dataset,
     ModelRecord,
     PreparedDataset,
@@ -224,6 +225,9 @@ async def test_model_review_lock_integrity_clone_and_retire(
     assert locked.status_code == 200
     assert locked.json()["status"] == "LOCKED"
     assert len(locked.json()["model_manifest_sha256"]) == 64
+    locked_readiness = (await client.get(f"/api/models/{model_id}/lock-readiness")).json()
+    assert locked_readiness["ready"] is True
+    assert locked_readiness["checks"]["candidate_reviewed"] is True
     assert (await client.get(f"/api/models/{model_id}/manifest")).status_code == 200
     assert (await client.get(f"/api/models/{model_id}/package")).content[:2] == b"\x1f\x8b"
 
@@ -252,3 +256,33 @@ async def test_model_review_lock_integrity_clone_and_retire(
     )
     assert retired.status_code == 200
     assert retired.json()["status"] == "RETIRED"
+
+
+async def test_assay_project_lists_only_linked_model_lineage(
+    client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    storage: LocalStorage,
+) -> None:
+    model_id = await _candidate(session_factory, storage)
+    assay_id = new_id()
+    async with session_factory() as session:
+        model = await session.get(ModelRecord, model_id)
+        assert model is not None
+        analysis = await session.get(Analysis, model.analysis_id)
+        assert analysis is not None
+        session.add(
+            AssayDevelopmentProject(
+                id=assay_id,
+                project_id=analysis.project_id,
+                name="Linked assay lifecycle",
+                current_stage="DEVELOP",
+            )
+        )
+        await session.flush()
+        analysis.assay_project_id = assay_id
+        await session.commit()
+
+    response = await client.get(f"/api/assay-projects/{assay_id}/models")
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [model_id]
+    assert (await client.get(f"/api/assay-projects/{new_id()}/models")).status_code == 404

@@ -1,6 +1,7 @@
 """Post-lock analytical-study persistence, validation, lock, and launch boundary."""
 
 import csv
+import gzip
 import hashlib
 import json
 import tarfile
@@ -156,10 +157,13 @@ def _bundle_feature_ids(bundle: bytes, assay_name: str) -> set[str]:
         relative = str(assay["path"])
         if relative.startswith("/") or ".." in relative.split("/"):
             raise StudyError("Expression Bundle assay path is unsafe.")
-        source = archive.extractfile(f"expression_bundle/{relative}")
-        if source is None:
+        archived_source = archive.extractfile(f"expression_bundle/{relative}")
+        if archived_source is None:
             raise StudyError("Expression Bundle assay cannot be read.")
-        with TextIOWrapper(source, encoding="utf-8", newline="") as text:
+        source = (
+            gzip.GzipFile(fileobj=archived_source) if relative.endswith(".gz") else archived_source
+        )
+        with source, TextIOWrapper(source, encoding="utf-8", newline="") as text:
             reader = csv.reader(text, delimiter="\t")
             header = next(reader, [])
             if not header or header[0] != "feature_id":

@@ -2237,6 +2237,13 @@ export function fetchAnalysisModels(
   return request(`/analyses/${analysisId}/models`, { signal })
 }
 
+export function fetchAssayProjectModels(
+  assayProjectId: string,
+  signal?: AbortSignal,
+): Promise<ModelRecord[]> {
+  return request(`/assay-projects/${assayProjectId}/models`, { signal })
+}
+
 export function fetchModel(modelId: string, signal?: AbortSignal): Promise<ModelRecord> {
   return request(`/models/${modelId}`, { signal })
 }

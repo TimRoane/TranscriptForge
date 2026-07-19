@@ -404,7 +404,11 @@ async def _evaluate(
                 limitations=["This recommendation does not assess clinical appropriateness."],
             )
         )
-    elif not absent and active_question is None:
+    elif (
+        not absent
+        and active_question is None
+        and assay_project.current_stage != AssayLifecycleStage.REPORT
+    ):
         missing.append(
             _item(
                 "GUIDANCE.ACTIVE_QUESTION_REQUIRED",
@@ -438,6 +442,16 @@ async def _evaluate(
                 limitations=[
                     "Only cataloged question and design families are supported in version 1."
                 ],
+            )
+        )
+    elif not absent and assay_project.current_stage == AssayLifecycleStage.REPORT:
+        ready.append(
+            _item(
+                "REPORT.LIFECYCLE_COMPLETE",
+                {"stage": assay_project.current_stage},
+                "The governed assay lifecycle has reached reporting.",
+                "INFO",
+                "Review the accumulated evidence and scientist decisions in the project timeline.",
             )
         )
     elif not absent and active_question is not None:

@@ -20,6 +20,26 @@ Nextflow, and publishes immutable results with checksums and software provenance
 | Reproducibility | Frozen request JSON, SHA-256 input and artifact identities, immutable Expression Bundles, deterministic seeds, container/runtime versions, and downloadable execution provenance |
 | Cloud architecture | Optional AWS Batch/S3/ECR/KMS/Terraform profile with scale-to-zero compute, checksum-keyed S3 references, and no persistent EFS dependency |
 
+### One coherent assay lifecycle
+
+The portfolio also includes a one-command, fully synthetic assay-development project spanning
+paired FFPE feasibility, design repair, guided PCA and differential expression, paired method
+optimization, grouped nested-CV classifier development, explicit model review and lock, and two
+post-lock analytical studies. The dashboard keeps the deliberately confounded teaching revision,
+its repaired child, model lineage, validation evidence, and human decisions visible together.
+
+See the [complete assay-development walkthrough](docs/complete-assay-demo.md) for the evidence design,
+runtime command, direct review path, and scientific-interpretation boundaries.
+
+| Lifecycle dashboard and repaired feasibility design | Frozen model and post-lock validation |
+| --- | --- |
+| [![Completed synthetic assay lifecycle at REPORT](docs/images/readme/assay-development-dashboard.png)](docs/images/readme/assay-development-dashboard.png) | [![Locked elastic-net model with all technical readiness checks passing](docs/images/readme/assay-model-lock.png)](docs/images/readme/assay-model-lock.png) |
+| [![Balanced feasibility revision with crossed input and run assignments](docs/images/readme/assay-feasibility-repaired.png)](docs/images/readme/assay-feasibility-repaired.png) | [![Robustness evidence with prespecified criteria and no model retraining](docs/images/readme/assay-validation-study.png)](docs/images/readme/assay-validation-study.png) |
+
+*The four real application captures are linked at full resolution. Together they show the terminal
+REPORT workspace, the repaired child of the deliberately confounded design, immutable classifier
+lock evidence, and a passing robustness study that applies the frozen endpoint without retraining.*
+
 ## Product walkthrough
 
 [![Watch the compact TranscriptForge walkthrough](docs/images/readme/app-home.png)](docs/demo/transcriptforge-walkthrough.mp4)
@@ -203,9 +223,10 @@ The durable boundaries are described in [architecture](docs/architecture.md),
 
 The latest full regression checkpoint records:
 
-- 133 combined API, worker, contract, and scientific Python tests.
-- 25 frontend integration tests plus ESLint and a Node 22 production build.
-- Strict mypy and Ruff across the API and scientific Python codebase.
+- 194 combined API, worker, contract, and scientific Python tests.
+- 36 frontend integration tests plus ESLint and a Node 22 production build.
+- Strict mypy across 101 Python source files and Ruff across the API, scientific Python, and complete-demo code.
+- A clean public-API/worker/Nextflow assay seed in 123.8 seconds on 32 cores, followed by a 0.40-second no-duplicate cached rerun.
 - Containerized acceptance for all four differential-expression engines and enrichment.
 - Paired/single-end and multi-lane RNA-seq acceptance, shared reference-cache reuse, and Nextflow
   `-resume` evidence.
@@ -267,6 +288,16 @@ cache-aware local acceptance of every implemented experiment/study template is a
 ```bash
 make assay-validation-demo
 ```
+
+To build the complete linked assay lifecycle through the public API and real worker path, run:
+
+```bash
+make seed-complete-assay-demo
+```
+
+The seed is resumable and writes IDs, checksums, statuses, elapsed times, and direct GUI links to
+`.transcriptforge-demo/complete_assay/complete_assay_seed_summary.json`. Classifier permutations use
+the host CPU count under the local `demo` profile; set `DEMO_CLASSIFIER_CPUS` to cap concurrency.
 
 The full GENCODE/GRCh38 Salmon index is generated data and is deliberately excluded from Git. The
 first raw RNA-seq run for an exact reference definition materializes it once in the shared Docker

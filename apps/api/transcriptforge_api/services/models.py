@@ -64,6 +64,21 @@ async def list_models(session: AsyncSession, analysis_id: str) -> list[ModelReco
     )
 
 
+async def list_assay_project_models(
+    session: AsyncSession, assay_project_id: str
+) -> list[ModelRecord]:
+    """List model candidates whose source analysis belongs to an assay workspace."""
+
+    return list(
+        await session.scalars(
+            select(ModelRecord)
+            .join(Analysis, ModelRecord.analysis_id == Analysis.id)
+            .where(Analysis.assay_project_id == assay_project_id)
+            .order_by(ModelRecord.created_at.desc())
+        )
+    )
+
+
 async def _artifacts(session: AsyncSession, model: ModelRecord) -> dict[str, Artifact]:
     return {
         item.artifact_type: item
@@ -172,7 +187,10 @@ async def lock_readiness(
     run = await session.get(Run, model.run_id)
     artifacts = await _artifacts(session, model)
     checks = {
-        "candidate_reviewed": model.status == "REVIEWED",
+        # A locked model necessarily passed review. Keep the evidence true after
+        # the lifecycle transition so the read-only registry page does not
+        # misleadingly render an already locked package as blocked.
+        "candidate_reviewed": model.status in {"REVIEWED", "LOCKED"},
         "classifier_run_succeeded": run is not None and run.state == "SUCCEEDED",
         "required_assets_present": set(artifacts) >= REQUIRED_ARTIFACTS,
         "model_object_integrity": False,

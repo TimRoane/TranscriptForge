@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from transcriptforge_api.db.session import get_session
-from transcriptforge_api.models import ModelRecord
+from transcriptforge_api.models import AssayDevelopmentProject, ModelRecord
 from transcriptforge_api.schemas.models import (
     ModelDecisionRequest,
     ModelIntegrityRead,
@@ -33,6 +33,19 @@ async def require_model(session: AsyncSession, model_id: str) -> ModelRecord:
 @router.get("/analyses/{analysis_id}/models", response_model=list[ModelRecordRead])
 async def list_models(analysis_id: str, session: Session) -> list[ModelRecord]:
     return await service.list_models(session, analysis_id)
+
+
+@router.get(
+    "/assay-projects/{assay_project_id}/models",
+    response_model=list[ModelRecordRead],
+)
+async def list_assay_project_models(assay_project_id: str, session: Session) -> list[ModelRecord]:
+    if await session.get(AssayDevelopmentProject, assay_project_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assay project not found.",
+        )
+    return await service.list_assay_project_models(session, assay_project_id)
 
 
 @router.get("/models/{model_id}", response_model=ModelRecordRead)

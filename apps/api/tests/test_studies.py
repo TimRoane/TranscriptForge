@@ -1,5 +1,6 @@
 """API lifecycle coverage for the precision/reproducibility validation slice."""
 
+import gzip
 import io
 import json
 import tarfile
@@ -16,12 +17,30 @@ from transcriptforge_api.models import (
     Run,
 )
 from transcriptforge_api.models.base import new_id
+from transcriptforge_api.services.studies import _bundle_feature_ids
 from transcriptforge_api.storage.local import LocalStorage
 
 from apps.api.tests.test_model_lifecycle import _candidate
 from demo.assay_development.generate_input_limit_fixture import generate as generate_limit
 from demo.assay_development.generate_paired_bridge_fixture import generate as generate_bridge
 from demo.assay_development.generate_robustness_fixture import generate as generate_robustness
+
+
+def test_study_feature_schema_reads_canonical_gzipped_bundle_assay() -> None:
+    assay = gzip.compress(b"feature_id\tsample_1\nG1\t1.0\nG2\t2.0\n", mtime=0)
+    manifest = json.dumps(
+        {"assays": [{"name": "log_expression", "path": "assays/log_expression.tsv.gz"}]}
+    ).encode()
+    destination = io.BytesIO()
+    with tarfile.open(fileobj=destination, mode="w:gz") as archive:
+        for name, content in (
+            ("expression_bundle/bundle_manifest.json", manifest),
+            ("expression_bundle/assays/log_expression.tsv.gz", assay),
+        ):
+            member = tarfile.TarInfo(name)
+            member.size = len(content)
+            archive.addfile(member, io.BytesIO(content))
+    assert _bundle_feature_ids(destination.getvalue(), "log_expression") == {"G1", "G2"}
 
 
 def _assignments(*, constant_run: bool = False) -> list[dict[str, object]]:

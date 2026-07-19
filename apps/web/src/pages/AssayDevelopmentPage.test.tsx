@@ -53,6 +53,18 @@ const recommendation = {
   alternative_action_ids: [], scientist_decision_required: true, created_at: now,
   resolved_at: null,
 }
+const lockedModel = {
+  id: 'model-1', analysis_id: 'analysis-1', run_id: 'run-1',
+  model_name: 'Synthetic response classifier', algorithm: 'elastic_net',
+  outcome_column: 'outcome', metrics_json: { roc_auc: 0.94, permutation_p_value: 0.01 },
+  feature_count: 80, status: 'LOCKED', reviewed_at: now, reviewed_by: 'local-user',
+  locked_at: now, locked_by: 'local-user', retired_at: null, parent_model_id: null,
+  model_manifest_sha256: 'a'.repeat(64), model_package_sha256: 'b'.repeat(64),
+  feature_schema_sha256: 'c'.repeat(64), preprocessing_sha256: 'd'.repeat(64),
+  model_object_sha256: 'e'.repeat(64), threshold_sha256: 'f'.repeat(64),
+  training_dataset_refs_json: [], validation_dataset_refs_json: [],
+  container_digest: null, inference_test_status: 'PASS', created_at: now,
+}
 
 function response(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } })
@@ -83,6 +95,7 @@ it('renders transparent readiness and records a recommendation decision without 
     if (url.endsWith('/assay-projects/assay-1/decisions')) return response([])
     if (url.endsWith('/assay-projects/assay-1/experiments')) return response([])
     if (url.endsWith('/assay-projects/assay-1/studies')) return response([])
+    if (url.endsWith('/assay-projects/assay-1/models')) return response([lockedModel])
     if (url.endsWith('/assay-projects/assay-1/experiment-input-options')) return response([])
     if (url.endsWith('/scientific-questions/catalog')) return response({ schema_version: '1.0.0', catalog_version: '2026.07', questions: [] })
     if (url.endsWith('/recommendations/rec-1/accept') && init?.method === 'POST') {
@@ -110,6 +123,9 @@ it('renders transparent readiness and records a recommendation decision without 
   expect(screen.getByText('The active question maps to a supported, constrained action.')).toBeInTheDocument()
   expect(screen.getByText('Rule GUIDANCE.ROUTE.INPUT_DEGRADATION_STABILITY')).toBeInTheDocument()
   expect(screen.getByText('Scientist decision required')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Model lifecycle' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Synthetic response classifier' })).toBeInTheDocument()
+  expect(screen.getByText(/deterministic inference PASS/)).toBeInTheDocument()
 
   fireEvent.click(screen.getByRole('button', { name: 'Create recommended action' }))
   fireEvent.change(screen.getByRole('textbox', { name: 'Scientist rationale' }), {

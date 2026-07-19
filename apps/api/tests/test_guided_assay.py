@@ -24,6 +24,50 @@ async def test_question_catalog_is_public_and_constrained(client: AsyncClient) -
     assert routes["precision_reproducibility"]["study_type"] == ("PRECISION_REPRODUCIBILITY")
 
 
+async def test_report_stage_is_complete_without_a_new_active_question(
+    client: AsyncClient,
+) -> None:
+    project = await _create_base_project(client)
+    assay = (
+        await client.post(
+            "/api/assay-projects",
+            json={"project_id": project["id"], "name": "Completed reporting lifecycle"},
+        )
+    ).json()
+    await client.patch(
+        f"/api/assay-projects/{assay['id']}",
+        json={
+            "proposed_purpose": "Demonstrate a completed synthetic assay lifecycle.",
+            "specimen_type": "simulated_ffpe_tumor",
+            "biological_context": "Synthetic response classification.",
+            "proposed_output": "locked_classifier_score",
+        },
+    )
+    for stage in [
+        "FEASIBILITY",
+        "EXPLORE",
+        "OPTIMIZE",
+        "DEVELOP",
+        "LOCK",
+        "VALIDATE",
+        "REPORT",
+    ]:
+        response = await client.post(
+            f"/api/assay-projects/{assay['id']}/stage-decisions",
+            json={
+                "requested_stage": stage,
+                "decision": "ACCEPT",
+                "rationale": f"Accept synthetic evidence and proceed to {stage.lower()}.",
+            },
+        )
+        assert response.status_code == 201
+
+    readiness = (await client.get(f"/api/assay-projects/{assay['id']}/readiness")).json()
+    assert readiness["status"] == "READY_FOR_RECOMMENDED_ACTION"
+    assert readiness["missing_items"] == []
+    assert any(item["rule_id"] == "REPORT.LIFECYCLE_COMPLETE" for item in readiness["ready_items"])
+
+
 async def test_assay_project_guidance_and_human_decision_lifecycle(
     client: AsyncClient,
 ) -> None:

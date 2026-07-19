@@ -8,7 +8,15 @@ from zipfile import ZipFile
 
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from transcriptforge_api.models import Artifact, Dataset, PreparedDataset, Recommendation, Run
+from transcriptforge_api.models import (
+    Artifact,
+    Dataset,
+    ExperimentInput,
+    ExperimentPlan,
+    PreparedDataset,
+    Recommendation,
+    Run,
+)
 from transcriptforge_api.storage.local import LocalStorage
 
 from demo.assay_development.generate_multifactor_fixture import generate as generate_multifactor
@@ -231,6 +239,45 @@ async def _multifactor_bundle_record(
         )
         await session.commit()
     return assignments
+
+
+async def test_project_delete_orders_assay_inputs_before_prepared_datasets(
+    client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    storage: LocalStorage,
+) -> None:
+    project_id, question_id = await _base_guided_workspace(client)
+    await _prepared_bundle_record(session_factory, storage, project_id)
+    assay = (await client.get(f"/api/projects/{project_id}/assay-development")).json()
+    async with session_factory() as session:
+        experiment = ExperimentPlan(
+            id="project-delete-experiment",
+            assay_project_id=assay["id"],
+            question_id=question_id,
+            prepared_dataset_id="prepared-ffpe",
+            name="Project deletion cascade fixture",
+            experiment_type="INPUT_DEGRADATION_EXPLORATION",
+            objective="Prove lifecycle inputs do not block deletion of their owning project.",
+            mode="ANALYZE_EXISTING",
+            status="DRAFT",
+            experiment_spec_json={},
+            assignments_json=_assignments(confounded=False),
+        )
+        session.add(experiment)
+        await session.flush()
+        session.add(
+            ExperimentInput(
+                experiment_id=experiment.id,
+                input_type="PREPARED_EXPRESSION_BUNDLE",
+                prepared_dataset_id="prepared-ffpe",
+                role="PRIMARY",
+                metadata_json={},
+            )
+        )
+        await session.commit()
+
+    assert (await client.delete(f"/api/projects/{project_id}")).status_code == 204
+    assert (await client.get(f"/api/projects/{project_id}")).status_code == 404
 
 
 async def test_experiment_design_repair_lock_clone_export_and_queue(

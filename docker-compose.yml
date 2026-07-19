@@ -71,6 +71,7 @@ services:
       TRANSCRIPTFORGE_CELERY_RESULT_BACKEND: redis://redis:6379/1
       TRANSCRIPTFORGE_LOCAL_STORAGE_ROOT: /data/transcriptforge
       TRANSCRIPTFORGE_RUN_WORK_ROOT: /data/transcriptforge/runtime
+      TRANSCRIPTFORGE_NEXTFLOW_PROFILE: ${TRANSCRIPTFORGE_NEXTFLOW_PROFILE:-test}
     command:
       - /bin/sh
       - -c
@@ -90,6 +91,7 @@ services:
     volumes:
       - ./apps/api:/app/apps/api
       - ./analysis/python:/app/analysis/python:ro
+      - ./contracts:/app/contracts:ro
       - ./microarray:/app/microarray:ro
       - ./references:/app/references:ro
       - ./schemas:/app/schemas:ro
@@ -113,6 +115,7 @@ services:
       TRANSCRIPTFORGE_REFERENCE_CACHE_ROOT: /data/transcriptforge/reference-cache
       TRANSCRIPTFORGE_PIPELINE_PATH: /app/pipelines/main.nf
       TRANSCRIPTFORGE_NEXTFLOW_PROFILE: ${TRANSCRIPTFORGE_NEXTFLOW_PROFILE:-test}
+      TRANSCRIPTFORGE_CLASSIFIER_CPUS: ${TRANSCRIPTFORGE_CLASSIFIER_CPUS:-8}
     command: ["celery", "-A", "transcriptforge_api.workers.celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
     depends_on:
       postgres:
@@ -123,6 +126,7 @@ services:
       - ./apps/api:/app/apps/api
       - ./analysis/python:/app/analysis/python:ro
       - ./analysis/r:/app/analysis/r:ro
+      - ./contracts:/app/contracts:ro
       - ./pipelines:/app/pipelines:ro
       - ./microarray:/app/microarray:ro
       - ./references:/app/references:ro
