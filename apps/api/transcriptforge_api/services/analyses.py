@@ -11,9 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from transcriptforge_api.models import (
     Analysis,
     Artifact,
+    AssayDevelopmentProject,
     Dataset,
     PreparedDataset,
     Run,
+    ScientificQuestion,
     SignatureMapping,
 )
 from transcriptforge_api.models.base import new_id
@@ -36,6 +38,7 @@ from transcriptforge_api.services.deconvolution import (
     validate_saved_configuration,
 )
 from transcriptforge_api.services.design_validation import design_options, validate_design
+from transcriptforge_api.services.guided_assay import get_question_catalog
 from transcriptforge_api.services.runs import ACTIVE_STATES
 from transcriptforge_api.storage.base import StorageBackend
 
@@ -50,6 +53,10 @@ async def create_analysis(
     prepared: PreparedDataset,
     request: AnalysisCreate,
 ) -> Analysis:
+    if bool(request.assay_project_id) != bool(request.scientific_question_id):
+        raise AnalysisInputError(
+            "Guided analyses require both an assay project and a scientific question."
+        )
     if request.assay not in prepared.value_types_available:
         available = ", ".join(prepared.value_types_available)
         raise AnalysisInputError(
@@ -91,7 +98,35 @@ async def create_analysis(
     dataset = await session.get(Dataset, prepared.dataset_id)
     if dataset is None:
         raise AnalysisInputError("The source dataset no longer exists.")
-    configuration = request.model_dump(mode="json", exclude={"name", "description"})
+    guided_project: AssayDevelopmentProject | None = None
+    guided_question: ScientificQuestion | None = None
+    if request.assay_project_id and request.scientific_question_id:
+        guided_project = await session.get(AssayDevelopmentProject, request.assay_project_id)
+        guided_question = await session.get(ScientificQuestion, request.scientific_question_id)
+        if guided_project is None or guided_project.project_id != dataset.project_id:
+            raise AnalysisInputError(
+                "The guided assay workspace does not belong to this prepared dataset's project."
+            )
+        if guided_question is None or guided_question.assay_project_id != guided_project.id:
+            raise AnalysisInputError("The scientific question does not belong to this workspace.")
+        route = next(
+            (
+                item
+                for item in get_question_catalog().questions
+                if item.key == guided_question.question_key
+            ),
+            None,
+        )
+        if route is None or route.analysis_type != request.analysis_type.value:
+            expected = route.analysis_type if route is not None else None
+            raise AnalysisInputError(
+                f"This question routes to '{expected or 'no analysis'}', not "
+                f"'{request.analysis_type.value}'."
+            )
+    configuration = request.model_dump(
+        mode="json",
+        exclude={"name", "description", "assay_project_id", "scientific_question_id"},
+    )
     if request.analysis_type == AnalysisType.DECONVOLUTION:
         assert isinstance(request.parameters, DeconvolutionParameters)
         registry, method_spec, assay_descriptor, reference_profile = validate_saved_configuration(
@@ -224,6 +259,8 @@ async def create_analysis(
     analysis = Analysis(
         project_id=dataset.project_id,
         prepared_dataset_id=prepared.id,
+        assay_project_id=guided_project.id if guided_project else None,
+        scientific_question_id=guided_question.id if guided_question else None,
         analysis_type=request.analysis_type.value,
         name=request.name,
         description=request.description,
@@ -261,6 +298,8 @@ async def clone_analysis(session: AsyncSession, source: Analysis) -> Analysis:
     clone = Analysis(
         project_id=source.project_id,
         prepared_dataset_id=source.prepared_dataset_id,
+        assay_project_id=source.assay_project_id,
+        scientific_question_id=source.scientific_question_id,
         analysis_type=source.analysis_type,
         name=f"{source.name} (copy)",
         description=source.description,
@@ -333,6 +372,17 @@ async def create_analysis_run(
             "size_bytes": bundle_artifact.size_bytes,
         },
     }
+    if analysis.assay_project_id and analysis.scientific_question_id:
+        question = await session.get(ScientificQuestion, analysis.scientific_question_id)
+        if question is None or question.assay_project_id != analysis.assay_project_id:
+            raise AnalysisInputError("The guided scientific question is no longer available.")
+        frozen["guided_context"] = {
+            "assay_project_id": analysis.assay_project_id,
+            "scientific_question_id": question.id,
+            "question_key": question.question_key,
+            "question": question.plain_language_question,
+            "formal_question": question.formal_question,
+        }
     if analysis.analysis_type == AnalysisType.SIGNATURE.value:
         parameters = configuration["parameters"]
         mapping = await session.get(SignatureMapping, parameters["signature_mapping_id"])

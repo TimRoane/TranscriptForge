@@ -33,8 +33,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-transcriptforge}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-transcriptforge-dev-only}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 5s
@@ -71,14 +71,15 @@ services:
       TRANSCRIPTFORGE_CELERY_RESULT_BACKEND: redis://redis:6379/1
       TRANSCRIPTFORGE_LOCAL_STORAGE_ROOT: /data/transcriptforge
       TRANSCRIPTFORGE_RUN_WORK_ROOT: /data/transcriptforge/runtime
+      TRANSCRIPTFORGE_NEXTFLOW_PROFILE: ${TRANSCRIPTFORGE_NEXTFLOW_PROFILE:-test}
     command:
       - /bin/sh
       - -c
       - alembic -c apps/api/alembic.ini upgrade head && uvicorn transcriptforge_api.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/ready')"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -90,6 +91,7 @@ services:
     volumes:
       - ./apps/api:/app/apps/api
       - ./analysis/python:/app/analysis/python:ro
+      - ./contracts:/app/contracts:ro
       - ./microarray:/app/microarray:ro
       - ./references:/app/references:ro
       - ./schemas:/app/schemas:ro
@@ -113,6 +115,7 @@ services:
       TRANSCRIPTFORGE_REFERENCE_CACHE_ROOT: /data/transcriptforge/reference-cache
       TRANSCRIPTFORGE_PIPELINE_PATH: /app/pipelines/main.nf
       TRANSCRIPTFORGE_NEXTFLOW_PROFILE: ${TRANSCRIPTFORGE_NEXTFLOW_PROFILE:-test}
+      TRANSCRIPTFORGE_CLASSIFIER_CPUS: ${TRANSCRIPTFORGE_CLASSIFIER_CPUS:-8}
     command: ["celery", "-A", "transcriptforge_api.workers.celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
     depends_on:
       postgres:
@@ -123,6 +126,7 @@ services:
       - ./apps/api:/app/apps/api
       - ./analysis/python:/app/analysis/python:ro
       - ./analysis/r:/app/analysis/r:ro
+      - ./contracts:/app/contracts:ro
       - ./pipelines:/app/pipelines:ro
       - ./microarray:/app/microarray:ro
       - ./references:/app/references:ro
@@ -138,7 +142,7 @@ services:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/api}
     command: ["npm", "--workspace", "@transcriptforge/web", "run", "dev", "--", "--host", "0.0.0.0"]
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
     depends_on:
       - api
     volumes:

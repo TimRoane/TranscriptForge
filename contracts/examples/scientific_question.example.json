@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "id": "question-input-degradation",
+  "assay_project_id": "assay-demo-ffpe",
+  "question_key": "input_degradation_stability",
+  "plain_language_question": "Does RNA input or degradation affect expression stability?",
+  "formal_question": "Estimate paired expression-profile stability across ordered input levels while accounting for DV200 and sequencing run.",
+  "stage": "FEASIBILITY",
+  "status": "OPEN",
+  "source": "USER_SELECTED",
+  "created_at": "2026-07-18T12:00:00Z",
+  "resolved_at": null,
+  "resolution_summary": null
+}

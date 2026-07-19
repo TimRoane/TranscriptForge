@@ -1,9 +1,15 @@
 """Project persistence operations."""
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from transcriptforge_api.models import Project
+from transcriptforge_api.models import (
+    AnalyticalStudy,
+    AssayDevelopmentProject,
+    ExperimentPlan,
+    GuidanceResult,
+    Project,
+)
 from transcriptforge_api.schemas.projects import ProjectCreate, ProjectUpdate
 
 
@@ -35,5 +41,15 @@ async def update_project(
 
 
 async def delete_project(session: AsyncSession, project: Project) -> None:
+    # These lifecycle records deliberately RESTRICT deletion of their immutable
+    # prepared/model/question inputs. Delete the project-owned dependants first;
+    # otherwise PostgreSQL may evaluate the dataset cascade before the parallel
+    # assay-project cascade and reject an otherwise valid whole-project delete.
+    assay_ids = select(AssayDevelopmentProject.id).where(
+        AssayDevelopmentProject.project_id == project.id
+    )
+    for model in (GuidanceResult, AnalyticalStudy, ExperimentPlan):
+        await session.execute(delete(model).where(model.assay_project_id.in_(assay_ids)))
+    await session.flush()
     await session.delete(project)
     await session.commit()

@@ -1,5 +1,6 @@
 """Grouped nested-CV classifier and leakage-trap acceptance tests."""
 
+import hashlib
 import io
 import json
 import tarfile
@@ -231,6 +232,55 @@ def test_locked_classifier_inference_blocks_a_missing_required_feature(tmp_path:
     )
     with pytest.raises(ValueError, match=r"required model feature.*missing"):
         predict_with_model(archive, model, tmp_path / "prediction")
+
+
+def test_locked_classifier_inference_rejects_manifest_asset_change(tmp_path: Path) -> None:
+    archive = tmp_path / "bundle.tar.gz"
+    _bundle(archive)
+    model = tmp_path / "model.json"
+    payload = {
+        "schema_version": "1.0.0",
+        "model_type": "binary_elastic_net_logistic_regression",
+        "analysis_id": "analysis-1",
+        "prepared_dataset_id": "prepared-1",
+        "assay": "log_expression",
+        "negative_class": "control",
+        "positive_class": "treated",
+        "selected_feature_ids": ["gene_0000"],
+        "preprocessing": {"means": [0.0], "scales": [1.0]},
+        "estimator": {"coefficients": [1.0], "intercept": 0.0},
+        "calibration": {"method": "none", "coefficient": None, "intercept": None},
+        "decision_threshold": 0.5,
+    }
+    model.write_text(json.dumps(payload), encoding="utf-8")
+    manifest = tmp_path / "model_manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "status": "LOCKED",
+                "serialized_model": {"sha256": "0" * 64},
+                "ordered_feature_schema": payload["selected_feature_ids"],
+                "expected_assay": "log_expression",
+                "checksums": {
+                    "feature_schema": hashlib.sha256(
+                        json.dumps(payload["selected_feature_ids"], separators=(",", ":")).encode()
+                    ).hexdigest(),
+                    "preprocessing": hashlib.sha256(
+                        json.dumps(
+                            payload["preprocessing"],
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        ).encode()
+                    ).hexdigest(),
+                    "decision_rule": "0" * 64,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="serialized model integrity"):
+        predict_with_model(archive, model, tmp_path / "prediction", manifest)
 
 
 def test_leakage_trap_rejects_an_intentionally_incorrect_fit_scope() -> None:

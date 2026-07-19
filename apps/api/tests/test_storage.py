@@ -1,5 +1,7 @@
 """Local storage confinement and atomic-object tests."""
 
+import os
+import time
 from io import BytesIO
 from pathlib import Path
 
@@ -29,3 +31,20 @@ def test_local_storage_uses_generated_key(storage: LocalStorage) -> None:
     downloaded = BytesIO()
     storage.download(stored.uri, downloaded)
     assert downloaded.getvalue() == b"abc"
+
+
+def test_local_storage_only_cleans_stale_atomic_temporary_files(storage: LocalStorage) -> None:
+    directory = storage.root / "projects" / "safe-id"
+    directory.mkdir(parents=True)
+    stale = directory / ".stale.tsv.tmp"
+    recent = directory / ".recent.tsv.tmp"
+    published = directory / "published.tsv"
+    for path in (stale, recent, published):
+        path.write_bytes(b"data")
+    old = time.time() - 7200
+    os.utime(stale, (old, old))
+
+    assert storage.cleanup_stale_temporary_files(3600) == 1
+    assert not stale.exists()
+    assert recent.exists()
+    assert published.exists()

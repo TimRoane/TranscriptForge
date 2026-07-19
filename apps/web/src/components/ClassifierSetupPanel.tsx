@@ -24,6 +24,7 @@ import {
   fetchClassifierDesignOptions,
   validateClassifierDesign,
   type ClassifierParameters,
+  type GuidedAnalysisContext,
 } from '../api/client'
 import { ErrorState, LoadingState } from './ApiState'
 
@@ -46,7 +47,7 @@ function normalized(value: string) {
   return value.trim().toLowerCase().replace(/[\s-]+/g, '_')
 }
 
-export function ClassifierSetupPanel({ preparedDatasetId }: { preparedDatasetId: string }) {
+export function ClassifierSetupPanel({ preparedDatasetId, guidedContext }: { preparedDatasetId: string; guidedContext?: GuidedAnalysisContext }) {
   const navigate = useNavigate()
   const [classifierMethod, setClassifierMethod] = useState<'elastic_net' | 'multinomial_elastic_net'>('elastic_net')
   const [outcomeColumn, setOutcomeColumn] = useState('')
@@ -184,6 +185,7 @@ export function ClassifierSetupPanel({ preparedDatasetId }: { preparedDatasetId:
       method: classifierMethod,
       parameters,
       random_seed: randomSeed,
+      ...guidedContext,
     }),
     onSuccess: (analysis) => navigate(`/analyses/${analysis.id}`),
   })

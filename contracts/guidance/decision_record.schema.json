@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.local/contracts/decision-record/1.0.0",
+  "title": "Scientist Decision Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "assay_project_id", "source_type", "source_id", "stage", "decision_key", "decision", "rationale", "selected_option", "alternatives", "evidence_refs", "made_by", "made_at"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "id": {"type": "string", "minLength": 1},
+    "assay_project_id": {"type": "string", "minLength": 1},
+    "source_type": {"enum": ["RECOMMENDATION", "STAGE", "QUESTION", "EXPERIMENT", "MODEL", "STUDY"]},
+    "source_id": {"type": "string", "minLength": 1},
+    "stage": {"enum": ["DEFINE", "FEASIBILITY", "EXPLORE", "OPTIMIZE", "DEVELOP", "LOCK", "VALIDATE", "REPORT", "ON_HOLD", "COMPLETED"]},
+    "decision_key": {"type": "string", "minLength": 1},
+    "decision": {"type": "string", "minLength": 1},
+    "rationale": {"type": "string", "minLength": 1},
+    "selected_option": {"type": "string", "minLength": 1},
+    "alternatives": {"type": "array", "items": {"type": "object"}},
+    "evidence_refs": {"type": "array", "items": {"type": "object"}},
+    "made_by": {"type": "string", "minLength": 1},
+    "made_at": {"type": "string", "format": "date-time"},
+    "supersedes_decision_id": {"type": ["string", "null"]}
+  }
+}

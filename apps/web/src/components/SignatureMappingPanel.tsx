@@ -26,15 +26,18 @@ import {
   signatureMappingDownloadUrl,
   runAnalysis,
   type SignatureScoringMethod,
+  type GuidedAnalysisContext,
 } from '../api/client'
 import { ErrorState, LoadingState } from './ApiState'
 
 export function SignatureMappingPanel({
   preparedDatasetId,
   projectId,
+  guidedContext,
 }: {
   preparedDatasetId: string
   projectId: string
+  guidedContext?: GuidedAnalysisContext
 }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -98,6 +101,7 @@ export function SignatureMappingPanel({
             block_column: associationEnabled && associationBlock ? associationBlock : null,
           },
         },
+        guidedContext,
       })
       await runAnalysis(analysis.id)
       return analysis

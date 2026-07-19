@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  immutable-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate release identity
+        run: python scripts/validate_release.py --tag "${GITHUB_REF_NAME}"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Resolve lowercase image namespace
+        id: names
+        shell: bash
+        run: echo "prefix=ghcr.io/${GITHUB_REPOSITORY,,}" >> "${GITHUB_OUTPUT}"
+      - name: Build and publish API
+        id: api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          target: production
+          push: true
+          tags: |
+            ${{ steps.names.outputs.prefix }}-api:${{ github.ref_name }}
+            ${{ steps.names.outputs.prefix }}-api:sha-${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+      - name: Attest API image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ steps.names.outputs.prefix }}-api
+          subject-digest: ${{ steps.api.outputs.digest }}
+          push-to-registry: true
+      - name: Build and publish web application
+        id: web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          target: production
+          push: true
+          tags: |
+            ${{ steps.names.outputs.prefix }}-web:${{ github.ref_name }}
+            ${{ steps.names.outputs.prefix }}-web:sha-${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+      - name: Attest web image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ steps.names.outputs.prefix }}-web
+          subject-digest: ${{ steps.web.outputs.digest }}
+          push-to-registry: true
+      - name: Build and publish scientific worker
+        id: worker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          target: worker
+          push: true
+          tags: |
+            ${{ steps.names.outputs.prefix }}-worker:${{ github.ref_name }}
+            ${{ steps.names.outputs.prefix }}-worker:sha-${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+      - name: Attest scientific-worker image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ steps.names.outputs.prefix }}-worker
+          subject-digest: ${{ steps.worker.outputs.digest }}
+          push-to-registry: true
+      - name: Write immutable release manifest
+        env:
+          IMAGE_PREFIX: ${{ steps.names.outputs.prefix }}
+          API_DIGEST: ${{ steps.api.outputs.digest }}
+          WEB_DIGEST: ${{ steps.web.outputs.digest }}
+          WORKER_DIGEST: ${{ steps.worker.outputs.digest }}
+        run: |
+          jq -n \
+            --arg version "${GITHUB_REF_NAME}" \
+            --arg commit "${GITHUB_SHA}" \
+            --arg api "${IMAGE_PREFIX}-api@${API_DIGEST}" \
+            --arg web "${IMAGE_PREFIX}-web@${WEB_DIGEST}" \
+            --arg worker "${IMAGE_PREFIX}-worker@${WORKER_DIGEST}" \
+            '{schema_version:"1.0.0",version:$version,commit:$commit,images:{api:$api,web:$web,worker:$worker}}' \
+            > release-images.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-images-${{ github.ref_name }}
+          path: release-images.json
+          if-no-files-found: error
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh release create "${GITHUB_REF_NAME}" release-images.json
+          --verify-tag --generate-notes --title "TranscriptForge ${GITHUB_REF_NAME}"

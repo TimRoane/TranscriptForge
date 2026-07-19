@@ -18,6 +18,7 @@ dependencies = [
   "jsonschema>=4.23,<5",
   "joblib>=1.4,<2",
   "numpy>=1.26,<3",
+  "pyarrow>=18,<23",
   "scikit-learn>=1.5,<2",
   "scipy>=1.13,<2",
   "pydantic-settings>=2.6,<3",
@@ -57,11 +58,13 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "apps/api/alembic/versions/*.py" = ["E501"]
+"analysis/python/transcriptforge_analysis/assay_experiment.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
+mypy_path = ["apps/api", "analysis/python"]
 
 [tool.pydantic-mypy]
 init_forbid_extra = true

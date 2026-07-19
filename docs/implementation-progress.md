@@ -1,15 +1,61 @@
 # TranscriptForge implementation progress
 
+## Revised assay-development amendment
+
+The completed base platform is now being extended according to `TranscriptForge_Assay_Development_Validation_Amendment_REVISED.md`.
+
+- [x] G0: Added safe-default feature flags for the guided workspace, Development Experiment execution, and Analytical Study execution.
+- [x] G0: Added stable lifecycle, readiness, question-source, recommendation, and supported Development Experiment values.
+- [x] G0: Added versioned JSON Schemas and validating examples for Assay Development Projects, Scientific Questions, readiness, recommendations, DecisionRecords, ExperimentSpecs, assignment rows, ModelManifests, and StudySpecs.
+- [x] G0: Added a versioned static question catalog with explicit stage, required-input, metadata, endpoint, design-check, and supported-action routing.
+- [x] G0: Documented the development-versus-validation boundary and human scientific-judgment boundary without changing existing workflows.
+- [x] G1: Added durable assay-project, ScientificQuestion, Recommendation, DecisionRecord, and append-only assay-audit entities with an Alembic migration and project-delete cascades.
+- [x] G1: Added question catalog, assay-project CRUD, readiness/recompute, recommendation resolution, explicit stage decision, decision listing, and audit-timeline APIs.
+- [x] G1: Added a deterministic readiness engine that exposes rule IDs, input facts, conclusions, severity, suggested actions, assumptions, and documentation links; resolved rules do not silently respawn identical recommendations.
+- [x] G1: Added explicit accept, reject, and modify flows requiring scientist rationale. Each records a DecisionRecord and audit event and returns `action_launched: false`.
+- [x] G1: Added Assay Development navigation, base-project workspace creation, lifecycle rail, known/missing/blocker/warning evidence cards, recommendation cards, recent decisions, context repair, explicit stage approval, and a question-first wizard shell.
+- [x] G1: Added API and frontend regression coverage for safe routing, duplicate workspaces, transparent readiness, immutable decisions, no automatic launch, and the guided dashboard.
+- [x] G2: Added ExperimentPlan/Input persistence, metadata-backed assignment design, confounding/rank validation, immutable execution revisions, cancellation, and clone lineage.
+- [x] G2: Added `RUN_ASSAY_EXPERIMENT`, contract-validated Development Evidence Bundles, Parquet/TSV endpoints, HTML/PDF reports, complete provenance downloads, and result-linked recommendations.
+- [x] G2: Added the synthetic paired FFPE input/degradation study, deliberately confounded teaching draft, wet-lab export, evidence dashboard, and one-click scientist-controlled follow-up draft.
+- [x] Completion audit: Closed the catalog-to-run gap for `TECHNICAL_FEASIBILITY` with explicit specimen/run/failure assignments, design validation, exploratory evidence generation, GUI design/results, API lifecycle, deterministic fixture, scientific/UI tests, CI and direct Nextflow coverage. Catalog route tests now prevent an advertised experiment or study question from lacking a lifecycle handler.
+- [x] G3: Routed guided questions to the existing PCA, differential-expression, deconvolution, signature, and classifier builders with exact workspace/question lineage and no duplicate scientific implementation.
+- [x] G3: Added contract-validated GuidanceResult persistence/artifacts with checksummed Result Bundle references, risk/limitation boundaries, dashboard review, and readiness recomputation after successful guided runs.
+- [x] G4: Extended ModelRecord with candidate/reviewed/locked/retired state, lineage, immutable asset hashes, training/validation references, runtime identity, and deterministic inference status.
+- [x] G4: Added transparent lock readiness, scientist-rationale review/lock/retire operations, deterministic ModelManifest/package publication, clone lineage, GUI controls, and audit/DecisionRecords for guided models.
+- [x] G4: Hardened `PREDICT_WITH_MODEL` to require a locked ModelManifest and reject model, ordered-feature, preprocessing, decision-rule, or assay integrity changes; tamper regression coverage passes.
+- [x] G5: Added AnalyticalStudy/Input/AcceptanceCriterion/ValidationResult persistence, exact bundle-sample mapping, locked-model compatibility/integrity checks, deterministic design validation, immutable lock/clone/run/cancel lifecycle, and audit lineage.
+- [x] G5: Added `RUN_ASSAY_STUDY`, locked-model precision/variance/ICC/agreement/threshold calculations, explicit PASS/FAIL/INDETERMINATE/NOT_APPLICABLE criteria, a schema-valid Validation Bundle, durable worker indexing, and a real Nextflow smoke fixture.
+- [x] G5: Added dashboard recommendation routing, validation-study designer/list/detail pages, repair/lock/run controls, criteria and threshold review, explicit no-retraining provenance, artifact downloads, and frontend/API/scientific coverage.
+- [x] G6: Implemented the additional experiment and study templates in the amendment's required order.
+  - [x] Added paired-condition Development Experiments with exact-pair and factor-confounding validation, declared primary/secondary endpoints, paired differences and confidence intervals, Bland-Altman and profile-correlation evidence, failure/discordance summaries, quality interactions, immutable execution, type-aware GUI design/results, API/scientific/UI tests, and a direct Nextflow smoke fixture.
+  - [x] Added post-lock input/degradation limit studies with exact immutable bundle mapping, paired ordered-level and confounding validation, one-time locked-model inference, paired score/call/QC endpoints, trend and change-point exploration, all-level and consecutive-level criteria, candidate lowest-tested-level reporting with a non-LoD boundary, type-aware GUI evidence, API/scientific/UI tests, and direct Nextflow evidence.
+  - [x] Added paired bridging studies with exact pairs, condition/run confounding checks, one-time locked inference, paired bias and intervals, Bland-Altman and Deming evidence, call agreement/discordance, prespecified TOST margins, subgroup and threshold-adjacent review, an explicit correlation-only prohibition, GUI/API/scientific coverage, and direct Nextflow evidence.
+  - [x] Added robustness/interference studies with exact challenge/reference pairing, challenge/run confounding checks, prespecified challenge types and effect margins, locked score/call/QC effects, per-challenge and threshold-adjacent review, an explicit no-biological-specificity-claim policy, GUI/API/scientific coverage, and direct Nextflow evidence.
+  - [x] Added constrained multifactor optimization with a two-to-three-factor/two-interaction cap, repeated-sample and run blocking, rank/residual-DF/sparse-cell rejection, fixed-effect intervals, descriptive variance decomposition, response surfaces only for supported two-numeric-factor designs, type-aware GUI/API/scientific coverage, and direct Nextflow evidence.
+- [x] G7: Added a one-command, cache-aware seven-template Nextflow portfolio acceptance; guided tutorial and human-judgment table; assay lifecycle architecture diagram; local runtime/checksum evidence; README walkthrough links; and an explicit owner-gated AWS Batch parity procedure without claiming an unexecuted cloud run.
+
+## Complete end-to-end assay demonstration
+
+- [x] Added five checksum-stable synthetic datasets sharing 2,000 Ensembl features: 18 feasibility, 24 optimization, 96 classifier-development, 32 precision/reproducibility, and 24 robustness measurements.
+- [x] Added declared positive/negative classifier, degradation, method, run, borderline-sample, and 1,000-feature null truth blocks with byte-identity and balance tests.
+- [x] Added `make seed-complete-assay-demo`, an idempotent public-API/worker/Nextflow seed that preserves the confounded teaching revision, repairs its child, runs PCA/DE/optimization/classifier evidence, reviews and locks the model, completes two no-retraining studies, records decisions, and reaches `REPORT`.
+- [x] Added checkpointed resume, cancelled-analysis retry, stable-name configuration conflict rejection, immutable ID reuse, source checksums, direct GUI URLs, and machine-readable completion evidence.
+- [x] Added `GET /api/assay-projects/{id}/models`, model-lineage cards on the assay dashboard, terminal REPORT readiness, locked-model readiness persistence, experiment clone lineage, evidence counts, and frontend/API coverage.
+- [x] Corrected canonical gzipped assay-member reading for Analytical Study feature compatibility and corrected whole-project deletion ordering for lifecycle records with immutable input constraints.
+- [x] Added a hiring-manager walkthrough and four current GUI captures for terminal lifecycle status, repaired feasibility, model lock, and robustness evidence.
+- [x] Measured a clean 32-core workstation run at 123.8 seconds and a no-duplicate cached rerun at 0.40 seconds (3 experiments, 1 model, 2 studies retained).
+
 Last updated: 2026-07-18
 
 This file is the durable continuation checkpoint for Codex sessions. Update it after every implementation session.
 
 ## Current position
 
-- Active roadmap phase: Phase 10 — cloud, security, and polish
-- Active milestone: Phase 9 implementation and one-shot prospective external validation complete
-- Current task: Reconcile the remaining Phase 10 acceptance criteria while retaining the failed frozen external-classifier gate as an immutable research result
-- Overall milestone status: Phase 9 is complete. Binary and multiclass software, deterministic multicore permutation execution, locked inference, outcome-separated GPL570 cohorts, and the one-use external protocol all executed successfully. The GSE32646 result did not meet the frozen primary success gate (ROC-AUC 0.619; 95% bootstrap 0.503–0.726; required point estimate at least 0.65), so no successful transportability or clinical claim is permitted.
+- Active roadmap phase: Revised assay-development amendment complete
+- Active milestone: None — implementation plan and complete synthetic demonstration complete
+- Current task: Owner review, optional live AWS Batch parity, and future debt-register work only.
+- Overall milestone status: The base implementation plan, revised assay-development amendment G0-G7, and complete synthetic lifecycle demonstration are implemented and locally verified. The application remains an explicit loopback-bound single-user research workbench; live AWS provisioning/parity and other owner-gated items remain in the debt register and are not represented as completed evidence.
 
 ## Completed
 
@@ -280,6 +326,12 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
 - [x] Verified exact 500/500 locked-feature compatibility and absence of outcomes in the 115-sample GSE32646 Expression Bundle, executed `PREDICT_WITH_MODEL` exactly once, then joined the separately sealed truth for the prespecified 2,000-resample evaluation. External ROC-AUC was 0.619 (95% 0.503–0.726), PR-AUC 0.312, balanced accuracy 0.588, sensitivity 0.778, specificity 0.398, and calibration slope 0.927. The lower-bound criterion passed, the required 0.65 point estimate failed, and the immutable status is `SUCCESS_CRITERIA_NOT_MET`.
 - [x] Added project-owned persistence and a provenance-validating multipart import for completed one-shot classifier validations. The API verifies versioned schemas, protocol/model/prediction checksums, analysis IDs, cohort sizes/classes, and development metrics before retaining immutable source artifacts; list, detail, and allowlisted download routes never expose storage URIs.
 - [x] Added a project entry card and dedicated external-validation dashboard with development-to-external ROC comparison, confidence bounds, prespecified gate decisions, secondary/calibration metrics, locked prediction counts, frozen-protocol context, artifact downloads, and no rerun/tuning controls. An idempotent `.venv` seeder imported the real GSE140494/GSE32646 record and all five provenance artifacts into the live GUI.
+- [x] Completed the local Phase 10 security boundary: the sole supported mode is visibly `single_user_local`, Compose publishes API/web/object endpoints only on loopback, deployment documentation explicitly rejects untrusted/public exposure, and the public-data policy excludes sensitive or controlled human data.
+- [x] Added configurable direct-upload and project dataset-input budgets with pre-publication rejection, retained the stricter method-specific import/row limits, and regression-tested both per-file and cumulative project quotas.
+- [x] Added liveness/readiness separation, database readiness, safe `X-Request-ID` propagation, structured completion events, and low-cardinality Prometheus request/status/duration/active counters that never record research payloads or query strings.
+- [x] Added bounded local housekeeping that removes only abandoned unpublished atomic-write temporary files older than 24 hours, while preserving published immutable objects and retaining owner-controlled durable deletion/retention under TD-001.
+- [x] Added a tag-only release workflow that validates synchronized semantic versions, builds API/web/scientific-worker production images, publishes version and commit tags, records immutable registry digests, emits SBOM/provenance attestations, and attaches a deployment manifest to a generated GitHub release.
+- [x] Added the complete hiring-manager polish set: updated classifier dashboard capture, reproducible 34-second walkthrough video, timed five-minute live-demo script, benchmark/runtime interpretation, AWS cost-driver notes, release guide, production nginx safety headers, and README links.
 - [x] Reworked the root README as a hiring-manager-facing product overview with real RNA-seq and public-microarray user-flow screenshots, architecture, verification evidence, local setup, repository map, and explicit constraints.
 - [x] Materialized a live eight-array GSE39795 project through the public API, published its 23,702-gene/257,430-probe-set RMA Expression Bundle, and ran a full-rank paired `~ donor + zone` limma analysis for the portfolio walkthrough.
 - [x] Corrected server design preview so numeric-looking declared block identifiers are encoded categorically, matching the independent R scientific boundary and preserving paired-design semantics.
@@ -586,14 +638,42 @@ This file is the durable continuation checkpoint for Codex sessions. Update it a
   TypeScript/Vite production build passed. API coverage proves import/list/detail/download behavior,
   duplicate-protocol rejection, hidden storage locations, and checksum mismatch rejection. The live
   seeder then passed the stricter five-artifact provenance path and created the immutable dashboard.
+- Phase 10 completion regression: 135 combined Python tests and 25 frontend integration tests passed.
+  Ruff, strict mypy, ESLint, the Node.js 22 TypeScript/Vite build, Docker Compose validation,
+  production API/web image builds, worker Dockerfile build checks, nginx configuration, release-tag
+  identity validation, both GitHub workflow files via actionlint, Terraform validation, live
+  liveness/readiness/system/metrics checks, and `git diff --check` passed. The compact walkthrough
+  was generated reproducibly from the README's real 1440-pixel application captures.
+- Amendment G5 precision/reproducibility regression: the deterministic scientific fixture produced
+  byte-identical Validation Bundle archives, PASS criteria, ICC above 0.99, complete Parquet/TSV,
+  HTML/PDF, decision, and provenance artifacts, and unchanged locked-model bytes. A direct
+  `RUN_ASSAY_STUDY` Nextflow test passed with the repository `.venv`, and its output manifest
+  validated against the versioned Validation Bundle schema. Focused backend coverage passed 26
+  lifecycle/contract/worker/model tests; the full Node 22 frontend suite passed 30 tests with clean
+  ESLint and production TypeScript/Vite build. API coverage proves design repair, exact immutable
+  sample mapping, model/feature/checksum compatibility, lock/clone immutability, queueing, and cancel.
+- Amendment G6-G7 completion regression: all additional experiment/study templates passed their
+  scientific and API lifecycle coverage, and `make assay-validation-demo` executed seven real
+  Nextflow entry-point slices in 20.711 seconds on the recorded cold local output directory. The
+  four post-lock studies returned PASS with `model_retrained: false`; all three pre-lock experiments
+  published exploratory evidence requiring scientist review. The final combined suite passed 185
+  Python tests and 36 frontend tests; Ruff, strict mypy across 99 Python source files, ESLint, the
+  Node.js 22 production build, Compose validation, JSON contract/catalog parsing, actionlint when
+  available, and `git diff --check` passed. Live AWS execution remains explicitly owner-gated.
+- Complete assay-demonstration regression: 194 Python/API/scientific tests and 36 Node 22 frontend
+  tests passed. Ruff and strict mypy passed across 101 Python source files; ESLint, TypeScript, the
+  production Vite build, release-version validation, the `demo` Nextflow profile, Docker Compose,
+  and `git diff --check` passed. A clean real-stack seed reached `REPORT` in 123.8 seconds using
+  32 classifier permutation workers; an immediate cache-only run took 0.40 seconds with no duplicate
+  experiment, model, or study records.
 
 The development stack remains running. The frozen GSE140494/GSE32646 validation dashboard is at `http://localhost:5173/classifier-external-validations/9959f1ce-cacc-4329-9daf-732f2c7d115d` in project `http://localhost:5173/projects/99c6225f-3c44-4d75-a55f-2d4cce93b631`. The large-study project is at `http://localhost:5173/projects/0694625c-23e1-4847-9622-e508ad95b895`, its prepared bundle at `http://localhost:5173/prepared-datasets/ac5bbe72-ec4e-40ec-9258-f9eae3679209`, and live results are available for PCA (`74cfc4a8-bdea-49b5-ab94-69d8534c52d6`), clustering (`2af084ac-6e90-4beb-b07c-4eabd214f066`), UMAP (`e94db15b-ab8a-4fee-ab6f-9d8e3a2ef63c`), t-SNE (`1dac23c8-5621-46bd-bb71-ddc38640647e`), DESeq2 (`e033fb5c-0516-4a74-9bf8-8e0b77d1eeaa`), limma (`2a13c140-0f8a-4617-bb59-e17b386469f9`), edgeR QL (`c31e8833-39a1-4aa8-a33b-ca87b5df90d4`), limma-voom (`339a7348-f43b-402e-be0a-555c69a0267c`), and edgeR QL with enrichment (`53509cd4-532c-4173-b505-a65e43101b6b`). The polished raw RNA-seq ingestion dashboard is at `http://localhost:5173/projects/e9574d9b-dc8f-480d-b844-64e5be0bdf31`. The public microarray project is at `http://localhost:5173/projects/32eb730d-7bda-43c1-a930-a37d91789e44`, its prepared bundle at `http://localhost:5173/prepared-datasets/75deff90-236b-4055-9c1b-e74c2ba9ec67`, and its paired limma result at `http://localhost:5173/analyses/0a800b33-6940-4b55-8928-c6c491ebe53d`.
 
 ## Next tasks
 
-1. Audit Phase 10 against what is already implemented, then close the highest-value remaining local security/polish gap without requiring deferred AWS provisioning.
-2. Select an independent public deconvolution validation cohort and empirically approve method-specific overlap floors; enable EPIC only after legal review and an explicit user-supplied installation/acceptance workflow.
-3. Treat any future classifier revision or validation cohort as a new prospectively versioned study; do not tune or rerun the completed GSE140494-to-GSE32646 protocol.
+1. Owner-gated: provision the reviewed AWS infrastructure, run `make aws-batch-acceptance` with explicit cost authorization, and attach the parity evidence described in `docs/assay-validation-execution.md`.
+2. Work the remaining owner/content/technical decisions in `docs/debt-register.md` as priorities and external resources permit.
+3. Treat any new product work as a new roadmap revision; the imported implementation plan and revised amendment are complete.
 
 ## Decisions and constraints
 
@@ -620,4 +700,4 @@ The development stack remains running. The frozen GSE140494/GSE32646 validation 
 
 ## Continue prompt
 
-Ask Codex: **Continue implementing TranscriptForge from `docs/implementation-progress.md`.**
+Ask Codex: **Review the next owner-prioritized item in `docs/debt-register.md` and continue from `docs/implementation-progress.md`.**

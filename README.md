@@ -20,7 +20,32 @@ Nextflow, and publishes immutable results with checksums and software provenance
 | Reproducibility | Frozen request JSON, SHA-256 input and artifact identities, immutable Expression Bundles, deterministic seeds, container/runtime versions, and downloadable execution provenance |
 | Cloud architecture | Optional AWS Batch/S3/ECR/KMS/Terraform profile with scale-to-zero compute, checksum-keyed S3 references, and no persistent EFS dependency |
 
+### One coherent assay lifecycle
+
+The portfolio also includes a one-command, fully synthetic assay-development project spanning
+paired FFPE feasibility, design repair, guided PCA and differential expression, paired method
+optimization, grouped nested-CV classifier development, explicit model review and lock, and two
+post-lock analytical studies. The dashboard keeps the deliberately confounded teaching revision,
+its repaired child, model lineage, validation evidence, and human decisions visible together.
+
+See the [complete assay-development walkthrough](docs/complete-assay-demo.md) for the evidence design,
+runtime command, direct review path, and scientific-interpretation boundaries.
+
+| Lifecycle dashboard and repaired feasibility design | Frozen model and post-lock validation |
+| --- | --- |
+| [![Completed synthetic assay lifecycle at REPORT](docs/images/readme/assay-development-dashboard.png)](docs/images/readme/assay-development-dashboard.png) | [![Locked elastic-net model with all technical readiness checks passing](docs/images/readme/assay-model-lock.png)](docs/images/readme/assay-model-lock.png) |
+| [![Balanced feasibility revision with crossed input and run assignments](docs/images/readme/assay-feasibility-repaired.png)](docs/images/readme/assay-feasibility-repaired.png) | [![Robustness evidence with prespecified criteria and no model retraining](docs/images/readme/assay-validation-study.png)](docs/images/readme/assay-validation-study.png) |
+
+*The four real application captures are linked at full resolution. Together they show the terminal
+REPORT workspace, the repaired child of the deliberately confounded design, immutable classifier
+lock evidence, and a passing robustness study that applies the frozen endpoint without retraining.*
+
 ## Product walkthrough
+
+[![Watch the compact TranscriptForge walkthrough](docs/images/readme/app-home.png)](docs/demo/transcriptforge-walkthrough.mp4)
+
+*The 34-second repository video follows the same real RNA-seq, microarray, and frozen-classifier
+screens shown below. For a live review, use the [five-minute portfolio path](docs/five-minute-demo.md).*
 
 ### RNA-seq: inputs to interpretable results
 
@@ -119,6 +144,19 @@ superficial-minus-deep contrast.
 FDR 0.05 across all 23,702 tested genes. TranscriptForge keeps that negative multiplicity-corrected
 result visible rather than weakening the threshold or altering public data for a more dramatic demo.*
 
+### Classifier: frozen external validation without result shopping
+
+The first real classifier study developed on 91 GSE140494 tumors, locked its 500-feature elastic-net
+model and threshold, predicted 115 outcome-free GSE32646 samples once, and only then joined the
+sealed response table. The external ROC-AUC was 0.619 (95% bootstrap 0.503–0.726): the lower-bound
+criterion passed, but the frozen 0.65 point-estimate gate did not.
+
+![Frozen GSE140494 to GSE32646 classifier validation dashboard](docs/images/readme/classifier-external-validation.png)
+
+*The read-only dashboard keeps internal and external evidence, prespecified criteria, calibration,
+prediction counts, protocol, model, and checksums together. There is deliberately no post-result
+tuning or rerun action.*
+
 ## Implemented capabilities
 
 | Workflow | Current implementation |
@@ -132,7 +170,7 @@ result visible rather than weakening the threshold or altering public data for a
 | Gene signatures | Immutable weighted TSV/GMT definitions; Ensembl/symbol/Entrez mapping evidence; six scoring methods; adjusted phenotype association; an 80% recommended mapping threshold; public-corpus and cross-modality acceptance without raw-scale equivalence claims |
 | Cell composition | Executable checksum-pinned quanTIseq fractions plus MCP-counter/xCell enrichment scores; compatibility-aware comparisons; provenance-required CIBERSORTx relative-result import; license-gated EPIC |
 | Classifier development | Binary and multinomial elastic net with grouped repeated nested CV, complete OOF probabilities, uncertainty and diagnostic curves, deterministic multicore label permutations, feature stability, locked model/card/schema export, and feature-gated external prediction; binary runs also include tree-model comparisons |
-| Operations | Durable run state, in-app cancellation, retries through the workflow layer, artifact indexing, local/S3-compatible storage, and opt-in AWS Batch infrastructure |
+| Operations | Durable run state, in-app cancellation, bounded uploads/project inputs, readiness and request metrics, immutable release manifests, local/S3-compatible storage, and opt-in AWS Batch infrastructure |
 
 ## Architecture
 
@@ -185,9 +223,10 @@ The durable boundaries are described in [architecture](docs/architecture.md),
 
 The latest full regression checkpoint records:
 
-- 96 combined API, worker, contract, and scientific Python tests.
-- 16 frontend integration tests plus ESLint and a Node 22 production build.
-- Strict mypy across 61 source files and Ruff across the Python codebase.
+- 194 combined API, worker, contract, and scientific Python tests.
+- 36 frontend integration tests plus ESLint and a Node 22 production build.
+- Strict mypy across 101 Python source files and Ruff across the API, scientific Python, and complete-demo code.
+- A clean public-API/worker/Nextflow assay seed in 123.8 seconds on 32 cores, followed by a 0.40-second no-duplicate cached rerun.
 - Containerized acceptance for all four differential-expression engines and enrichment.
 - Paired/single-end and multi-lane RNA-seq acceptance, shared reference-cache reuse, and Nextflow
   `-resume` evidence.
@@ -200,6 +239,10 @@ The latest full regression checkpoint records:
 - JSON Schema, Docker Compose, Nextflow configuration, Alembic drift, and Terraform validation.
 
 ## Run locally
+
+TranscriptForge is explicitly a local single-user application: it has no authentication or
+multi-user authorization, and Compose binds the product endpoints to loopback. See the
+[security and operations boundary](docs/security-and-operations.md) before changing network exposure.
 
 ### Prerequisites
 
@@ -220,6 +263,8 @@ Open:
 - REST API: <http://localhost:8000>
 - OpenAPI documentation: <http://localhost:8000/docs>
 - MinIO console: <http://localhost:9001>
+- Readiness: <http://localhost:8000/api/ready>
+- Prometheus metrics: <http://localhost:8000/api/metrics>
 
 ### Load the 72-sample RNA-seq demonstration
 
@@ -230,6 +275,29 @@ make seed-demo
 
 The seed command uses the public API and durable worker path to create, validate, prepare, and
 analyze the study; it is not a database fixture shortcut.
+
+For a hiring-manager walkthrough after seeding, follow the timed
+[five-minute demo path](docs/five-minute-demo.md).
+
+The question-first assay-development and locked-endpoint validation path has its own
+[guided tutorial and scientific-judgment boundaries](docs/guided_assay_development.md), plus a
+[local/cloud execution evidence record](docs/assay-validation-execution.md) and
+[requirement-by-requirement completion audit](docs/assay-development-completion-audit.md). A compact,
+cache-aware local acceptance of every implemented experiment/study template is available with:
+
+```bash
+make assay-validation-demo
+```
+
+To build the complete linked assay lifecycle through the public API and real worker path, run:
+
+```bash
+make seed-complete-assay-demo
+```
+
+The seed is resumable and writes IDs, checksums, statuses, elapsed times, and direct GUI links to
+`.transcriptforge-demo/complete_assay/complete_assay_seed_summary.json`. Classifier permutations use
+the host CPU count under the local `demo` profile; set `DEMO_CLASSIFIER_CPUS` to cap concurrency.
 
 The full GENCODE/GRCh38 Salmon index is generated data and is deliberately excluded from Git. The
 first raw RNA-seq run for an exact reference definition materializes it once in the shared Docker
@@ -288,6 +356,9 @@ The raw RNA-seq and public microarray acceptances are intentionally heavier than
 [`demo/cross_modality_signature/`](demo/cross_modality_signature/) for inputs, provenance, and
 expected outputs. The [public signature benchmark](demo/signature_public_benchmark/README.md)
 records its accession-based input, frozen thresholds, accepted result, and explicit validation limits.
+Operational benchmark interpretation and AWS cost drivers are recorded in
+[performance and cost notes](docs/performance-and-cost.md). Tagged image publication and digest use
+are documented in [releasing](docs/releasing.md).
 
 ## Repository map
 

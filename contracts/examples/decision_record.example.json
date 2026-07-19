@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "id": "decision-accept-import-dv200",
+  "assay_project_id": "assay-demo-ffpe",
+  "source_type": "RECOMMENDATION",
+  "source_id": "recommendation-import-dv200",
+  "stage": "FEASIBILITY",
+  "decision_key": "accept_recommendation",
+  "decision": "Accept the recommendation and create a draft metadata-mapping action.",
+  "rationale": "Degradation is a plausible source of instability and should be represented explicitly.",
+  "selected_option": "ACCEPT",
+  "alternatives": [{"option": "DEFER", "reason": "Continue with an unresolved-warning label."}],
+  "evidence_refs": [{"type": "readiness_rule", "id": "FEASIBILITY.RNA_QUALITY_REQUIRED"}],
+  "made_by": "local-user",
+  "made_at": "2026-07-18T12:05:00Z",
+  "supersedes_decision_id": null
+}

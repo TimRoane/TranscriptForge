@@ -15,10 +15,17 @@ from transcriptforge_analysis.matrix_validation import write_json_atomic
 from transcriptforge_analysis.pca import load_bundle_assay
 
 
-def predict_with_model(bundle_archive: Path, model_path: Path, output_dir: Path) -> dict[str, Any]:
+def predict_with_model(
+    bundle_archive: Path,
+    model_path: Path,
+    output_dir: Path,
+    model_manifest_path: Path | None = None,
+) -> dict[str, Any]:
     """Validate feature compatibility and apply a previously locked linear model."""
     model = json.loads(model_path.read_text(encoding="utf-8"))
     _validate_model(model)
+    if model_manifest_path is not None:
+        _validate_locked_manifest(model, model_path, model_manifest_path)
     bundle = load_bundle_assay(bundle_archive, str(model["assay"]))
     output_dir.mkdir(parents=True, exist_ok=False)
 
@@ -113,6 +120,45 @@ def predict_with_model(bundle_archive: Path, model_path: Path, output_dir: Path)
     _write_predictions(output_dir / "predictions.tsv", predictions)
     write_json_atomic(output_dir / "result_manifest.json", _result_manifest(result))
     return result
+
+
+def _canonical(value: Any) -> bytes:
+    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+
+
+def _decision_rule(model: dict[str, Any]) -> dict[str, Any]:
+    if model["model_type"] == "binary_elastic_net_logistic_regression":
+        return {
+            "operator": "gte",
+            "threshold": model["decision_threshold"],
+            "positive_class": model["positive_class"],
+            "negative_class": model["negative_class"],
+        }
+    return {"operator": "argmax", "classes": model["classes"]}
+
+
+def _validate_locked_manifest(model: dict[str, Any], model_path: Path, manifest_path: Path) -> None:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("status") != "LOCKED":
+        raise ValueError("Inference blocked: the ModelManifest status is not LOCKED.")
+    if (
+        manifest.get("serialized_model", {}).get("sha256")
+        != hashlib.sha256(model_path.read_bytes()).hexdigest()
+    ):
+        raise ValueError("Inference blocked: serialized model integrity check failed.")
+    if manifest.get("ordered_feature_schema") != model["selected_feature_ids"]:
+        raise ValueError("Inference blocked: ordered feature schema integrity check failed.")
+    if manifest.get("expected_assay") != model["assay"]:
+        raise ValueError("Inference blocked: expected assay disagrees with the model.")
+    checksums = manifest.get("checksums", {})
+    derived = {
+        "feature_schema": hashlib.sha256(_canonical(model["selected_feature_ids"])).hexdigest(),
+        "preprocessing": hashlib.sha256(_canonical(model["preprocessing"])).hexdigest(),
+        "decision_rule": hashlib.sha256(_canonical(_decision_rule(model))).hexdigest(),
+    }
+    for key, value in derived.items():
+        if checksums.get(key) != value:
+            raise ValueError(f"Inference blocked: {key.replace('_', ' ')} integrity check failed.")
 
 
 def _validate_model(model: dict[str, Any]) -> None:

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.local/contracts/question-catalog/1.0.0",
+  "title": "Scientific question routing catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "catalog_version", "questions"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "catalog_version": {"type": "string", "minLength": 1},
+    "questions": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["key", "question", "stage", "required_inputs", "required_metadata", "recommended_endpoints", "design_checks", "possible_next_actions"],
+        "properties": {
+          "key": {"type": "string", "pattern": "^[a-z][a-z0-9_]+$"},
+          "question": {"type": "string", "minLength": 1},
+          "stage": {"enum": ["DEFINE", "FEASIBILITY", "EXPLORE", "OPTIMIZE", "DEVELOP", "LOCK", "VALIDATE", "REPORT"]},
+          "experiment_type": {"enum": ["TECHNICAL_FEASIBILITY", "PAIRED_CONDITION_COMPARISON", "MULTIFACTOR_OPTIMIZATION", "INPUT_DEGRADATION_EXPLORATION", "SEQUENCING_DEPTH_EXPLORATION", "VARIANCE_SOURCE_INVESTIGATION", "QC_RULE_EVALUATION", "BATCH_CONFOUNDER_INVESTIGATION"]},
+          "analysis_type": {"enum": ["differential_expression", "dimension_reduction", "classifier", "signature", "deconvolution"]},
+          "study_type": {"enum": ["PRECISION_REPRODUCIBILITY", "INPUT_DEGRADATION_LIMIT", "PAIRED_BRIDGING", "ROBUSTNESS_INTERFERENCE"]},
+          "required_inputs": {"type": "array", "items": {"type": "string"}},
+          "required_metadata": {"type": "array", "items": {"type": "string"}},
+          "recommended_endpoints": {"type": "array", "items": {"type": "string"}},
+          "design_checks": {"type": "array", "items": {"type": "string"}},
+          "possible_next_actions": {"type": "array", "items": {"type": "string"}}
+        },
+        "oneOf": [
+          {"required": ["experiment_type"]},
+          {"required": ["analysis_type"]},
+          {"required": ["study_type"]},
+          {"properties": {"stage": {"const": "LOCK"}}}
+        ]
+      }
+    }
+  }
+}

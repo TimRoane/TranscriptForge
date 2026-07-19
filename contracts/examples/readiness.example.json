@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "stage": "FEASIBILITY",
+  "status": "NEEDS_INFORMATION",
+  "evaluated_at": "2026-07-18T12:00:00Z",
+  "ready_items": [],
+  "missing_items": [
+    {
+      "rule_id": "FEASIBILITY.RNA_QUALITY_REQUIRED",
+      "facts": {"dv200_recorded_measurements": 0},
+      "conclusion": "No sample-level RNA quality metric is available.",
+      "severity": "WARNING",
+      "suggested_action": "Import DV200 or another declared RNA quality metric.",
+      "assumptions": ["DV200 is the selected degradation measure for this project."],
+      "documentation_url": "/docs/guided-assay-development#rna-quality"
+    }
+  ],
+  "blockers": [],
+  "warnings": [],
+  "recommended_action_ids": ["recommendation-import-dv200"],
+  "alternative_action_ids": [],
+  "not_recommended_action_ids": ["recommendation-do-not-lock-model"]
+}

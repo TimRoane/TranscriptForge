@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "model_id": "model-demo-locked",
+  "status": "LOCKED",
+  "ordered_feature_schema": ["ENSG000001", "ENSG000002"],
+  "missing_feature_behavior": "ERROR",
+  "imputation_rules": {},
+  "transformations": [{"name": "log2", "offset": 1}],
+  "scaling_parameters": {"ENSG000001": {"mean": 1.0, "scale": 0.5}},
+  "normalization_assumptions": ["Input assay is gene-level log expression."],
+  "serialized_model": {"uri": "models/model.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+  "outcome_classes": ["negative", "positive"],
+  "probability_interpretation": "Probability of the declared positive class.",
+  "decision_rule": {"operator": "gte", "threshold": 0.5, "positive_class": "positive"},
+  "expected_assay": "log_expression",
+  "training_dataset_refs": [{"prepared_dataset_id": "prepared-training"}],
+  "validation_dataset_refs": [{"prepared_dataset_id": "prepared-external"}],
+  "software_versions": {"transcriptforge": "0.1.0"},
+  "container_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "model_card": {"intended_use": "Synthetic research demonstration only."},
+  "inference_fixture": {"input_uri": "fixtures/input.tsv", "expected_output_uri": "fixtures/expected.json", "status": "PASS"},
+  "checksums": {"feature_schema": "0000000000000000000000000000000000000000000000000000000000000000"}
+}

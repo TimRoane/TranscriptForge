@@ -35,10 +35,11 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     signature_definitions: Mapped[list["SignatureDefinition"]] = relationship(
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )
-    classifier_external_validations: Mapped[list["ClassifierExternalValidation"]] = (
-        relationship(
-            back_populates="project", cascade="all, delete-orphan", passive_deletes=True
-        )
+    classifier_external_validations: Mapped[list["ClassifierExternalValidation"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", passive_deletes=True
+    )
+    assay_development_projects: Mapped[list["AssayDevelopmentProject"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )
 
 
@@ -92,9 +93,7 @@ class PreparedDataset(UUIDPrimaryKeyMixin, Base):
     """One immutable version of a canonical Expression Bundle."""
 
     __tablename__ = "prepared_datasets"
-    __table_args__ = (
-        Index("uq_prepared_dataset_version", "dataset_id", "version", unique=True),
-    )
+    __table_args__ = (Index("uq_prepared_dataset_version", "dataset_id", "version", unique=True),)
 
     dataset_id: Mapped[str] = mapped_column(
         ForeignKey("datasets.id", ondelete="CASCADE"), index=True
@@ -134,6 +133,12 @@ class Analysis(UUIDPrimaryKeyMixin, Base):
     prepared_dataset_id: Mapped[str] = mapped_column(
         ForeignKey("prepared_datasets.id", ondelete="CASCADE"), index=True
     )
+    assay_project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("assay_development_projects.id", ondelete="CASCADE"), index=True
+    )
+    scientific_question_id: Mapped[str | None] = mapped_column(
+        ForeignKey("scientific_questions.id", ondelete="SET NULL"), index=True
+    )
     analysis_type: Mapped[str] = mapped_column(String(50), index=True)
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(Text)
@@ -161,6 +166,12 @@ class Run(UUIDPrimaryKeyMixin, Base):
     analysis_id: Mapped[str | None] = mapped_column(
         ForeignKey("analyses.id", ondelete="CASCADE"), index=True
     )
+    experiment_id: Mapped[str | None] = mapped_column(
+        ForeignKey("experiment_plans.id", ondelete="CASCADE"), index=True
+    )
+    study_id: Mapped[str | None] = mapped_column(
+        ForeignKey("analytical_studies.id", ondelete="CASCADE"), index=True
+    )
     state: Mapped[str] = mapped_column(String(30), default="CREATED", index=True)
     profile: Mapped[str] = mapped_column(String(50), default="docker")
     params_uri: Mapped[str] = mapped_column(String(2000))
@@ -180,6 +191,8 @@ class Run(UUIDPrimaryKeyMixin, Base):
         back_populates="run", cascade="all, delete-orphan", passive_deletes=True
     )
     model_records: Mapped[list["ModelRecord"]] = relationship(back_populates="run")
+    experiment: Mapped["ExperimentPlan | None"] = relationship(back_populates="runs")
+    study: Mapped["AnalyticalStudy | None"] = relationship(back_populates="runs")
 
 
 class Artifact(UUIDPrimaryKeyMixin, Base):
@@ -217,6 +230,27 @@ class ModelRecord(UUIDPrimaryKeyMixin, Base):
     model_card_uri: Mapped[str] = mapped_column(String(2000), unique=True)
     metrics_json: Mapped[dict[str, Any]] = mapped_column(JSON)
     feature_count: Mapped[int]
+    status: Mapped[str] = mapped_column(String(30), default="CANDIDATE", index=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_by: Mapped[str | None] = mapped_column(String(200))
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    locked_by: Mapped[str | None] = mapped_column(String(200))
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    parent_model_id: Mapped[str | None] = mapped_column(
+        ForeignKey("model_records.id", ondelete="SET NULL"), index=True
+    )
+    model_manifest_uri: Mapped[str | None] = mapped_column(String(2000), unique=True)
+    model_manifest_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    model_package_uri: Mapped[str | None] = mapped_column(String(2000), unique=True)
+    model_package_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    feature_schema_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    preprocessing_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    model_object_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    threshold_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    training_dataset_refs_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    validation_dataset_refs_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    container_digest: Mapped[str | None] = mapped_column(String(80))
+    inference_test_status: Mapped[str] = mapped_column(String(30), default="NOT_RUN")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, server_default=func.now()
     )
@@ -338,3 +372,365 @@ class SignatureMapping(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     duplicate_identifier_count: Mapped[int]
     mapping_coverage: Mapped[float]
     report_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+
+
+class AssayDevelopmentProject(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Stage-aware assay-development workspace linked to a base project."""
+
+    __tablename__ = "assay_development_projects"
+
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    proposed_purpose: Mapped[str | None] = mapped_column(Text)
+    specimen_type: Mapped[str | None] = mapped_column(String(200))
+    biological_context: Mapped[str | None] = mapped_column(Text)
+    proposed_output: Mapped[str | None] = mapped_column(String(500))
+    current_stage: Mapped[str] = mapped_column(String(40), default="DEFINE", index=True)
+    readiness_status: Mapped[str] = mapped_column(String(50), default="NOT_ASSESSED", index=True)
+    active_question_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    assay_version: Mapped[str | None] = mapped_column(String(200))
+    created_by: Mapped[str] = mapped_column(String(200), default="local-user")
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    project: Mapped[Project] = relationship(back_populates="assay_development_projects")
+    questions: Mapped[list["ScientificQuestion"]] = relationship(
+        back_populates="assay_project", cascade="all, delete-orphan", passive_deletes=True
+    )
+    recommendations: Mapped[list["Recommendation"]] = relationship(
+        back_populates="assay_project", cascade="all, delete-orphan", passive_deletes=True
+    )
+    decisions: Mapped[list["DecisionRecord"]] = relationship(
+        back_populates="assay_project", cascade="all, delete-orphan", passive_deletes=True
+    )
+    audit_events: Mapped[list["AssayAuditEvent"]] = relationship(
+        back_populates="assay_project", cascade="all, delete-orphan", passive_deletes=True
+    )
+    experiments: Mapped[list["ExperimentPlan"]] = relationship(
+        back_populates="assay_project", cascade="all, delete-orphan", passive_deletes=True
+    )
+    guidance_results: Mapped[list["GuidanceResult"]] = relationship(
+        back_populates="assay_project", cascade="all, delete-orphan", passive_deletes=True
+    )
+    studies: Mapped[list["AnalyticalStudy"]] = relationship(
+        back_populates="assay_project", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class ScientificQuestion(UUIDPrimaryKeyMixin, Base):
+    """Versioned plain-language question currently informing an assay decision."""
+
+    __tablename__ = "scientific_questions"
+
+    assay_project_id: Mapped[str] = mapped_column(
+        ForeignKey("assay_development_projects.id", ondelete="CASCADE"), index=True
+    )
+    question_key: Mapped[str] = mapped_column(String(200), index=True)
+    plain_language_question: Mapped[str] = mapped_column(Text)
+    formal_question: Mapped[str] = mapped_column(Text)
+    stage: Mapped[str] = mapped_column(String(40), index=True)
+    status: Mapped[str] = mapped_column(String(40), default="OPEN", index=True)
+    source: Mapped[str] = mapped_column(String(50))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, server_default=func.now()
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolution_summary: Mapped[str | None] = mapped_column(Text)
+
+    assay_project: Mapped[AssayDevelopmentProject] = relationship(back_populates="questions")
+
+
+class Recommendation(UUIDPrimaryKeyMixin, Base):
+    """Persisted output of a deterministic, inspectable guidance rule."""
+
+    __tablename__ = "recommendations"
+    __table_args__ = (
+        Index(
+            "ix_recommendations_active_rule",
+            "assay_project_id",
+            "rule_id",
+            "status",
+        ),
+    )
+
+    assay_project_id: Mapped[str] = mapped_column(
+        ForeignKey("assay_development_projects.id", ondelete="CASCADE"), index=True
+    )
+    source_type: Mapped[str] = mapped_column(String(50))
+    source_id: Mapped[str] = mapped_column(String(36))
+    rule_id: Mapped[str] = mapped_column(String(200), index=True)
+    recommendation_type: Mapped[str] = mapped_column(String(100))
+    title: Mapped[str] = mapped_column(String(300))
+    summary: Mapped[str] = mapped_column(Text)
+    why: Mapped[str] = mapped_column(Text)
+    what_it_resolves: Mapped[str] = mapped_column(Text)
+    stage: Mapped[str] = mapped_column(String(40), index=True)
+    priority: Mapped[int] = mapped_column(default=0)
+    requirement_level: Mapped[str] = mapped_column(String(50), index=True)
+    status: Mapped[str] = mapped_column(String(40), default="OPEN", index=True)
+    required_inputs_json: Mapped[list[str]] = mapped_column(JSON, default=list)
+    expected_output: Mapped[str] = mapped_column(Text)
+    proposed_action_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    evidence_refs_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    assumptions_json: Mapped[list[str]] = mapped_column(JSON, default=list)
+    limitations_json: Mapped[list[str]] = mapped_column(JSON, default=list)
+    alternative_action_ids_json: Mapped[list[str]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, server_default=func.now()
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    assay_project: Mapped[AssayDevelopmentProject] = relationship(back_populates="recommendations")
+
+
+class DecisionRecord(UUIDPrimaryKeyMixin, Base):
+    """Immutable record of a material scientist choice and rationale."""
+
+    __tablename__ = "decision_records"
+
+    assay_project_id: Mapped[str] = mapped_column(
+        ForeignKey("assay_development_projects.id", ondelete="CASCADE"), index=True
+    )
+    source_type: Mapped[str] = mapped_column(String(50))
+    source_id: Mapped[str] = mapped_column(String(36), index=True)
+    stage: Mapped[str] = mapped_column(String(40), index=True)
+    decision_key: Mapped[str] = mapped_column(String(100), index=True)
+    decision: Mapped[str] = mapped_column(Text)
+    rationale: Mapped[str] = mapped_column(Text)
+    selected_option: Mapped[str] = mapped_column(String(100))
+    alternatives_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    evidence_refs_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    made_by: Mapped[str] = mapped_column(String(200), default="local-user")
+    made_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, server_default=func.now()
+    )
+    supersedes_decision_id: Mapped[str | None] = mapped_column(
+        ForeignKey("decision_records.id", ondelete="SET NULL"), index=True
+    )
+
+    assay_project: Mapped[AssayDevelopmentProject] = relationship(back_populates="decisions")
+
+
+class AssayAuditEvent(UUIDPrimaryKeyMixin, Base):
+    """Append-only audit event for the guided lifecycle."""
+
+    __tablename__ = "assay_audit_events"
+
+    assay_project_id: Mapped[str] = mapped_column(
+        ForeignKey("assay_development_projects.id", ondelete="CASCADE"), index=True
+    )
+    event_type: Mapped[str] = mapped_column(String(100), index=True)
+    actor: Mapped[str] = mapped_column(String(200))
+    object_type: Mapped[str] = mapped_column(String(100))
+    object_id: Mapped[str] = mapped_column(String(36), index=True)
+    revision: Mapped[int | None]
+    hashes_json: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
+    details_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, server_default=func.now()
+    )
+
+    assay_project: Mapped[AssayDevelopmentProject] = relationship(back_populates="audit_events")
+
+
+class GuidanceResult(UUIDPrimaryKeyMixin, Base):
+    """Question-aware interpretation layered over an immutable analysis result."""
+
+    __tablename__ = "guidance_results"
+
+    assay_project_id: Mapped[str] = mapped_column(
+        ForeignKey("assay_development_projects.id", ondelete="CASCADE"), index=True
+    )
+    question_id: Mapped[str] = mapped_column(
+        ForeignKey("scientific_questions.id", ondelete="RESTRICT"), index=True
+    )
+    analysis_id: Mapped[str] = mapped_column(
+        ForeignKey("analyses.id", ondelete="CASCADE"), index=True
+    )
+    run_id: Mapped[str] = mapped_column(
+        ForeignKey("runs.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    artifact_uri: Mapped[str] = mapped_column(String(2000), unique=True)
+    artifact_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, server_default=func.now()
+    )
+
+    assay_project: Mapped[AssayDevelopmentProject] = relationship(back_populates="guidance_results")
+
+
+class ExperimentPlan(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Pre-lock experiment with one immutable execution revision once locked."""
+
+    __tablename__ = "experiment_plans"
+
+    assay_project_id: Mapped[str] = mapped_column(
+        ForeignKey("assay_development_projects.id", ondelete="CASCADE"), index=True
+    )
+    question_id: Mapped[str] = mapped_column(
+        ForeignKey("scientific_questions.id", ondelete="RESTRICT"), index=True
+    )
+    prepared_dataset_id: Mapped[str] = mapped_column(
+        ForeignKey("prepared_datasets.id", ondelete="RESTRICT"), index=True
+    )
+    parent_experiment_id: Mapped[str | None] = mapped_column(
+        ForeignKey("experiment_plans.id", ondelete="SET NULL"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    experiment_type: Mapped[str] = mapped_column(String(80), index=True)
+    objective: Mapped[str] = mapped_column(Text)
+    mode: Mapped[str] = mapped_column(String(40))
+    status: Mapped[str] = mapped_column(String(50), default="DRAFT", index=True)
+    experiment_spec_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    experiment_spec_uri: Mapped[str | None] = mapped_column(String(2000), unique=True)
+    experiment_spec_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    assignments_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    assignments_uri: Mapped[str | None] = mapped_column(String(2000), unique=True)
+    assignments_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    design_validation_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    development_bundle_uri: Mapped[str | None] = mapped_column(String(2000))
+    current_revision: Mapped[int] = mapped_column(default=1)
+    created_by: Mapped[str] = mapped_column(String(200), default="local-user")
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    assay_project: Mapped[AssayDevelopmentProject] = relationship(back_populates="experiments")
+    runs: Mapped[list[Run]] = relationship(back_populates="experiment")
+    inputs: Mapped[list["ExperimentInput"]] = relationship(
+        back_populates="experiment", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class ExperimentInput(UUIDPrimaryKeyMixin, Base):
+    """Immutable input reference for one Development Experiment."""
+
+    __tablename__ = "experiment_inputs"
+
+    experiment_id: Mapped[str] = mapped_column(
+        ForeignKey("experiment_plans.id", ondelete="CASCADE"), index=True
+    )
+    input_type: Mapped[str] = mapped_column(String(80), index=True)
+    prepared_dataset_id: Mapped[str | None] = mapped_column(
+        ForeignKey("prepared_datasets.id", ondelete="RESTRICT"), index=True
+    )
+    analysis_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("runs.id", ondelete="RESTRICT"), index=True
+    )
+    external_file_uri: Mapped[str | None] = mapped_column(String(2000))
+    role: Mapped[str] = mapped_column(String(80))
+    sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, server_default=func.now()
+    )
+
+    experiment: Mapped[ExperimentPlan] = relationship(back_populates="inputs")
+
+
+class AnalyticalStudy(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Post-lock analytical validation study with an immutable execution revision."""
+
+    __tablename__ = "analytical_studies"
+
+    assay_project_id: Mapped[str] = mapped_column(
+        ForeignKey("assay_development_projects.id", ondelete="CASCADE"), index=True
+    )
+    question_id: Mapped[str] = mapped_column(
+        ForeignKey("scientific_questions.id", ondelete="RESTRICT"), index=True
+    )
+    model_id: Mapped[str] = mapped_column(
+        ForeignKey("model_records.id", ondelete="RESTRICT"), index=True
+    )
+    prepared_dataset_id: Mapped[str] = mapped_column(
+        ForeignKey("prepared_datasets.id", ondelete="RESTRICT"), index=True
+    )
+    parent_study_id: Mapped[str | None] = mapped_column(
+        ForeignKey("analytical_studies.id", ondelete="SET NULL"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    study_type: Mapped[str] = mapped_column(String(80), index=True)
+    objective: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(40), default="DRAFT", index=True)
+    study_spec_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    assignments_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    criteria_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    design_validation_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    study_spec_uri: Mapped[str | None] = mapped_column(String(2000), unique=True)
+    study_spec_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    assignments_uri: Mapped[str | None] = mapped_column(String(2000), unique=True)
+    assignments_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    validation_bundle_uri: Mapped[str | None] = mapped_column(String(2000))
+    current_revision: Mapped[int] = mapped_column(default=1)
+    created_by: Mapped[str] = mapped_column(String(200), default="local-user")
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    assay_project: Mapped[AssayDevelopmentProject] = relationship(back_populates="studies")
+    runs: Mapped[list[Run]] = relationship(back_populates="study")
+    inputs: Mapped[list["StudyInput"]] = relationship(
+        back_populates="study", cascade="all, delete-orphan", passive_deletes=True
+    )
+    criteria: Mapped[list["AcceptanceCriterion"]] = relationship(
+        back_populates="study", cascade="all, delete-orphan", passive_deletes=True
+    )
+    validation_results: Mapped[list["ValidationResult"]] = relationship(
+        back_populates="study", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class StudyInput(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "study_inputs"
+
+    study_id: Mapped[str] = mapped_column(
+        ForeignKey("analytical_studies.id", ondelete="CASCADE"), index=True
+    )
+    input_type: Mapped[str] = mapped_column(String(80), index=True)
+    object_id: Mapped[str] = mapped_column(String(36), index=True)
+    role: Mapped[str] = mapped_column(String(80))
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, server_default=func.now()
+    )
+
+    study: Mapped[AnalyticalStudy] = relationship(back_populates="inputs")
+
+
+class AcceptanceCriterion(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "acceptance_criteria"
+
+    study_id: Mapped[str] = mapped_column(
+        ForeignKey("analytical_studies.id", ondelete="CASCADE"), index=True
+    )
+    key: Mapped[str] = mapped_column(String(100), index=True)
+    metric: Mapped[str] = mapped_column(String(100))
+    endpoint: Mapped[str] = mapped_column(String(100))
+    operator: Mapped[str] = mapped_column(String(40))
+    threshold_json: Mapped[Any] = mapped_column(JSON)
+    rationale: Mapped[str] = mapped_column(Text)
+    result_status: Mapped[str] = mapped_column(String(40), default="NOT_EVALUATED")
+    observed_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+
+    study: Mapped[AnalyticalStudy] = relationship(back_populates="criteria")
+
+
+class ValidationResult(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "validation_results"
+
+    study_id: Mapped[str] = mapped_column(
+        ForeignKey("analytical_studies.id", ondelete="CASCADE"), index=True
+    )
+    run_id: Mapped[str] = mapped_column(
+        ForeignKey("runs.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    overall_status: Mapped[str] = mapped_column(String(40), index=True)
+    summary_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    bundle_uri: Mapped[str] = mapped_column(String(2000), unique=True)
+    bundle_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, server_default=func.now()
+    )
+
+    study: Mapped[AnalyticalStudy] = relationship(back_populates="validation_results")

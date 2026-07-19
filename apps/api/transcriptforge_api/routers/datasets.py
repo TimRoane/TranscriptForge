@@ -120,6 +120,7 @@ async def upload_dataset_file(
     dataset_id: str,
     session: Session,
     storage: Storage,
+    settings: Configuration,
     role: Annotated[DatasetFileRole, Form()],
     file: Annotated[UploadFile, File()],
 ) -> DatasetFile:
@@ -131,6 +132,24 @@ async def upload_dataset_file(
             detail=(
                 f"File role '{role.value}' is incompatible with source kind "
                 f"'{dataset.source_kind}'."
+            ),
+        )
+    upload_size = file.size
+    if upload_size is None:
+        upload_size = await run_in_threadpool(file.file.seek, 0, 2)
+        await run_in_threadpool(file.file.seek, 0)
+    if upload_size > settings.max_upload_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=f"Upload exceeds the configured {settings.max_upload_bytes}-byte file limit.",
+        )
+    used_bytes = await dataset_service.project_dataset_upload_bytes(session, dataset.project_id)
+    if used_bytes + upload_size > settings.project_upload_quota_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=(
+                "Upload would exceed the configured project dataset-input quota "
+                f"of {settings.project_upload_quota_bytes} bytes."
             ),
         )
     dataset.status = DatasetStatus.DRAFT.value

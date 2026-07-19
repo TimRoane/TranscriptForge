@@ -1,6 +1,6 @@
 """Dataset persistence operations."""
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from transcriptforge_api.models import Dataset, DatasetFile
@@ -47,6 +47,16 @@ async def list_dataset_files(session: AsyncSession, dataset_id: str) -> list[Dat
         .order_by(DatasetFile.created_at.desc(), DatasetFile.id.desc())
     )
     return list(result)
+
+
+async def project_dataset_upload_bytes(session: AsyncSession, project_id: str) -> int:
+    """Return persisted dataset-input bytes charged to the project's upload budget."""
+    total = await session.scalar(
+        select(func.coalesce(func.sum(DatasetFile.size_bytes), 0))
+        .join(Dataset, Dataset.id == DatasetFile.dataset_id)
+        .where(Dataset.project_id == project_id)
+    )
+    return int(total or 0)
 
 
 async def update_dataset(

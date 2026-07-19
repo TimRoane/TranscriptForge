@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transcriptforge.local/contracts/scientific-question/1.0.0",
+  "title": "Scientific Question",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "assay_project_id", "question_key", "plain_language_question", "formal_question", "stage", "status", "source", "created_at"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "id": {"type": "string", "minLength": 1},
+    "assay_project_id": {"type": "string", "minLength": 1},
+    "question_key": {"type": "string", "pattern": "^[a-z][a-z0-9_]+$"},
+    "plain_language_question": {"type": "string", "minLength": 1},
+    "formal_question": {"type": "string", "minLength": 1},
+    "stage": {"enum": ["DEFINE", "FEASIBILITY", "EXPLORE", "OPTIMIZE", "DEVELOP", "LOCK", "VALIDATE", "REPORT"]},
+    "status": {"enum": ["OPEN", "RESOLVED", "SUPERSEDED"]},
+    "source": {"enum": ["USER_SELECTED", "SYSTEM_RECOMMENDED", "FOLLOW_UP_FROM_RESULT"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "resolved_at": {"type": ["string", "null"], "format": "date-time"},
+    "resolution_summary": {"type": ["string", "null"]}
+  }
+}

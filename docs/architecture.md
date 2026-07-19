@@ -2,6 +2,29 @@
 
 TranscriptForge separates product orchestration from scientific computation.
 
+```mermaid
+flowchart LR
+    Q[Scientific question] --> D{Lifecycle stage}
+    D -->|Pre-lock| E[Development Experiment]
+    E --> EV[Development Evidence Bundle]
+    EV --> H[Scientist decision]
+    H --> M[Candidate model]
+    M --> L[Explicit immutable lock]
+    L --> S[Analytical Study]
+    S --> V[Validation Bundle]
+    V --> H2[Scientist review / DecisionRecord]
+
+    API[FastAPI orchestration] --> DB[(PostgreSQL)]
+    API --> W[Celery worker]
+    W --> NF[Nextflow]
+    NF --> SCI[R / Python scientific runtime]
+    SCI --> OBJ[(Filesystem or S3 objects)]
+```
+
+Development evidence can motivate a changed endpoint; post-lock validation cannot. Any change after
+lock creates a cloned revision and preserves the original model, StudySpec, assignments, criteria,
+checksums, and audit lineage.
+
 ```text
 React web client
       |

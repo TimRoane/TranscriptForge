@@ -9,7 +9,15 @@ from typing import Any, cast
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from transcriptforge_api.models import Artifact, Dataset, DatasetFile, PreparedDataset, Run
+from transcriptforge_api.models import (
+    AnalyticalStudy,
+    Artifact,
+    Dataset,
+    DatasetFile,
+    ExperimentPlan,
+    PreparedDataset,
+    Run,
+)
 from transcriptforge_api.models.base import new_id
 from transcriptforge_api.models.enums import DatasetStatus, RunState, RunType
 from transcriptforge_api.schemas.runs import DatasetValidationRequest
@@ -139,16 +147,19 @@ async def create_preparation_run(
     )
     if active is not None:
         raise ValidationInputError("This dataset already has an active preparation run.")
-    next_version = int(
-        (
-            await session.scalar(
-                select(func.max(PreparedDataset.version)).where(
-                    PreparedDataset.dataset_id == dataset.id
+    next_version = (
+        int(
+            (
+                await session.scalar(
+                    select(func.max(PreparedDataset.version)).where(
+                        PreparedDataset.dataset_id == dataset.id
+                    )
                 )
             )
+            or 0
         )
-        or 0
-    ) + 1
+        + 1
+    )
     run_id = new_id()
     prepared_dataset_id = new_id()
     if dataset.source_kind == "fastq":
@@ -351,11 +362,27 @@ async def cancel_run(
             dataset = await session.get(Dataset, run.dataset_id)
             if dataset is not None and isinstance(previous_status, str):
                 dataset.status = previous_status
+        if run.experiment_id is not None:
+            experiment = await session.get(ExperimentPlan, run.experiment_id)
+            if experiment is not None:
+                experiment.status = "CANCELLED"
+        if run.study_id is not None:
+            study = await session.get(AnalyticalStudy, run.study_id)
+            if study is not None:
+                study.status = "CANCELLED"
         run.state = RunState.CANCELLED.value
         run.error_summary = "Cancelled by user."
         run.finished_at = datetime.now(UTC)
     elif run.state in {RunState.STARTING.value, RunState.RUNNING.value}:
         run.state = RunState.CANCELLING.value
+        if run.experiment_id is not None:
+            experiment = await session.get(ExperimentPlan, run.experiment_id)
+            if experiment is not None:
+                experiment.status = "RUNNING"
+        if run.study_id is not None:
+            study = await session.get(AnalyticalStudy, run.study_id)
+            if study is not None:
+                study.status = "RUNNING"
     else:
         raise RunCancellationError(f"Run in state {run.state} cannot be cancelled.")
 
@@ -395,9 +422,7 @@ async def list_preparation_runs(
     return list(result)
 
 
-async def list_prepared_datasets(
-    session: AsyncSession, dataset_id: str
-) -> list[PreparedDataset]:
+async def list_prepared_datasets(session: AsyncSession, dataset_id: str) -> list[PreparedDataset]:
     result = await session.scalars(
         select(PreparedDataset)
         .where(PreparedDataset.dataset_id == dataset_id)

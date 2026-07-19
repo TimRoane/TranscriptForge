@@ -8,6 +8,7 @@ import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
 
 import { type CreateDatasetRequest, createDataset, deleteProject, fetchDatasets, fetchProject } from '../api/client'
 import { ErrorState, LoadingState } from '../components/ApiState'
+import { AssayDevelopmentPanel } from '../components/AssayDevelopmentPanel'
 import { DeleteProjectDialog } from '../components/DeleteProjectDialog'
 import { DatasetCard } from '../components/DatasetCard'
 import { DatasetWizard } from '../components/DatasetWizard'
@@ -55,6 +56,7 @@ export function ProjectPage() {
           <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setWizardOpen(true)}>Add dataset</Button>
         </Stack>
       </Stack>
+      <AssayDevelopmentPanel projectId={projectId} projectName={project.data.name} />
       <ExternalValidationPanel projectId={projectId} />
       <SignatureDefinitionPanel projectId={projectId} />
       <Typography variant="h5" fontWeight={700}>Datasets</Typography>

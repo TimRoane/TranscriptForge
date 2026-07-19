@@ -1,7 +1,8 @@
-.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-deconvolution-r test-signature-cross-modality test-signature-public-benchmark test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo seed-classifier-validation terraform-check aws-batch-preflight aws-batch-acceptance
+.PHONY: dev stop logs migrate test test-api test-web test-r test-signature-r test-deconvolution-r test-signature-cross-modality test-signature-public-benchmark test-raw-rnaseq test-microarray test-all lint pipeline-test generate-large-demo seed-demo seed-assay-development seed-complete-assay-demo assay-validation-demo seed-classifier-validation build-demo-video validate-release terraform-check aws-batch-preflight aws-batch-acceptance
 
 PUBLIC_SIGNATURE_BUNDLE ?=
 PUBLIC_SIGNATURE_BENCHMARK_OUT ?= .public-signature-benchmark
+DEMO_CLASSIFIER_CPUS ?= $(shell nproc)
 
 dev:
 	docker compose up --build -d
@@ -76,11 +77,29 @@ pipeline-test:
 seed-demo:
 	.venv/bin/python demo/large_experiment/seed.py
 
+seed-assay-development:
+	.venv/bin/python -m demo.assay_development.seed
+
+seed-complete-assay-demo:
+	TRANSCRIPTFORGE_NEXTFLOW_PROFILE=demo \
+	TRANSCRIPTFORGE_CLASSIFIER_CPUS=$(DEMO_CLASSIFIER_CPUS) \
+		docker compose up -d api worker
+	.venv/bin/python -m demo.assay_development.seed_complete
+
+assay-validation-demo:
+	.venv/bin/python -m demo.assay_development.run_portfolio_demo
+
 seed-classifier-validation:
 	.venv/bin/python demo/classifier_external_validation/seed_gui.py
 
 generate-large-demo:
 	.venv/bin/python demo/large_experiment/generate.py
+
+build-demo-video:
+	scripts/build_demo_video.sh
+
+validate-release:
+	.venv/bin/python scripts/validate_release.py
 
 terraform-check:
 	docker run --rm --user "$(shell id -u):$(shell id -g)" -v "$(CURDIR)/infra/aws/terraform:/workspace" -w /workspace hashicorp/terraform:1.13 fmt -check

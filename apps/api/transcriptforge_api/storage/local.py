@@ -4,6 +4,7 @@ import hashlib
 import os
 import re
 import shutil
+import time
 from pathlib import Path
 from typing import BinaryIO
 from uuid import uuid4
@@ -66,6 +67,19 @@ class LocalStorage:
 
     def path_for(self, uri: str) -> str:
         return str(self._uri_path(uri))
+
+    def cleanup_stale_temporary_files(self, retention_seconds: int) -> int:
+        """Remove abandoned atomic-write files older than the safe retention window."""
+        cutoff = time.time() - retention_seconds
+        removed = 0
+        for candidate in self.root.rglob(".*.tmp"):
+            try:
+                if candidate.is_file() and candidate.stat().st_mtime <= cutoff:
+                    candidate.unlink()
+                    removed += 1
+            except FileNotFoundError:
+                continue
+        return removed
 
     def _namespace_path(self, namespace: tuple[str, ...]) -> Path:
         if not namespace or any(not SAFE_COMPONENT.fullmatch(part) for part in namespace):
