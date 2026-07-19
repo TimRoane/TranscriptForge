@@ -22,7 +22,7 @@ Nextflow, and publishes immutable results with checksums and software provenance
 
 ### One coherent assay lifecycle
 
-The portfolio also includes a one-command, fully synthetic assay-development project spanning
+The repository also includes a one-command, fully synthetic assay-development project spanning
 paired FFPE feasibility, design repair, guided PCA and differential expression, paired method
 optimization, grouped nested-CV classifier development, explicit model review and lock, and two
 post-lock analytical studies. The dashboard keeps the deliberately confounded teaching revision,
@@ -45,7 +45,7 @@ lock evidence, and a passing robustness study that applies the frozen endpoint w
 [![Watch the compact TranscriptForge walkthrough](docs/images/readme/app-home.png)](docs/demo/transcriptforge-walkthrough.mp4)
 
 *The 34-second repository video follows the same real RNA-seq, microarray, and frozen-classifier
-screens shown below. For a live review, use the [five-minute portfolio path](docs/five-minute-demo.md).*
+screens shown below. For a live review, use the [five-minute guided walkthrough](docs/five-minute-demo.md).*
 
 ### RNA-seq: inputs to interpretable results
 
@@ -276,7 +276,7 @@ make seed-demo
 The seed command uses the public API and durable worker path to create, validate, prepare, and
 analyze the study; it is not a database fixture shortcut.
 
-For a hiring-manager walkthrough after seeding, follow the timed
+For a concise walkthrough after seeding, follow the timed
 [five-minute demo path](docs/five-minute-demo.md).
 
 The question-first assay-development and locked-endpoint validation path has its own

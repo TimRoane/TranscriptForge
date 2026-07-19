@@ -41,7 +41,7 @@ The repository does provide the complete parity path:
 The owner must attach the resulting job IDs, image digest, Region, elapsed time, cost observation,
 and artifact comparison report before marking live cloud parity complete.
 
-## Portfolio review
+## Execution review
 
 The [guided tutorial](guided_assay_development.md) is the assay-development walkthrough. The root
 README's application captures and compact video demonstrate the shared navigation, immutable result

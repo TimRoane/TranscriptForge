@@ -46,7 +46,7 @@ def _rows(path: Path) -> list[dict[str, str]]:
 
 
 class CompleteAssaySeeder:
-    """Checkpointed, idempotent API orchestration for the portfolio-grade demo."""
+    """Checkpointed, idempotent API orchestration for the complete synthetic demo."""
 
     def __init__(
         self,
@@ -151,7 +151,7 @@ class CompleteAssaySeeder:
 
     def ensure_project(self, manifest_sha: str) -> dict[str, Any]:
         expected_description = (
-            "Portfolio-grade, fully synthetic assay lifecycle demonstration. "
+            "Complete, fully synthetic assay lifecycle demonstration. "
             f"Configuration {CONFIG_VERSION}; generation manifest SHA-256 {manifest_sha}. "
             "Research use only; no clinical performance claim."
         )
