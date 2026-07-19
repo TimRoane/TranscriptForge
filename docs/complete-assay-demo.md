@@ -1,6 +1,6 @@
 # Complete synthetic assay-development demonstration
 
-This portfolio demonstration is one coherent, fully synthetic assay story. It starts with paired
+This demonstration is one coherent, fully synthetic assay story. It starts with paired
 FFPE feasibility, crosses pre-lock exploration and optimization, develops and freezes a classifier,
 and finishes with precision/reproducibility and robustness evidence. It is designed to show the
 product and engineering lifecycle without making unsupported claims about a real assay.
@@ -55,7 +55,7 @@ features, a small candidate-method shift, technical run effects, borderline spec
 null features. The generator balances outcomes across technical factors and labels every artifact
 as synthetic and research-use only.
 
-## Hiring-manager review path
+## Guided review path
 
 Open the `dashboard` URL in the seed summary and follow this sequence:
 
